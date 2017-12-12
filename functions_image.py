@@ -581,7 +581,10 @@ def fload_fits_cube(path_cube, line='CO32'): # for images from CASA
 
     if line=='CO32':
         f_line=345.79599 # GHz
-    
+
+    if line=='HCN43':
+        f_line=354.50547590 # GHz
+
 
     ##### LOAD CUBE
     fit1	= pyfits.open(path_cube) # open image cube
@@ -634,14 +637,18 @@ def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, 
     
     # returns flux in Jy (cube must be in Jy/arcsec2) 
 
-    dv=abs(vs[0]-vs[1]) # km/s
+    dv=vs[1]-vs[0] # km/s
     Nf=len(vs)
     if Dvel>0.0 and dv>0.0:
         k_min=max(0, int((v0-Dvel-vs[0])/dv) )
         k_max=min(Nf, int((v0+Dvel-vs[0])/dv) )
+    elif Dvel>0.0 and dv<0.0:
+        k_min=max(0, int((v0+Dvel-vs[0])/dv) )
+        k_max=min(Nf, int((v0-Dvel-vs[0])/dv) )
+        print k_min,k_max, dv, Dvel, v0
+
     else:
         print 'error, dv<0 or Dvel<0'
-        print k_min,k_max, dv, Dvel, v0
         return -1
     
     F=0.0 # integrated  flux
@@ -672,7 +679,7 @@ def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, 
     # plt.xlim(10.0,-10.0)
     # plt.ylim(-10.0,10.0)
     # plt.show()
-    Delta=(ps_arcsec**2.0)*dv # constant to obtain total flux in Jy km/s
+    Delta=(ps_arcsec**2.0)*abs(dv) # constant to obtain total flux in Jy km/s
     Rms=np.std(Rmss)
     dF=Rms*np.sqrt(Nfr*2.667)*Delta
     if dF==0.0:
@@ -684,12 +691,15 @@ def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, 
 def Spectrum(amin,amax, cube,  ps_arcsec, vs, Dvel, v0, PArad, incrad, x0, y0):
     # return spectrum in Jy (cube must be in Jy/arcsec2) 
 
-    dv=abs(vs[0]-vs[1]) # km/s
+    dv=vs[1]-vs[0] # km/s
     Nf=len(vs)
 
     if Dvel>0.0 and dv>0.0:
         k_min=max(0, int((v0-Dvel-vs[0])/dv) )
         k_max=min(Nf, int((v0+Dvel-vs[0])/dv) )
+    elif Dvel>0.0 and dv<0.0:
+        k_min=max(0, int((v0+Dvel-vs[0])/dv) )
+        k_max=min(Nf, int((v0-Dvel-vs[0])/dv) )
     else:
         print 'error, dv<0 or Dvel<0'
         print k_min,k_max, dv, Dvel, v0
@@ -777,3 +787,80 @@ def f_shift(N1, x0, y0, ps_arcsec, PA, inc, M_star, dpc):
             
 
     return shifts # km/s
+
+
+########################################
+############ VISIBILITIES #############
+########################################
+
+
+def deproj_vis(u,v,Inc,pa):
+
+    # PA=90 means that both reference systems are aligned (x is positive to the right)
+    
+    inc=Inc*np.pi/180.0
+
+    PArad=pa*np.pi/180.0
+    ### up,vp derived from argument of exp(-2pi (ux+vy))=exp(-2pi(up
+    ### xp+vpyp)), where xp and yp are deprojected coordinates with xp along pa 
+
+    up = u*np.sin(PArad)+v*np.cos(PArad)
+    vp = -u*np.cos(PArad)*np.cos(inc)+v*np.sin(PArad)*np.cos(inc)
+
+    return up,vp
+
+
+def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA):
+
+    amps=np.sqrt(reals**2+imags**2)
+    
+    u_dep,v_dep= deproj_vis(us,vs,Inc,PA)
+    ruv=np.sqrt(u_dep**2.0+v_dep**2.0)
+
+    Rs_edge=np.linspace(uvmin, uvmax, Nr+1)
+    dR=Rs_edge[1:]-Rs_edge[:-1]
+    Rs=Rs_edge[:-1]+dR/2.0
+
+    Amp_mean=np.zeros(Nr)
+    Amp_error=np.zeros(Nr)
+    Amp_std=np.zeros(Nr)
+
+    Real_mean=np.zeros(Nr)
+    Real_error=np.zeros(Nr)
+    Real_std=np.zeros(Nr)
+
+
+    Imag_mean=np.zeros(Nr)
+    Imag_error=np.zeros(Nr)
+    Imag_std=np.zeros(Nr)
+
+
+    for ir in xrange(Nr):
+        print ir, Nr
+        n=0
+
+        mask= ((Rs_edge[ir]<ruv) & (ruv<Rs_edge[ir+1]) & (reals!=0.0))
+        n=len(ruv[mask])
+    
+        if n>200.0:
+
+            Real_mean[ir]=np.mean(reals[mask])
+            Real_std[ir]=np.std(reals[mask])
+            Real_error[ir]=Real_std[ir]/np.sqrt(n)
+            
+            Imag_mean[ir]=np.mean(imags[mask])
+            Imag_std[ir]=np.std(reals[mask])
+            Imag_error[ir]=Imag_std[ir]/np.sqrt(n)
+
+            Amp_mean[ir]=( Real_mean[ir]**2.0 +  Imag_mean[ir]**2.0)**0.5
+            # S_amp=S_amp/n
+            Amp_std[ir]= ( Real_std[ir]**2.0 +  Imag_std[ir]**2.0)**0.5
+            # np.sqrt(S_amp-Amp_mean[ir]**2.0)
+            Amp_error[ir]=( Real_error[ir]**2.0 +  Imag_error[ir]**2.0)**0.5
+            # Amp_std[ir]/np.sqrt(n)
+        else:
+             Real_mean[ir]=np.nan
+             Imag_mean[ir]=np.nan
+             Amp_mean[ir]=np.nan
+             
+    return Rs_edge, Rs, np.array([Real_mean, Real_std, Real_error]), np.array([Imag_mean, Imag_std, Imag_error]), np.array([Amp_mean, Amp_std, Amp_error])
