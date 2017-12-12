@@ -10,7 +10,7 @@ def M_to_f(M,e):
 
     # Converts mean anomaly M in radians into true anomaly f in radians
 
-
+    
     if M>=2.0*ma.pi:
         M=M-ma.floor(M/(2.0*ma.pi))*ma.pi
 
@@ -39,7 +39,7 @@ def M_to_r(M, a, e ):
     
     # get true anomaly f
     f = M_to_f(M,e)
-    r = a*(1.0-e**2.0)/(1.0+e*ma.cos(f)) 
+    r = a*(1.0-e**2.0)/(1.0+e*np.cos(f)) 
     return r,f
 
 def draw_random_r(a,e, Nr):
