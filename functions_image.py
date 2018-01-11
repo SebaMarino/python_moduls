@@ -68,7 +68,7 @@ def xyarray(Np, ps_arcsec):
 
     return xs, ys, xedge, yedge
 
-def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcsec, ps_arcsec):
+def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcsec, ps_arcsec, error_std=False):
 
     # x0, y0 are RA DEC offsets in arcsec
     # PA and inc are PA and inc of the disc in deg
@@ -113,7 +113,7 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
             Irs1[i_r,i_p] = image[jp1,ip1] 
             Irs2[i_r,i_p] = image_pb[jp1,ip1]
 
-    Ir1=np.mean(Irs1, axis=1) # mean intensity in Jy/beam
+    Ir1=np.nanmean(Irs1, axis=1) # mean intensity in Jy/beam
     Ir2=np.zeros(Nr)
     
     for i in xrange(Nphi):
@@ -133,10 +133,14 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
 
         if Nindeps_1i>1.0:  Nindeps_1[i]=Nindeps_1i
 
-    print arclength
-    print np.max(Nindeps_1), BMAJ_arcsec
-    
-    Err_1=Ir2/np.sqrt(Nindeps_1)
+    # print arclength
+    # print np.max(Nindeps_1), BMAJ_arcsec
+
+    if error_std:
+        Err_1=np.nanstd(Irs1, axis=1)/np.sqrt(Nindeps_1)
+
+    else:
+        Err_1=Ir2/np.sqrt(Nindeps_1)
 
     
     
@@ -145,17 +149,11 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
 
 
 
-def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, rms):
+def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis):
 
 
     fit1=pyfits.open(fitsfile)
-    try: 
-        data1 	= fit1[0].data[0,0,:,:] #extraer matriz de datos
-    except:
-        try:
-            data1 	= fit1[0].data[0,:,:] #extraer matriz de datos
-        except:
-            data1 	= fit1[0].data[:,:] #extraer matriz de datos
+    data1 	= get_last2d(fit1[0].data) #extraer matriz de datos
     
     # print np.shape(data1)
     header1=fit1[0].header
@@ -179,22 +177,12 @@ def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, rms):
     return radial_profile(data1, np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1)
 
 
-def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, phis, rms):
+def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, error_std=False ):
 
 
     fit1=pyfits.open(fitsfile_pbcor)
-    fit2=pyfits.open(fitsfile_pb)
-    try: 
-        data1 	= fit1[0].data[0,0,:,:] #extraer matriz de datos
-        data2	= fit2[0].data[0,0,:,:] #extraer matriz de datos
-    except:
-        try:
-            data1 	= fit1[0].data[0,:,:] #extraer matriz de datos
-            data2	= fit2[0].data[0,:,:] #extraer matriz de datos
+    data1 = get_last2d(fit1[0].data) #extraer matriz de datos
 
-        except:
-            data1 	= fit1[0].data[:,:] #extraer matriz de datos
-            data2	= fit2[0].data[:,:] #extraer matriz de datos
 
     # print np.shape(data1)
     header1=fit1[0].header
@@ -203,14 +191,21 @@ def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax
     ps_rad1=ps_deg1*np.pi/180.0
     Np1=len(data1[:,0])
 
+    if fitsfile_pb!='':
+        fit2=pyfits.open(fitsfile_pb)
+        data2 = get_last2d(fit2[0].data) #extraer matriz de datos
+    else:
+        data2=np.ones((Np1,Np1))
+
+    
     BMAJ=float(header1['BMAJ']) # deg
     BMIN=float(header1['BMIN']) # deg
     BPA=float(header1['BPA']) # deg
 
     BMAJ_arcsec1=BMAJ*3600.0
     BMIN_arcsec1=BMIN*3600.0
-    
-    return radial_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, ps_arcsec=ps_arcsec1)
+    print "beam = %1.2f x %1.2f" %(BMAJ_arcsec1, BMIN_arcsec1)
+    return radial_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, ps_arcsec=ps_arcsec1, error_std=error_std)
 
 
 
@@ -281,18 +276,7 @@ def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,N
 
 
     fit1=pyfits.open(fitsfile_pbcor)
-    fit2=pyfits.open(fitsfile_pb)
-    try: 
-        data1 	= fit1[0].data[0,0,:,:] #extraer matriz de datos
-        data2	= fit2[0].data[0,0,:,:] #extraer matriz de datos
-    except:
-        try:
-            data1 	= fit1[0].data[0,:,:] #extraer matriz de datos
-            data2	= fit2[0].data[0,:,:] #extraer matriz de datos
-
-        except:
-            data1 	= fit1[0].data[:,:] #extraer matriz de datos
-            data2	= fit2[0].data[:,:] #extraer matriz de datos
+    data1=get_last2d(fit1[0].data) 
 
     # print np.shape(data1)
     header1=fit1[0].header
@@ -301,6 +285,13 @@ def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,N
     ps_rad1=ps_deg1*np.pi/180.0
     Np1=len(data1[:,0])
 
+    if fitsfile_pb!='':
+        fit2=pyfits.open(fitsfile_pb)
+        data2 = get_last2d(fit2[0].data) #extraer matriz de datos
+    else:
+        data2=np.ones((Np1,Np1))
+
+    
     BMAJ=float(header1['BMAJ']) # deg
     BMIN=float(header1['BMIN']) # deg
     BPA=float(header1['BPA']) # deg
@@ -481,7 +472,7 @@ def inter(Nin,Nout,i,j,ps1,ps2,Fin):
 def interpol(Nin,Nout,ps1,ps2,Fin):
 	F=np.zeros((Nout,Nout), dtype=np.float64)
 	for i in range(Nout):
-                print i
+                #print i
 		for j in range (Nout):	
 			F[i,j]=inter(Nin,Nout,i,j,ps1,ps2,Fin)
 	return F
@@ -495,10 +486,11 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX): # for images 
     fit1	= pyfits.open(path_image) # open image cube
     data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
 
-    fit2	= pyfits.open(path_pbcor) #abrir objeto cubo
-    data2 	= get_last2d(fit2[0].data) # [0,0,:,:] #extraer matriz de datos
+    if path_pbcor!='':
+        fit2	= pyfits.open(path_pbcor) #abrir objeto cubo
+        data2 	= get_last2d(fit2[0].data) # [0,0,:,:] #extraer matriz de datos
 
-    rmsmap=rms/data2
+        rmsmap=rms/data2
 
     #### READ HEADER
     header1	= fit1[0].header
@@ -518,7 +510,8 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX): # for images 
         BMIN=0.0
         BPA=0.0
 
-
+    if header1['BUNIT']=='JY/PIXEL':
+        data1=data1/(ps_arcsec1**2.0) # Jy/pixel to Jy/arcsec2
     # x1, y1, x1edge, y1edge = xyarray(N1, ps_arcsec1)
 
     Nf=int(XMAX*2.0/(ps_final/1000.0))
@@ -530,11 +523,14 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX): # for images 
         xf[i]=-(i-Nf/2.0)*psf_arcsec  
         yf[i]=(i-Nf/2.0)*psf_arcsec 
 
-    image_pbcor=interpol(N1,Nf,ps_mas1,ps_final, data1)
-    rmsmap_out=interpol(N1,Nf,ps_mas1,ps_final,rmsmap)
+    image=interpol(N1,Nf,ps_mas1,ps_final, data1)
+    if path_pbcor!='':
+        rmsmap_out=interpol(N1,Nf,ps_mas1,ps_final,rmsmap)
 
-    return image_pbcor, rmsmap_out, xf, yf, BMAJ, BMIN, BPA
-
+        return image, rmsmap_out, xf, yf, BMAJ, BMIN, BPA
+    else:
+        return image, xf, yf, BMAJ, BMIN, BPA
+    
 
 
 def rainbow_cmap():
@@ -581,7 +577,8 @@ def fload_fits_cube(path_cube, line='CO32'): # for images from CASA
 
     if line=='CO32':
         f_line=345.79599 # GHz
-
+    if line=='CO21':
+        f_line=230.538000 # GHz
     if line=='HCN43':
         f_line=354.50547590 # GHz
 
@@ -810,10 +807,13 @@ def deproj_vis(u,v,Inc,pa):
     return up,vp
 
 
-def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA):
+def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
 
-    amps=np.sqrt(reals**2+imags**2)
     
+    amps=np.sqrt(reals**2+imags**2)
+    if len(weights)==1:
+        weights=np.ones(len(reals))
+        
     u_dep,v_dep= deproj_vis(us,vs,Inc,PA)
     ruv=np.sqrt(u_dep**2.0+v_dep**2.0)
 
@@ -839,10 +839,10 @@ def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA):
         print ir, Nr
         n=0
 
-        mask= ((Rs_edge[ir]<ruv) & (ruv<Rs_edge[ir+1]) & (reals!=0.0))
+        mask= ((Rs_edge[ir]<ruv) & (ruv<Rs_edge[ir+1]) & (reals!=0.0) & (weights!=0.0))
         n=len(ruv[mask])
     
-        if n>200.0:
+        if n>0:#150.0:
 
             Real_mean[ir]=np.mean(reals[mask])
             Real_std[ir]=np.std(reals[mask])
