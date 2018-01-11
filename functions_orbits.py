@@ -219,7 +219,7 @@ def Tdomain(path_sim):  # for REBOUND
 
 
 
-def load_particles(path_sim, Npart, Tp, dTaverage ):
+def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
     print "loading particles from "+path_sim
     # returns numpy array with list of x y de-rotated positions of
     # Npart particles between ti and tf
@@ -248,16 +248,30 @@ def load_particles(path_sim, Npart, Tp, dTaverage ):
 
     # Orb_par_planet=np.zeros((Ntaverage, 8))
     Alphas=np.zeros(Ntaverage)
-    orbplanet=np.loadtxt(path_sim+'body_1.txt', delimiter=',')
 
-    for i2 in xrange(Ni, Ni+Ntaverage):
-        ti =orbplanet[i2,0]
-        ai =orbplanet[i2,1]
-        ei =orbplanet[i2,2]
-        inci =orbplanet[i2,3]*np.pi/180.0
-        Omegai =orbplanet[i2,4]*np.pi/180.0
-        pomegai =orbplanet[i2,5]*np.pi/180.0
-        Mi =orbplanet[i2,6]*np.pi/180.0
+    filei=open(path_sim+'body_1.txt', 'r')
+
+    filei.readline() # header
+
+    for i2 in xrange(Ni):
+        filei.readline()
+    for i2 in xrange(Ntaverage):
+
+        dat=filei.readline().split(delimiter)
+        ti =float(dat[0])
+        ai =float(dat[1])
+        ei =float(dat[2])
+        inci =float(dat[3])*np.pi/180.0
+        Omegai =float(dat[4])*np.pi/180.0
+        pomegai =float(dat[5])*np.pi/180.0
+        Mi =float(dat[6])*np.pi/180.0
+        # ti =orbplanet[i2,0]
+        # ai =orbplanet[i2,1]
+        # ei =orbplanet[i2,2]
+        # inci =orbplanet[i2,3]*np.pi/180.0
+        # Omegai =orbplanet[i2,4]*np.pi/180.0
+        # pomegai =orbplanet[i2,5]*np.pi/180.0
+        # Mi =orbplanet[i2,6]*np.pi/180.0
         fi= M_to_f(Mi,ei)
         
         alphai=pomegai+fi
@@ -273,22 +287,31 @@ def load_particles(path_sim, Npart, Tp, dTaverage ):
         filei=open(path_sim+'body_'+str(i1+2)+'.txt', 'r')
 
         filei.readline()
-        a0i= float(filei.readline().split(',')[1])
+        a0i= float(filei.readline().split(delimiter)[1])
 
         filei.seek(0)
         filei.readline() # header
-
         for i2 in xrange(Ni):
             filei.readline()
         for i2 in xrange(Ntaverage):
-            dat=filei.readline().split(',')
-            ti =float(dat[0])
-            ai =float(dat[1])
-            ei =float(dat[2])
-            inci =float(dat[3])*np.pi/180.0
-            Omegai =float(dat[4])*np.pi/180.0
-            pomegai =float(dat[5])*np.pi/180.0
-            Mi =float(dat[6])*np.pi/180.0
+            dat=filei.readline().split(delimiter)
+            if len(dat)>1: # when running REBOUND with massive particles, if they are lost then their orbitals elements are not save anymore and the file is shorter.
+                ti =float(dat[0])
+                ai =float(dat[1])
+                ei =float(dat[2])
+                inci =float(dat[3])*np.pi/180.0
+                Omegai =float(dat[4])*np.pi/180.0
+                pomegai =float(dat[5])*np.pi/180.0
+                Mi =float(dat[6])*np.pi/180.0
+
+            else:
+                ti = 0.0
+                ai =0.0 # float(dat[1])
+                ei = 0.0 #float(dat[2])
+                inci = 0.0 #float(dat[3])*np.pi/180.0
+                Omegai =0.0 #float(dat[4])*np.pi/180.0
+                pomegai =0.0 #float(dat[5])*np.pi/180.0
+                Mi = 0.0 #float(dat[6])*np.pi/180.0
 
             alphai=Alphas[i2] # pomega+f for planet
 
@@ -307,7 +330,7 @@ def load_particles(path_sim, Npart, Tp, dTaverage ):
     return Particles
 
 
-def load_particles_spread(path_sim, Npart, Tp, Nspread ):
+def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
     print "loading particles from "+path_sim
     # returns numpy array with list of x y de-rotated positions of
     # Npart particles between ti and tf
@@ -329,19 +352,36 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread ):
     # closest epoch
     itp=int(round((Tp-Ti)/dT))
 
-    orbplanet=np.loadtxt(path_sim+'body_1.txt', delimiter=',')
+    filei=open(path_sim+'body_1.txt', 'r')
+    filei.readline() # header 
 
-    # for i2 in xrange(Ni, Ni+Ntaverage):
-    ti =orbplanet[itp,0]
-    ai =orbplanet[itp,1]
-    ei =orbplanet[itp,2]
-    inci =orbplanet[itp,3]*np.pi/180.0
-    Omegai =orbplanet[itp,4]*np.pi/180.0
-    pomegai =orbplanet[itp,5]*np.pi/180.0
-    Mi =orbplanet[itp,6]*np.pi/180.0
+    for i2 in xrange(itp):
+        filei.readline()
+    dat=filei.readline().split(delimiter)
+    ti =float(dat[0])
+    ai =float(dat[1])
+    ei =float(dat[2])
+    inci =float(dat[3])*np.pi/180.0
+    Omegai =float(dat[4])*np.pi/180.0
+    pomegai =float(dat[5])*np.pi/180.0
+    Mi =float(dat[6])*np.pi/180.0
     fi= M_to_f(Mi,ei)
         
     alphai=pomegai+fi
+    
+    filei.close()
+    
+    # orbplanet=np.loadtxt(path_sim+'body_1.txt', delimiter=delimiter)
+    # # for i2 in xrange(Ni, Ni+Ntaverage):
+    # ti =orbplanet[itp,0]
+    # ai =orbplanet[itp,1]
+    # ei =orbplanet[itp,2]
+    # inci =orbplanet[itp,3]*np.pi/180.0
+    # Omegai =orbplanet[itp,4]*np.pi/180.0
+    # pomegai =orbplanet[itp,5]*np.pi/180.0
+    # Mi =orbplanet[itp,6]*np.pi/180.0
+    # fi= M_to_f(Mi,ei)
+    # alphai=pomegai+fi
         
 
     # Third, LOAD ORB ELEMENTS OF PARTICLES AND DE-ROTATE THEIR X AND Y
@@ -352,7 +392,7 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread ):
         filei=open(path_sim+'body_'+str(i1+2)+'.txt', 'r')
 
         filei.readline()
-        a0i= float(filei.readline().split(',')[1])
+        a0i= float(filei.readline().split(delimiter)[1])
 
         filei.seek(0)
         filei.readline() # header
@@ -361,15 +401,26 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread ):
             filei.readline()
         # for i2 in xrange(Ntaverage):
 
-        dat=filei.readline().split(',')
-        ti =float(dat[0])
-        ai =float(dat[1])
-        ei =float(dat[2])
-        inci =float(dat[3])*np.pi/180.0
-        Omegai =float(dat[4])*np.pi/180.0
-        pomegai =float(dat[5])*np.pi/180.0
-        Mi =float(dat[6])*np.pi/180.0
-
+        dat=filei.readline().split(delimiter)
+        # print dat, i1+2
+        if len(dat)>1: # when running REBOUND with massive particles, if they are lost then their orbitals elements are not save anymore and the file is shorter.
+            ti =float(dat[0])
+            ai =float(dat[1])
+            ei =float(dat[2])
+            inci =float(dat[3])*np.pi/180.0
+            Omegai =float(dat[4])*np.pi/180.0
+            pomegai =float(dat[5])*np.pi/180.0
+            Mi =float(dat[6])*np.pi/180.0
+        else:
+            print i1+2
+            ti =Tp
+            ai =0.0 # float(dat[1])
+            ei = 0.0 #float(dat[2])
+            inci = 0.0 #float(dat[3])*np.pi/180.0
+            Omegai =0.0 #float(dat[4])*np.pi/180.0
+            pomegai =0.0 #float(dat[5])*np.pi/180.0
+            Mi = 0.0 #float(dat[6])*np.pi/180.0
+      
         # alphai=Alphas[i2] # pomega+f for planet
         
         # spread them along orbit
@@ -403,7 +454,64 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread ):
     return Particles
 
 
-def Surface_density(Particles, amin, amax, gamma, xmax, Nbinsx):
+def load_planets(path_sim,  delimiter=','):
+
+    Ti,Tf,NT,dT, Nplt, Nsmall= Tdomain(path_sim)
+
+    Particles=np.zeros((Nplt,NT,  9)) # t, x, y,z, a_0, a, e, i, M
+    Alphas=np.zeros(NT)
+    for i1 in xrange(Nplt):
+
+        filei=open(path_sim+'body_'+str(i1+1)+'.txt', 'r')
+        filei.readline()
+        a0i= float(filei.readline().split(delimiter)[1])
+
+        filei.seek(0)
+        filei.readline() # header
+
+        for i2 in xrange(NT):
+
+            dat=filei.readline().split(delimiter)
+            if len(dat)>1:
+                ti =float(dat[0])
+                ai =float(dat[1])
+                ei =float(dat[2])
+                inci =float(dat[3])*np.pi/180.0
+                Omegai =float(dat[4])*np.pi/180.0
+                pomegai =float(dat[5])*np.pi/180.0
+                Mi =float(dat[6])*np.pi/180.0
+                Massi =float(dat[7]) # earth masses
+
+            else:
+                ti = 0.0 
+                ai = 0.0 
+                ei = 0.0 
+                inci = 0.0
+                Omegai = 0.0 
+                pomegai = 0.0 
+                Mi = 0.0
+                Massi = 0.0 # earth masses
+
+            if i1==0:
+                fi= M_to_f(Mi,ei)
+                alphai=pomegai+fi
+                Alphas[i2]=alphai
+
+
+            x,y,z=cartesian_from_orbelement_rotating_frame(ai,ei,inci, Omegai, pomegai, Mi, Alphas[i2])
+
+            Particles[i1, i2, 0]= ti
+            Particles[i1, i2, 1]= x
+            Particles[i1, i2, 2]= y
+            Particles[i1, i2, 3]= z
+            Particles[i1, i2, 4]= a0i
+            Particles[i1, i2, 5]= ai
+            Particles[i1, i2, 6]= ei
+            Particles[i1, i2, 7]= inci
+            Particles[i1, i2, 8]= Massi
+    return Particles
+
+def Surface_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nbinsx=50):
     # returns Surface density
 
     # xmax=200.0         # maximum x and y in AU
@@ -444,11 +552,10 @@ def Surface_density_r(Particles, amin, amax, gamma, rmax, Nbins):
     Rs=Binsr[:-1]+drs/2.0    # mean radius at each bin
 
     mask= (Particles[:,0,4]>amin) & (Particles[:,0,4]<amax)
-
     rs=((Particles[mask,:,1 ]**2.0+Particles[mask,:,2 ]**2.0)**0.5).flatten()
     a0s=Particles[mask,:,4 ].flatten()
-
-    Nr=np.array( np.histogram(rs, bins=Binsr ,weights=a0s**(gamma), density=True)[0], dtype=float)
+    print len(rs)
+    Nr=np.array( np.histogram(rs, bins=Binsr ,weights=a0s**(gamma+1.0), density=True)[0], dtype=float)
 
     Nr[0]=0.0
 
