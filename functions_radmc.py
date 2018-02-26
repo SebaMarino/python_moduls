@@ -37,7 +37,7 @@ def Intextpol(x,y,xi):
                 return y[l-1]+(xi-x[l-1])*(y[l]-y[l-1])/(x[l]-x[l-1])
 
     elif xi>x[Nx-1]:    #extrapol                                                                                                                                                                                                            
-        alpha=ma.log(y[Nx-1]/y[Nx-2])/ma.log(x[Nx-1]/x[Nx-2])
+        alpha=np.log(y[Nx-1]/y[Nx-2])/np.log(x[Nx-1]/x[Nx-2])
         return y[Nx-1]*(xi/x[Nx-1])**alpha
 
 
