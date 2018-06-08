@@ -11,13 +11,13 @@ def M_to_f(M,e):
     # Converts mean anomaly M in radians into true anomaly f in radians
 
     
-    if M>=2.0*ma.pi:
-        M=M-ma.floor(M/(2.0*ma.pi))*ma.pi
+    if M>=2.0*np.pi:
+        M=M-ma.floor(M/(2.0*np.pi))*2.0*ma.pi
 
     # Newton's to find solution to E-e*sin(E)=M
     E=M
     for ip in xrange(10):
-        E= E - (E-e*ma.sin(E)-M) / (1-e*ma.cos(E))
+        E= E - (E-e*np.sin(E)-M) / (1-e*np.cos(E))
 
     # derive f from E
     f = 2.0 * ma.atan2( (1+e)**0.5 * ma.sin(E/2.0), (1-e)**0.5 * ma.cos(E/2.0)) 
@@ -38,10 +38,12 @@ def M_to_r(M, a, e ):
     # eccentricity e into radius r in AU
     
     # get true anomaly f
-    f = M_to_f(M,e)
-    r = a*(1.0-e**2.0)/(1.0+e*np.cos(f)) 
-    return r,f
-
+    if e<1.0:
+        f = M_to_f(M,e)
+        r = a*(1.0-e**2.0)/(1.0+e*np.cos(f)) 
+        return r,f
+    else:
+        return 0.0, 0.0
 def draw_random_r(a,e, Nr):
 
     # Draw a sample of Nr radius based on M uniform random sample of
@@ -129,7 +131,7 @@ def cartesian_from_orbelement_rotating_frame(a,e,inc, Omega, pomega, M, alpha):
     y=r* ((np.sin(Omega)*np.cos(arg_peri+f)) +  (np.cos(Omega)*np.sin(arg_peri+f)*np.cos(inc))  )
     z=r* np.sin(arg_peri+f)*np.sin(inc)
 
-    xp =  x*np.cos(alpha) + y*np.sin(alpha)
+    xp =   x*np.cos(alpha) + y*np.sin(alpha)
     yp =  -x*np.sin(alpha) + y*np.cos(alpha)
 
     return xp,yp,z
@@ -245,7 +247,7 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
         sys.exit()
 
     Ni=int((Tp-dTaverage)/dT) # line where to start loading
-
+    print Ni, Ntaverage
     # Orb_par_planet=np.zeros((Ntaverage, 8))
     Alphas=np.zeros(Ntaverage)
 
@@ -281,10 +283,10 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
 
     # Third, LOAD ORB ELEMENTS OF PARTICLES AND DE-ROTATE THEIR X AND Y
 
-    Particles=np.zeros((Npart, Ntaverage, 8)) # t, x, y,z, a_0, a, e, i
+    Particles=np.zeros((Npart, Ntaverage, 9)) # t, x, y,z, a_0, a, e, i
     for i1 in xrange(Npart):
         #print i1, Npart
-        filei=open(path_sim+'body_'+str(i1+2)+'.txt', 'r')
+        filei=open(path_sim+'body_'+str(i1+Nplt+1)+'.txt', 'r')
 
         filei.readline()
         a0i= float(filei.readline().split(delimiter)[1])
@@ -314,7 +316,6 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
                 Mi = 0.0 #float(dat[6])*np.pi/180.0
 
             alphai=Alphas[i2] # pomega+f for planet
-
             x,y,z=cartesian_from_orbelement_rotating_frame(ai,ei,inci, Omegai, pomegai, Mi, alphai)
             
             Particles[i1, i2, 0]= ti
@@ -325,6 +326,7 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
             Particles[i1, i2, 5]= ai
             Particles[i1, i2, 6]= ei
             Particles[i1, i2, 7]= inci
+            Particles[i1, i2, 8]= pomegai
 
         filei.close()
     return Particles
@@ -371,18 +373,6 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
     
     filei.close()
     
-    # orbplanet=np.loadtxt(path_sim+'body_1.txt', delimiter=delimiter)
-    # # for i2 in xrange(Ni, Ni+Ntaverage):
-    # ti =orbplanet[itp,0]
-    # ai =orbplanet[itp,1]
-    # ei =orbplanet[itp,2]
-    # inci =orbplanet[itp,3]*np.pi/180.0
-    # Omegai =orbplanet[itp,4]*np.pi/180.0
-    # pomegai =orbplanet[itp,5]*np.pi/180.0
-    # Mi =orbplanet[itp,6]*np.pi/180.0
-    # fi= M_to_f(Mi,ei)
-    # alphai=pomegai+fi
-        
 
     # Third, LOAD ORB ELEMENTS OF PARTICLES AND DE-ROTATE THEIR X AND Y
 
@@ -438,7 +428,135 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
 
         elif Nspread>1:
             Mis=np.random.uniform(0.0, 2.0*np.pi, Nspread)
+            
             for i3 in xrange(Nspread):
+                x,y,z=cartesian_from_orbelement_rotating_frame(ai,ei,inci, Omegai, pomegai, Mis[i3], alphai)
+                Particles[i1, i3, 0]= ti
+                Particles[i1, i3, 1]= x
+                Particles[i1, i3, 2]= y
+                Particles[i1, i3, 3]= z
+                Particles[i1, i3, 4]= a0i
+                Particles[i1, i3, 5]= ai
+                Particles[i1, i3, 6]= ei
+                Particles[i1, i3, 7]= inci
+
+
+        filei.close()
+    return Particles
+
+
+
+
+
+def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',', Mstar=1.0 ):
+    print "loading particles from "+path_sim
+    # returns numpy array with list of x y de-rotated positions of
+    # Npart particles between ti and tf
+
+    # FIRST, LOAD SIMULATION PARAMETERS
+
+    Ti,Tf,Nt,dT,Nplt, Nsmall=Tdomain(path_sim)
+
+    if Npart>Nsmall: 
+        print "error, Npart> simulated particles"
+        sys.exit()
+    # SECOND, LOAD ORB ELEMENTS OF PLANET TO DE-ROTATE WITH RESPECT ITS POSITION
+
+    # check how many epochs to save (Ntaverage)
+    if Tp<Ti or Tp>Tf:
+        print "error, epoch of interest does not overlay with simulation epochs"
+        sys.exit()
+
+    # closest epoch
+    itp=int(round((Tp-Ti)/dT))
+
+    filei=open(path_sim+'body_1.txt', 'r')
+    filei.readline() # header 
+
+    for i2 in xrange(itp):
+        filei.readline()
+    dat=filei.readline().split(delimiter)
+    tp =float(dat[0])
+    ap =float(dat[1])
+    ep =float(dat[2])
+    incp =float(dat[3])*np.pi/180.0
+    Omegap =float(dat[4])*np.pi/180.0
+    pomegap =float(dat[5])*np.pi/180.0
+    Mp =float(dat[6])*np.pi/180.0
+    fp= M_to_f(Mp,ep)
+        
+    alphap=pomegap+fp
+    
+    filei.close()
+    
+    nplt=np.sqrt(Mstar/(ap**3.0)) # angular speed
+
+    # Third, LOAD ORB ELEMENTS OF PARTICLES AND DE-ROTATE THEIR X AND Y
+
+    Particles=np.zeros((Npart, Nspread, 8)) # t, x, y,z, a_0, a, e, i
+    
+    for i1 in xrange(Npart):
+        filei=open(path_sim+'body_'+str(i1+2)+'.txt', 'r')
+
+        filei.readline()
+        a0i= float(filei.readline().split(delimiter)[1])
+
+        filei.seek(0)
+        filei.readline() # header
+
+        for i2 in xrange(itp):
+            filei.readline()
+        # for i2 in xrange(Ntaverage):
+
+        dat=filei.readline().split(delimiter)
+        # print dat, i1+2
+        if len(dat)>1: # when running REBOUND with massive particles, if they are lost then their orbitals elements are not save anymore and the file is shorter.
+            ti =float(dat[0])
+            ai =float(dat[1])
+            ei =float(dat[2])
+            inci =float(dat[3])*np.pi/180.0
+            Omegai =float(dat[4])*np.pi/180.0
+            pomegai =float(dat[5])*np.pi/180.0
+            Mi =float(dat[6])*np.pi/180.0
+        else:
+            print i1+2
+            ti =Tp
+            ai =0.0 # float(dat[1])
+            ei = 0.0 #float(dat[2])
+            inci = 0.0 #float(dat[3])*np.pi/180.0
+            Omegai =0.0 #float(dat[4])*np.pi/180.0
+            pomegai =0.0 #float(dat[5])*np.pi/180.0
+            Mi = 0.0 #float(dat[6])*np.pi/180.0
+      
+        # alphai=Alphas[i2] # pomega+f for planet
+        
+        # spread them along orbit
+        if Nspread==1 and ai>0.0 and ei>=0.0 and ei<1.0:
+            x,y,z=cartesian_from_orbelement_rotating_frame(ai,ei,inci, Omegai, pomegai, Mi, alphap)
+
+            Particles[i1, 0, 0]= ti
+            Particles[i1, 0, 1]= x
+            Particles[i1, 0, 2]= y
+            Particles[i1, 0, 3]= z
+            Particles[i1, 0, 4]= a0i
+            Particles[i1, 0, 5]= ai
+            Particles[i1, 0, 6]= ei
+            Particles[i1, 0, 7]= inci
+
+        elif Nspread>1 and ai>0.0 and ei>=0.0 and ei<1.0:
+
+            ni=np.sqrt(Mstar/(ai**3.0)) # angular speed
+            Tc=2.*np.pi/np.abs(ni-nplt) # conjunction period in years
+            if ni*Tc>10.0*np.pi and nplt*Tc>10.0*np.pi:
+                Tc=2.0*np.pi/np.min(ni, nplt)
+            #print Tc
+            Mrand=np.random.uniform(0.0, 2.0*ni*Tc, Nspread)#ni*Tc, Nspread) # random.uniform
+            Mis=Mrand+Mi
+            Mps=Mrand*(nplt/ni)+Mp
+            
+            for i3 in xrange(Nspread):
+                alphai=pomegap+M_to_f(Mps[i3],ep)
+
                 x,y,z=cartesian_from_orbelement_rotating_frame(ai,ei,inci, Omegai, pomegai, Mis[i3], alphai)
                 Particles[i1, i3, 0]= ti
                 Particles[i1, i3, 1]= x
@@ -511,7 +629,7 @@ def load_planets(path_sim,  delimiter=','):
             Particles[i1, i2, 8]= Massi
     return Particles
 
-def Surface_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nbinsx=50):
+def Surface_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nbinsx=50, a1=-1.0, a2=-1.0):
     # returns Surface density
 
     # xmax=200.0         # maximum x and y in AU
@@ -524,7 +642,13 @@ def Surface_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nb
     dxs=Binsx[1:]-Binsx[:-1]  # radial width of each bin
     xs=Binsx[:-1]+dxs/2.0    # mean radius at each bin
 
-    mask= (Particles[:,0,4]>amin) & (Particles[:,0,4]<amax)
+    if a1==-1.0 and a2==-1.0:
+        mask= (Particles[:,0,4]>amin) & (Particles[:,0,4]<amax)
+
+    elif a2>a1 and a1>amin and a2<amax: 
+        mask= ((Particles[:,0,4]>amin) & (Particles[:,0,4]<a1)) |  ((Particles[:,0,4]<amax) & (Particles[:,0,4]>a2) )
+    else:
+        print 'error when masking particles'
 
     xs=Particles[mask,:,1 ].flatten()
     ys=Particles[mask,:,2 ].flatten()
@@ -538,7 +662,7 @@ def Surface_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nb
     # print 'hey'
     return Nxy, Binsx
 
-def Surface_density_r(Particles, amin, amax, gamma, rmax, Nbins):
+def Surface_density_r(Particles, amin, amax, gamma, rmax, Nbins, a1=-1.0, a2=-1.0):
     # returns Surface density
 
     # xmax=200.0         # maximum x and y in AU
@@ -551,7 +675,14 @@ def Surface_density_r(Particles, amin, amax, gamma, rmax, Nbins):
     drs=Binsr[1:]-Binsr[:-1]  # radial width of each bin
     Rs=Binsr[:-1]+drs/2.0    # mean radius at each bin
 
-    mask= (Particles[:,0,4]>amin) & (Particles[:,0,4]<amax)
+    if a1==-1.0 and a2==-1.0:
+        mask= (Particles[:,0,4]>amin) & (Particles[:,0,4]<amax)
+
+    elif a2>a1 and a1>amin and a2<amax: 
+        mask= ((Particles[:,0,4]>amin) & (Particles[:,0,4]<a1)) |  ((Particles[:,0,4]<amax) & (Particles[:,0,4]>a2) )
+    else:
+        print 'error when masking particles'
+
     rs=((Particles[mask,:,1 ]**2.0+Particles[mask,:,2 ]**2.0)**0.5).flatten()
     a0s=Particles[mask,:,4 ].flatten()
     print len(rs)

@@ -37,7 +37,7 @@ def Intextpol(x,y,xi):
                 return y[l-1]+(xi-x[l-1])*(y[l]-y[l-1])/(x[l]-x[l-1])
 
     elif xi>x[Nx-1]:    #extrapol                                                                                                                                                                                                            
-        alpha=ma.log(y[Nx-1]/y[Nx-2])/ma.log(x[Nx-1]/x[Nx-2])
+        alpha=np.log(y[Nx-1]/y[Nx-2])/np.log(x[Nx-1]/x[Nx-2])
         return y[Nx-1]*(xi/x[Nx-1])**alpha
 
 
@@ -307,7 +307,7 @@ def write_opacities(optc_file, Nspec, Asedge, grain_density, exp=3.5):
 
 ###################################################################
 ######################## stellar spectrum ########################
-def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star=1.0*M_sun): # if T_star <0 then it assumes black body of T=- T_star (use this mode if you dont have a stellar template)
+def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star=1.0*M_sun, save_npy=False): # if T_star <0 then it assumes black body of T=- T_star (use this mode if you dont have a stellar template)
 
     # -------- STAR and wavelength
     
@@ -386,6 +386,9 @@ def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star
     else:
             arch_star.write(str(T_star)+'\n')
     arch_star.close()
+
+    if save_npy:
+        np.savetxt('stellar_spectrum_Jy_1pc.dat', np.transpose(np.array([waves, Flux*1.0e23])))
 
 #########################################################
 ##### GRID (grid could be a class...future work) #####
@@ -749,6 +752,134 @@ def save_density_cartesian_flat(Ms, field, Nspec, Nx, Xmax, Nz):
 
 
 
+def save_dens_gas_axisym( Redge, R, Thedge, Th, Phiedge, Phi, Mh2, Mco, h, sigmaf, *args):
+
+    # args has the arguments that sigmaf needs in the right order
+
+    Nr=len(R)+1
+    Nth=len(Th)+1
+    Nphi=len(Phi)
+
+    rho_g=np.zeros(((Nth-1)*2,Nphi,Nr-1)) # density field
+
+    M_gas_temp= 0.0 #np.zeros(Nspec) 
+    # print ia
+    # print "Dust species = ", ia
+  
+    for k in xrange(Nth-1):
+        theta=Th[Nth-2-k]
+        for i in xrange(Nr-1):
+            rho=R[i]*np.cos(theta)
+            z=R[i]*np.sin(theta)
+            # for j in xrange(Nphi):
+
+            rho_g[k,:,i]=rho_3d_dens(rho, 0.0, z,h, sigmaf, *args )
+            rho_g[2*(Nth-1)-1-k,:,i]=rho_g[k,:,i]
+            M_gas_temp+=2.0*rho_g[k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
+        # for ia in xrange(Nspec):
+    rho_g=rho_g/M_gas_temp
+        
+    
+    #### Save
+
+    path_h2='numberdens_h2.inp'
+    path_12co='numberdens_12c16o.inp'
+    path_13c16o='numberdens_13c16o.inp'
+    path_12c18o='numberdens_12c18o.inp'
+    path_hcop='numberdens_hcop.inp'
+
+    paths=[path_h2, path_12co, path_13c16o, path_12c18o, path_hcop]
+    ms=np.array([2.0, 16.0, 17.0, 17.0, 17.0])* 1.67262178e-24 # molecular masses in grams
+    abundances=[Mh2, Mco, Mco*1.0e-2, Mco*1.0e-3, Mco*1.0e-3] # mass in grams
+
+    for ip in xrange(len(paths)):
+        file_g=open(paths[ip],'w')
+        file_g.write('1 \n') # iformat  
+        file_g.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells 
+
+        for j in range(Nphi):
+            for k in range(2*(Nth-1)):
+                for i in range(Nr-1):
+                    file_g.write(str(rho_g[k,j,i]*abundances[ip]/ms[ip])+' \n')
+        file_g.close()
+
+    file_lines=open('lines.inp', 'w')
+    file_lines.write('2 \n')
+    file_lines.write('4 \n')
+    file_lines.write('12c16o    leiden    0    0    1 \n')
+    file_lines.write('h2 \n')
+    file_lines.write('13c16o    leiden    0    0    1 \n')
+    file_lines.write('h2 \n')
+    file_lines.write('12c18o    leiden    0    0    1 \n')
+    file_lines.write('h2 \n')
+    file_lines.write('hcop    leiden    0    0    1 \n')
+    file_lines.write('h2 \n')
+
+    file_lines.close()
+
+def gas_velocities( Redge, R, Thedge, Th, Phiedge, Phi, M_star=1.0*M_sun, turb=0.1, ecc=-1.0):
+    # turb in km/s
+    Nr=len(R)+1
+    Nth=len(Th)+1
+    Nphi=len(Phi)
+
+    path_velocity='gas_velocity.inp'
+    arch=open(path_velocity,'w')
+    arch.write('1 \n') # iformat  
+    arch.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells   
+
+    for j in xrange(Nphi):
+        phi=Phi[j]
+        for k in xrange(2*(Nth-1)):
+            for i in xrange(Nr-1):
+                r=R[i]
+            
+                if k<Nth-1:
+                    Theta = np.pi/2.0-Th[Nth-2-k]
+                else:
+                    Theta = np.pi/2.0+Th[k-(Nth-1)]
+                
+                rho=r*np.sin(Theta)
+                z=r*np.cos(Theta)
+
+                vphi=np.sqrt(G*M_star/(rho*au)) 
+                vr = 0.0
+                vtheta = 0.0
+                arch.write(str(vr)+'\t'+str(vtheta)+'\t'+str(vphi)+' \n')
+
+
+    arch.close() 
+
+    arch_v=open('microturbulence.inp','w')
+    arch_v.write('1 \n')
+    arch_v.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # n cells
+    if ecc<=0.0:
+        # ----------------------TURBULENCES 0.1 km/s
+        
+        for j in xrange(Nphi):
+            for k in xrange(2*(Nth-1)):
+                for i in xrange(Nr-1):
+                    arch_v.write(str(turb*1.0e5)+' \n')
+
+    else:
+        for j in xrange(Nphi):
+            for k in xrange(2*(Nth-1)):
+                for i in xrange(Nr-1):
+                    r=R[i]
+                    if k<Nth-1:
+                        Theta = np.pi/2.0-Th[Nth-2-k]
+                    else:
+                        Theta = np.pi/2.0+Th[k-(Nth-1)]
+            
+                    rho=r*np.sin(Theta)
+                    z=r*np.cos(Theta)
+
+                    vphi=np.sqrt(G*M_star/(rho*au)) # cm/s
+                    # dvel=vphi*2*ecc/(1.-ecc**2.0) # 0.1 km/s to cm/s
+                    dvel=vphi*(np.sqrt(1.+ecc)-np.sqrt(1.-ecc)) # 0.1 km/s to cm/s
+                    arch_v.write(str(np.sqrt(dvel**2.0+(turb*1.0e5)**2.0))+' \n')
+
+    arch_v.close()
 
 
 #################################################################
@@ -819,10 +950,12 @@ def star_pix(nx, omega):
             jstar=nx/2 -1
     else:
         istar=nx/2
-        jstar=ny/2
+        jstar=nx/2
     return istar, jstar
 
 def shift_image(image, mx, my, pixdeg_x, pixdeg_y, omega=0.0 ):
+
+    if mx ==0.0 and my==0.0: return image
 
     mvx_pix=(mx/(pixdeg_x*3600.0))
     mvy_pix=(my/(pixdeg_y*3600.0))
@@ -843,8 +976,23 @@ def shift_image(image, mx, my, pixdeg_x, pixdeg_y, omega=0.0 ):
 
     return image_shifted
 
+def fpad_image(image_in, pad_x, pad_y, nx, ny):
 
-def convert_to_fits(path_image,path_fits, dpc , mx=0.0, my=0.0, CRVAL1=0.0, CRVAL2=0.0, omega=0.0):
+    if image_in.shape[-2:] != (pad_x,pad_y):
+        pad_image = np.zeros((1,1,pad_x,pad_y))
+        if nx%2==0 and ny%2==0: # even number of pixels
+            pad_image[0,0,
+                      pad_y/2-ny/2:pad_y/2+ny/2,
+                      pad_x/2-nx/2:pad_x/2+nx/2] = image_in[0,0,:,:]
+        else:                  # odd number of pixels
+            pad_image[0,0,
+                      pad_y/2-(ny-1)/2:pad_y/2+(ny+1)/2,
+                      pad_x/2-(nx-1)/2:pad_x/2+(nx+1)/2] = image_in[0,0,:,:]
+        return pad_image
+
+    else:                      # padding is not necessary as image is already the right size (potential bug if nx>pad_x)
+        return image_in
+def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y0=0.0, omega=0.0):
 
     image_in_jypix, nx, ny, nf, lam, pixdeg_x, pixdeg_y = load_image(path_image, dpc)
 
@@ -891,9 +1039,9 @@ def convert_to_fits(path_image,path_fits, dpc , mx=0.0, my=0.0, CRVAL1=0.0, CRVA
     #header['EPOCH'] = 2000.
     #header['LONPOLE'] = 180.
     header['CTYPE1'] = 'RA---TAN'
-    header['CRVAL1'] = CRVAL1
+    header['CRVAL1'] = x0
     header['CTYPE2'] = 'DEC--TAN'
-    header['CRVAL2'] = CRVAL2
+    header['CRVAL2'] = y0
     
 
     unit = 'DEG'
@@ -902,7 +1050,7 @@ def convert_to_fits(path_image,path_fits, dpc , mx=0.0, my=0.0, CRVAL1=0.0, CRVA
     header['CDELT1'] = -multiplier*pixdeg_x
     header['CUNIT1'] = unit
     # ...Zero point of coordinate system
-    header['CRPIX1'] = 1.0*((nx+1)/2)
+    header['CRPIX1'] = 1.0*((Npixf+1)/2)
     # DEC
     header['CDELT2'] = multiplier*pixdeg_y
     header['CUNIT2'] = unit
@@ -929,8 +1077,120 @@ def convert_to_fits(path_image,path_fits, dpc , mx=0.0, my=0.0, CRVAL1=0.0, CRVA
     # Make a FITS file!
     #
 
+    # PAD IMAGE
+    image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, Npixf, Npixf, nx, ny)
+
+
+
     image_in_jypix_float=image_in_jypix_shifted.astype(np.float32)
     fits.writeto(path_fits, image_in_jypix_float, header, output_verify='fix')
+
+
+def convert_to_fits_alpha(path_image,path_fits, Npixf, dpc , lam0, newlam, mx=0.0, my=0.0, x0=0.0, alpha_dust=3.0, y0=0.0, omega=0.0):
+
+    image_in_jypix, nx, ny, nf, lam, pixdeg_x, pixdeg_y = load_image(path_image, dpc)
+
+    istar, jstar=star_pix(nx, omega) 
+    Fstar=image_in_jypix[0,0,istar,istar]
+    ### dust spectral index
+    image_in_jypix[0,0,istar,istar]=0.0
+    image_in_jypix=image_in_jypix*(newlam/lam0)**(-alpha_dust)
+    ### star spectral index
+    Fstar=Fstar*(newlam/lam0)**(-2.0)
+    image_in_jypix[0,0,istar,istar]=Fstar
+
+
+    image_in_jypix_shifted= shift_image(image_in_jypix, mx, my, pixdeg_x, pixdeg_y, omega=omega)
+
+    # flux = np.sum(image_in_jypix[0,0,:,:])
+    flux = np.sum(image_in_jypix_shifted[0,0,:,:])
+
+    # print "flux [Jy] = ", flux
+    ### HEADER
+
+    
+    lam0=newlam
+    reffreq=cc/(lam0*1.0e-4)
+
+
+    # Make FITS header information:
+    header = fits.Header()
+    
+    #header['SIMPLE']='T'
+    header['BITPIX']=-32
+    # all the NAXIS are created automatically header['NAXIS']=2
+    header['OBJECT']='HD109085'
+    header['EPOCH']=2000.0
+    header['LONPOLE']=180.0
+    header['EQUINOX']=2000.0
+    header['SPECSYS']='LSRK'
+    header['RESTFREQ']=reffreq
+    header['VELREF']=0.0
+    header['CTYPE3']='FREQ'
+    header['CRPIX3'] = 1.0
+    header['CDELT3']  = 1.0
+    header['CRVAL3']= reffreq
+
+
+    header['FLUX']=flux
+
+    header['BTYPE'] = 'Intensity'
+    header['BSCALE'] = 1
+    header['BZERO'] = 0
+    header['BUNIT'] = 'JY/PIXEL'#'erg/s/cm^2/Hz/ster'
+
+
+    #header['EPOCH'] = 2000.
+    #header['LONPOLE'] = 180.
+    header['CTYPE1'] = 'RA---TAN'
+    header['CRVAL1'] = x0
+    header['CTYPE2'] = 'DEC--TAN'
+    header['CRVAL2'] = y0
+    
+
+    unit = 'DEG'
+    multiplier = 1
+    # RA
+    header['CDELT1'] = -multiplier*pixdeg_x
+    header['CUNIT1'] = unit
+    # ...Zero point of coordinate system
+    header['CRPIX1'] = 1.0*((Npixf+1)/2)
+    # DEC
+    header['CDELT2'] = multiplier*pixdeg_y
+    header['CUNIT2'] = unit
+    #
+    # ...Zero point of coordinate system
+    #
+    header['CRPIX2'] = 1.0* ((ny+1)/2)
+
+    # FREQ
+    if nf > 1:
+        # multiple frequencies - set up the header keywords to define the
+        #    third axis as frequency
+        header['CTYPE3'] = 'VELOCITY'
+        header['CUNIT3'] = 'km/s'
+        header['CRPIX3'] = 1.0* ((nf+1)/2)
+        header['CRVAL3'] = 0.0
+        # Calculate the frequency step, assuming equal steps between all:
+        delta_velocity = (lam[1] - lam[0])*cc*1e-5/lam0
+        header['CDELT3'] = delta_velocity
+        header['RESTWAVE']=lam0
+    else:                # only one frequency
+        header['RESTWAVE'] = lam[0]
+        header['CUNIT3'] = 'Hz'
+    # Make a FITS file!
+    #
+
+    # PAD IMAGE
+    image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, Npixf, Npixf, nx, ny)
+
+    image_in_jypix_float=image_in_jypix_shifted.astype(np.float32)
+    fits.writeto(path_fits, image_in_jypix_float, header, output_verify='fix')
+
+
+
+
+
 
 def convert_to_fits_canvas(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0 , pbm=False, omega=0.0):
    
@@ -951,13 +1211,8 @@ def convert_to_fits_canvas(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0
     # PAD IMAGE
     pad_x = header['NAXIS1']
     pad_y = header['NAXIS2']
-    if image_in_jypix_shifted.shape != (1,1,pad_x,pad_y):
-        pad_image = np.zeros((1,1,pad_x,pad_y))
-        pad_image[0,0,
-                  pad_y/2-ny/2:pad_y/2+ny/2,
-                  pad_x/2-nx/2:pad_x/2+nx/2] = image_in_jypix_shifted[0,0,:,:]
-        image_in_jypix_shifted = pad_image # redefines image_in_jypix_shifted
 
+    image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, pad_x, pad_y, nx, ny)
 
 
     ##### multiply by primary beam or not. 
@@ -983,7 +1238,7 @@ def convert_to_fits_canvas(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0
     fits.writeto(path_fits, image_in_jypix_float, header, output_verify='fix')
 
 
-def convert_to_fits_canvas_fields(path_image,path_fits,path_canvas, dpc, arcsec=False, mas=False, mx=0.0, my=0.0 , pbm=False, x0=0.0, y0=0.0, omega=0.0):
+def convert_to_fits_canvas_fields(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0 , pbm=False, x0=0.0, y0=0.0, omega=0.0):
 
     image_in_jypix, nx, ny, nf, lam, pixdeg_x, pixdeg_y = load_image(path_image, dpc)
 
@@ -1010,17 +1265,13 @@ def convert_to_fits_canvas_fields(path_image,path_fits,path_canvas, dpc, arcsec=
     image_in_jypix_shifted= shift_image(image_in_jypix, mxp, myp, pixdeg_x, pixdeg_y, omega=omega)
     
     # PAD IMAGE
+
     pad_x = header['NAXIS1']
     pad_y = header['NAXIS2']
-    if image_in_jypix_shifted.shape != (1,1,pad_x,pad_y):
-        pad_image = np.zeros((1,1,pad_x,pad_y))
-        pad_image[0,0,
-                  pad_y/2-ny/2:pad_y/2+ny/2,
-                  pad_x/2-nx/2:pad_x/2+nx/2] = image_in_jypix_shifted[0,0,:,:]
-        image_in_jypix_shifted = pad_image # redefines image_in_jypix_shifted
 
+    image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, pad_x, pad_y, nx, ny)
 
-
+ 
     
     ##### multiply by primary beam or not. 
 
@@ -1086,12 +1337,8 @@ def convert_to_fits_canvas_fields_alpha(path_image,path_fits,path_canvas, dpc, l
     # PAD IMAGE
     pad_x = header['NAXIS1']
     pad_y = header['NAXIS2']
-    if image_in_jypix_shifted.shape != (1,1,pad_x,pad_y):
-        pad_image = np.zeros((1,1,pad_x,pad_y))
-        pad_image[0,0,
-                  pad_y/2-ny/2:pad_y/2+ny/2,
-                  pad_x/2-nx/2:pad_x/2+nx/2] = image_in_jypix_shifted[0,0,:,:]
-        image_in_jypix_shifted = pad_image # redefines image_in_jypix_shifted
+
+    image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, pad_x, pad_y, nx, ny)
 
 
     
@@ -1121,7 +1368,121 @@ def convert_to_fits_canvas_fields_alpha(path_image,path_fits,path_canvas, dpc, l
     fits.writeto(path_fits, image_in_jypix_float, header, output_verify='fix')
 
 
-def Simimage_canvas(dpc, X0, Y0, imagename, wavelength, Npix, dpix, canvas, inc, PA, offx, offy, pb=0.0, tag='', omega=0.0):
+def convert_to_fits_canvas_alpha(path_image,path_fits,path_canvas, dpc, lam0, newlam, arcsec=False, mas=False, mx=0.0, my=0.0 , pbm=False, alpha_dust=3.0, omega=0.0):
+    
+    # modifies existing image using a specral index alpha and assuming
+    # the star has a spectral index of -2.
+
+    image_in_jypix, nx, ny, nf, lam, pixdeg_x, pixdeg_y = load_image(path_image, dpc)
+    
+    istar, jstar=star_pix(nx, omega) 
+    Fstar=image_in_jypix[0,0,istar,istar]
+    ### dust spectral index
+    image_in_jypix[0,0,istar,istar]=0.0
+    image_in_jypix=image_in_jypix*(newlam/lam0)**(-alpha_dust)
+    ### star spectral index
+    Fstar=Fstar*(newlam/lam0)**(-2.0)
+    image_in_jypix[0,0,istar,istar]=Fstar
+
+    image_in_jypix_shifted= shift_image(image_in_jypix, mx, my, pixdeg_x, pixdeg_y, omega=omega)
+
+    
+    # Make FITS header information from canvas 
+    
+    canvas=fits.open(path_canvas)
+    header = canvas[0].header # fits.Header()
+    del header['Origin'] # necessary due to a comment that CASA adds automatically
+
+    
+    # PAD IMAGE
+    pad_x = header['NAXIS1']
+    pad_y = header['NAXIS2']
+
+    image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, pad_x, pad_y, nx, ny)
+
+    ##### multiply by primary beam or not. Only necessary when simulating visibilities in CASA with ft a posteriori
+
+    if pbm:
+        # print "multiply by pb beam!"
+        # multiply by primary beam
+        pbfits=fits.open(path_canvas[:-4]+'pb.fits')
+        pb=pbfits[0].data[0,0,:,:]
+        image_in_jypix_shifted=image_in_jypix_shifted*pb
+
+        inans= np.isnan(image_in_jypix_shifted)
+        image_in_jypix_shifted[inans]=0.0
+    else:
+        print "don't multiply by pbm"
+
+    image_in_jypix_float=image_in_jypix_shifted.astype(np.float32)
+
+    flux = np.sum(image_in_jypix_float)
+    header['BUNIT'] = 'JY/PIXEL' 
+    header['FLUX']=flux
+    # print "flux [Jy] = ", flux
+
+
+    fits.writeto(path_fits, image_in_jypix_float, header, output_verify='fix')
+
+
+
+
+def Simimage(dpc, X0, Y0, imagename, wavelength, Npix, dpix, inc, PA, offx=0.0, offy=0.0, tag='', omega=0.0, Npixf=-1):
+
+    # X0, Y0, stellar position (e.g. useful if using a mosaic)
+
+    # images: array of names for images produced at wavelengths
+    # wavelgnths: wavelengths at which to produce images
+    # fields: fields where to make images (=[0] unless observations are a mosaic)
+    if Npixf==-1:
+        Npixf=Npix
+
+    sau=Npix*dpix*dpc
+
+    os.system('radmc3d image incl '+str(inc)+' phi '+str(omega)+' posang '+str(PA-90.0)+'  npix '+str(Npix)+' lambda '+str(wavelength)+' sizeau '+str(sau)+' secondorder  > simimgaes.log')
+    pathin ='image_'+imagename+'_'+tag+'.out'
+    os.system('mv image.out '+pathin)
+    pathout='image_'+imagename+'_'+tag+'.fits'
+    convert_to_fits(pathin, pathout,Npixf, dpc, mx=offx, my=offy, x0=X0, y0=Y0, omega=omega)
+    os.system('mv '+pathout+' ./images')
+
+def Simimage_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix, dpix, offx=0.0, offy=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0, Npixf=-1):
+
+    # images: array of names for images produced at wavelengths
+    # wavelgnths: wavelengths at which to produce images
+
+    if Npixf==-1:
+        Npixf=Npix
+    sau=Npix*dpix*dpc
+    
+    pathin ='image_'+imagename0+'_'+tag0+'.out'
+    pathout='image_'+imagename+'_'+tag+'.fits'
+    convert_to_fits_alpha(pathin, pathout, Npixf, dpc, lam0, newlam, mx=offx, my=offy, x0=X0, y0=Y0, alpha_dust=alpha_d, omega=omega)
+     #                     path_image,path_fits, Npixf, dpc , lam0, newlam, mx=0.0, my=0.0, x0=0.0, alpha_dust=3.0, y0=0.0, omega=0.0
+    os.system('mv '+pathout+' ./images')
+
+
+def Simimage_canvas(dpc, imagename, wavelength, Npix, dpix, canvas, inc, PA, offx=0.0, offy=0.0, pb=0.0, tag='', omega=0.0):
+
+    # X0, Y0, stellar position (e.g. useful if using a mosaic)
+
+    # images: array of names for images produced at wavelengths
+    # wavelgnths: wavelengths at which to produce images
+    # fields: fields where to make images (=[0] unless observations are a mosaic)
+
+    sau=Npix*dpix*dpc
+
+    os.system('radmc3d image incl '+str(inc)+' phi '+str(omega)+' posang '+str(PA-90.0)+'  npix '+str(Npix)+' lambda '+str(wavelength)+' sizeau '+str(sau)+' secondorder  > simimgaes.log')
+    pathin ='image_'+imagename+'_'+tag+'.out'
+    os.system('mv image.out '+pathin)
+    pathout='image_'+imagename+'_'+tag+'.fits'
+    convert_to_fits_canvas(pathin, pathout, canvas+'.fits' ,dpc, mx=offx, my=offy, pbm=pb, omega=omega)
+    os.system('mv '+pathout+' ./images')
+
+
+
+
+def Simimage_canvas_fields(dpc, X0, Y0, imagename, wavelength, Npix, dpix, canvas, inc, PA, offx=0.0, offy=0.0, pb=0.0, tag='', omega=0.0):
 
     # X0, Y0, stellar position (e.g. useful if using a mosaic)
 
@@ -1140,10 +1501,20 @@ def Simimage_canvas(dpc, X0, Y0, imagename, wavelength, Npix, dpix, canvas, inc,
 
 
 
+def Simimage_canvas_alpha(dpc, imagename0, imagename, lam0, newlam, Npix, dpix, canvas, offx=0.0, offy=0.0, pb=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0):
 
+    # images: array of names for images produced at wavelengths
+    # wavelgnths: wavelengths at which to produce images
+    # fields: fields where to make images (=[0] unless observations are a mosaic)
 
+    sau=Npix*dpix*dpc
+    
+    pathin ='image_'+imagename0+'_'+tag0+'.out'
+    pathout='image_'+imagename+'_'+tag+'.fits'
+    convert_to_fits_canvas_alpha(pathin, pathout, canvas+'.fits' ,dpc, lam0, newlam, mx=offx, my=offy, pbm=pb, alpha_dust=alpha_d, omega=omega)
+    os.system('mv '+pathout+' ./images')
 
-def Simimage_canvas_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix, dpix, canvas, offx, offy, pb=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0):
+def Simimage_canvas_fields_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix, dpix, canvas, offx=0.0, offy=0.0, pb=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0):
 
     # images: array of names for images produced at wavelengths
     # wavelgnths: wavelengths at which to produce images
@@ -1159,7 +1530,7 @@ def Simimage_canvas_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix
 
 
 
-def Simimages_canvas_fields(dpc, X0, Y0, images, wavelengths, fields, Npix, dpix, canvas, inc, PA, offx, offy, pb=0.0, tag='', omega=0.0):
+def Simimages_canvas_fields(dpc, X0, Y0, images, wavelengths, fields, Npix, dpix, canvas, inc, PA, offx=0.0, offy=0.0, pb=0.0, tag='', omega=0.0):
 
     # X0, Y0, stellar position (center of the mosaic)
 
@@ -1187,7 +1558,7 @@ def Simimages_canvas_fields(dpc, X0, Y0, images, wavelengths, fields, Npix, dpix
 
 
 
-def Simimages_canvas_fields_alpha(dpc, X0, Y0, image0, image_new, lam0, newlam, fields, Npix, dpix, canvas, offx, offy, pb=0.0, tag='', alpha_d=3.0, omega=0.0):
+def Simimages_canvas_fields_alpha(dpc, X0, Y0, image0, image_new, lam0, newlam, fields, Npix, dpix, canvas, offx=0.0, offy=0.0, pb=0.0, tag='', alpha_d=3.0, omega=0.0):
 
     # images: array of names for images produced at wavelengths
     # wavelgnths: wavelengths at which to produce images
@@ -1201,6 +1572,21 @@ def Simimages_canvas_fields_alpha(dpc, X0, Y0, image0, image_new, lam0, newlam, 
         pathout='image_'+image_new+'_'+tag+'_field'+str(fi)+'.fits'
         convert_to_fits_canvas_fields_alpha(pathin, pathout, canvas+str(fi)+'.fits' ,dpc, lam0, newlam, mx=offx, my=offy, pbm=pb, x0=X0, y0=Y0, alpha_dust=alpha_d, omega=omega)
         os.system('mv '+pathout+' ./images')
+
+
+
+
+################## GAS FITS
+
+
+## ...pending
+
+
+
+
+
+############### MISCELANEOUS
+
 
 
 
@@ -1278,7 +1664,6 @@ def dered(lam,f,Av,Rv):  # unredenning according to cardelli's law
 
 
 
-############### MISCELANEOUS
 
 
 
