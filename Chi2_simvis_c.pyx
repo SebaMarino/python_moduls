@@ -239,7 +239,7 @@ def Model_simvisC_bilinear(pathfitsfile, table, save=False, tag='', offra=0.0, o
     
     chi2=np.sum(((np.real(vmodel)-table[:,2])**2.0+(np.imag(vmodel)-table[:,3])**2.0)*table[:,4] )
     if save:
-        np.save('tablevismodel_'+tag, np.array([np.real(vmodel), np.imag(vmodel) ]))
+        np.save('tablevismodel_'+tag, np.array([np.real(vmodel), np.imag(vmodel),table[:,4]  ]))
     
     Nvis_noflags=len(ais[0])
     return chi2, Nvis_noflags

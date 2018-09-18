@@ -548,7 +548,7 @@ def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',',
             ni=np.sqrt(Mstar/(ai**3.0)) # angular speed
             Tc=2.*np.pi/np.abs(ni-nplt) # conjunction period in years
             if ni*Tc>10.0*np.pi and nplt*Tc>10.0*np.pi:
-                Tc=2.0*np.pi/np.min(ni, nplt)
+                Tc=2.0*np.pi/np.min([ni, nplt])
             #print Tc
             Mrand=np.random.uniform(0.0, 2.0*ni*Tc, Nspread)#ni*Tc, Nspread) # random.uniform
             Mis=Mrand+Mi
@@ -629,6 +629,54 @@ def load_planets(path_sim,  delimiter=','):
             Particles[i1, i2, 8]= Massi
     return Particles
 
+
+def load_particles_spread_x(path_sim, Nspread, delimiter=',' ): # function to load and spread particles from simulation with output: a_initial, a_final, e, pomega, i, Omega, f
+    print "loading particles from "+path_sim
+   
+    # LOAD ORB ELEMENTS OF PARTICLES AND DE-ROTATE THEIR X AND Y
+    particles0=np.loadtxt(path_sim, delimiter=delimiter)
+    Npart=np.shape(particles0)[0]
+    print 'N particles = ',Npart
+    Particles=np.zeros((Npart, Nspread, 8)) # t, x, y,z, a_0, a, e, i
+    
+    for i1 in xrange(Npart):
+       
+        a0i= particles0[i1,0]
+        ai = particles0[i1,1]
+        ei = particles0[i1,2]
+        pomegai = particles0[i1,3]
+        inci = particles0[i1,4]
+        Omegai = particles0[i1,5]
+        Mi =f_to_M(particles0[i1,6], ei)
+        
+        # spread them along orbit
+        if Nspread==1:
+            x,y,z=cartesian_from_orbelement(ai,ei,inci, Omegai, pomegai, Mi)
+
+            Particles[i1, 0, 1]= x
+            Particles[i1, 0, 2]= y
+            Particles[i1, 0, 3]= z
+            Particles[i1, 0, 4]= a0i
+            Particles[i1, 0, 5]= ai
+            Particles[i1, 0, 6]= ei
+            Particles[i1, 0, 7]= inci
+
+        elif Nspread>1:
+            Mis=np.random.uniform(0.0, 2.0*np.pi, Nspread)
+            
+            for i3 in xrange(Nspread):
+                x,y,z=cartesian_from_orbelement(ai,ei,inci, Omegai, pomegai, Mis[i3])
+                Particles[i1, i3, 1]= x
+                Particles[i1, i3, 2]= y
+                Particles[i1, i3, 3]= z
+                Particles[i1, i3, 4]= a0i
+                Particles[i1, i3, 5]= ai
+                Particles[i1, i3, 6]= ei
+                Particles[i1, i3, 7]= inci
+
+
+    return Particles
+
 def Surface_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nbinsx=50, a1=-1.0, a2=-1.0):
     # returns Surface density
 
@@ -648,7 +696,8 @@ def Surface_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nb
     elif a2>a1 and a1>amin and a2<amax: 
         mask= ((Particles[:,0,4]>amin) & (Particles[:,0,4]<a1)) |  ((Particles[:,0,4]<amax) & (Particles[:,0,4]>a2) )
     else:
-        print 'error when masking particles'
+        #print 'error when masking particles'
+        mask= (Particles[:,0,4]>amin) & (Particles[:,0,4]<amax)
 
     xs=Particles[mask,:,1 ].flatten()
     ys=Particles[mask,:,2 ].flatten()
@@ -661,6 +710,42 @@ def Surface_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nb
     # Nxy=np.array(np.histogram2d(Particles[mask,:,2 ],Particles[mask,:,3], bins=[Binsx,Binsx], weights=Particles[mask,:,4 ]**(gamma+1.0))[0], dtype=float)
     # print 'hey'
     return Nxy, Binsx
+
+
+def Volume_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nbinsz=5, Nbinsx=50, a1=-1.0, a2=-1.0):
+    # returns Surface density
+
+    # xmax=200.0         # maximum x and y in AU
+    # # zmax=20.0
+
+    # Nbinsx=80           # number of bins in x and y
+    # # Nbinsz=10           # number of bins in x
+
+    Binsx=np.linspace(-xmax,xmax,Nbinsx+1)
+    dxs=Binsx[1:]-Binsx[:-1]  # radial width of each bin
+    xs=Binsx[:-1]+dxs/2.0    # mean radius at each bin
+    if a1==-1.0 and a2==-1.0:
+        mask= (Particles[:,0,4]>amin) & (Particles[:,0,4]<amax)
+
+    elif a2>a1 and a1>amin and a2<amax: 
+        mask= ((Particles[:,0,4]>amin) & (Particles[:,0,4]<a1)) |  ((Particles[:,0,4]<amax) & (Particles[:,0,4]>a2) )
+    else:
+        print 'error when masking particles'
+
+    Zmax=dxs[0]*(Nbinsz/2.0) 
+    Binsz=np.linspace(-Zmax, Zmax, Nbinsz+1)
+    xs=Particles[mask,:,1 ].flatten()
+    ys=Particles[mask,:,2 ].flatten()
+    zs=Particles[mask,:,3 ].flatten()
+    a0s=Particles[mask,:,4 ].flatten()
+
+    Nxyz=np.array( np.histogramdd( (zs, ys, xs), bins=(Binsz,Binsx,Binsx), weights=a0s**(gamma+1.0))[0], dtype=float)
+
+    Nxyz[:,Nbinsx/2,Nbinsx/2]=0.0
+
+    # Nxy=np.array(np.histogram2d(Particles[mask,:,2 ],Particles[mask,:,3], bins=[Binsx,Binsx], weights=Particles[mask,:,4 ]**(gamma+1.0))[0], dtype=float)
+    # print 'hey'
+    return Nxyz, Binsx, Binsz
 
 def Surface_density_r(Particles, amin, amax, gamma, rmax, Nbins, a1=-1.0, a2=-1.0):
     # returns Surface density

@@ -256,11 +256,14 @@ def opac_arg(amin, amax, density, N, Inte, lnk_file, Type, exp=3.5):
 
                 Op[j,1]+=kabs*W_mass[i]
                 Op[j,2]+=kscat*W_mass[i]
-                Op[j,3]+=g*W_mass[i] 
-
+                Op[j,3]+=g*kscat*W_mass[i]# g*W_mass[i] 
+            
             file_inp.close()
             os.system('rm '+path+'Tempkappa/dustkappa_'+Type+'_'+str(i+1)+'.inp')
 
+        ### normalize g
+        for j in xrange(Nw):
+            Op[j,3]=Op[j,3]/Op[j,2]
 
         final=open(path+pathout,'w')
     
@@ -291,20 +294,87 @@ def write_opacities(optc_file, Nspec, Asedge, grain_density, exp=3.5):
         arch.write("---------------------------------------------------------------------------- \n")
     arch.close()
 
-# def corrupt_opacities(path, lamda0, beta):
+def change_dustopac(Nspec=1, tag=''):
+
+    path='dustopac.inp'
+    path_opac='./'
+    arch=open(path,'w')
+    arch.write("2               Format number of this file \n")
+    arch.write(str(Nspec)+"              Nr of dust species \n")
+    arch.write("============================================================================ \n")
+    for i in xrange(Nspec):
+        arch.write("1               Way in which this dust species is read \n")
+        arch.write("0               0=Thermal grain \n")
+        arch.write("dust_"+str(i+1)+tag+ " Extension of name of dustkappa_***.inp file \n")
+        arch.write("---------------------------------------------------------------------------- \n")
+    arch.close()
+
+
+def corrupt_opacities(path_in, path_out, columns=[], factor=-1.0, value=-1.0 ):
+
+    try:
+        ncol=len(columns)
+    except:
+        print 'columns is not an array'
+        return
+    if ncol==0:
+        print 'no columns were specify'
+        return
+
+    for coli in columns:
+        if coli not in [1,2,3] or not isinstance(coli, int):
+            print 'no valid column or value in columns is not an int' 
+            return
+    file1=open(path_in,'r')
+    ncolsf=int(file1.readline())
+    if ncolsf<ncol: print 'too many columns were specify'
+    Nw1=int(file1.readline())
+    kappa1=np.zeros((Nw1,ncolsf+1))
+
+    for j in xrange(Nw1):
+        line=file1.readline()
+        dat=line.split()
+        for k in xrange(ncolsf+1):
+            kappa1[j,k]=float(dat[k])
+    file1.close()
+
+    file2=open(path_out, 'w')
+
+    ################ REMOVE COLUMNS
+    if factor==-1.0 and value==-1.0:
+        file2.write('%1.0i \n'%(ncolsf-ncol-1))
+        file2.write('%1.0i \n'%Nw1)
+
+        for j in xrange(Nw1):
+            linef='%1.5f\t'%(kappa1[j,0])
+            for k in xrange(ncolsf-ncol):
+                linef=linef+'%1.5f\t'%(kappa1[j,k+1])
+            linef=linef[:-1]+'\n'
+            print linef
+
+            file2.write(linef)
+
+    ################ REPLACE OR MULTIPLY COLUMNS
+    else:
+        file2.write('%1.0i \n'%(ncolsf-1))
+        file2.write('%1.0i \n'%Nw1)
     
-#     file1=open(path1,'r')
-#     file1.readline()
-#     Nw1=int(file1.readline())
-#     kappa1=np.zeros((Nw1,3))
-#     for j in xrange(Nw1):
-#         line=file1.readline()
-#         dat=line.split()
-#         kappa1[j,0]=float(dat[0])
-#         kappa1[j,1]=float(dat[1])
-#         kappa1[j,2]=float(dat[2])
+        if factor>=0.0 and value<0.0:
+            for coli in columns:
+                kappa1[:,coli]= kappa1[:,coli]*factor
+        elif value>=0.0:
+            for coli in columns:
+                kappa1[:,coli]= value
 
-
+        for j in xrange(Nw1):
+            linef='%1.5f\t'%(kappa1[j,0])
+            for k in xrange(ncolsf):
+                linef=linef+'%1.5f\t'%(kappa1[j,k+1])
+            linef=linef[:-1]+'\n'
+            print linef
+            file2.write(linef)
+    file2.close()
+    
 ###################################################################
 ######################## stellar spectrum ########################
 def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star=1.0*M_sun, save_npy=False): # if T_star <0 then it assumes black body of T=- T_star (use this mode if you dont have a stellar template)
@@ -712,6 +782,61 @@ def save_density_cartesian_flat(Ms, field, Nspec, Nx, Xmax, Nz):
     rho_d[:]=field[:,:]
 
     M_dust_temp = np.sum(field)*(dx*au)**2 * (2*Zmax*au)
+
+    for ia in xrange(Nspec):
+
+        rho_d[ia,:]=rho_d[ia,:]*Ms[ia]/M_dust_temp
+
+        # for i in xrange(Nx-1):
+        #     x=Xedge[i]+dx/2.0
+        #     for j in xrange(Nx-1):
+        #         y=Xedge[j]+dx/2.0
+        #         rho=np.sqrt(x**2.0+y**2.0)
+        #         H=H_odisk*(rho/R_odisk)**flare_odisk
+        #         if H==0.0: 
+        #             # print 'hey'
+        #             print rho
+        #         Sigma=field[j,i]
+        #         for k in xrange(Nz-1):
+        #             z=Zedge[k]+dz/2.0
+        #             rho_d[ia,j,i,k]=Sigma #rho_p(Sigma,H,z)
+        #             M_dust_temp+=rho_d[ia,j,i,k]*dx**2.0*dz*au**3.0
+    
+
+    # -------Save it in a file for RADMC
+    path='dust_density.inp'
+    
+    dust_d=open(path,'w')
+    dust_d.write('1 \n') # iformat  
+    dust_d.write(str((Nx)*(Nx)*(Nz))+' \n') # iformat n cells 
+    dust_d.write(str(Nspec)+' \n') # n species
+
+    for ai in xrange(Nspec):
+        for k in range(Nz):
+            for j in range(Nx):
+                for i in range(Nx):
+                    dust_d.write(str(rho_d[ai,k,j,i])+' \n')
+                    
+    dust_d.close()
+
+def save_density_cartesian(Ms, field, Nspec, Nx, Xmax, Nz):
+    # field is a matrix with the surface density of Nx x Nx 
+
+
+    Xedge=np.linspace(-Xmax,Xmax,Nx+1)
+    dx=Xedge[1]-Xedge[0]
+
+    dz=dx
+    Zmax=dz*(Nz)/2.0
+    Zedge=np.linspace(-Zmax,Zmax,Nz+1)
+
+
+
+    rho_d=np.zeros((Nspec,Nz,Nx,Nx))
+
+    rho_d[:]=field
+
+    M_dust_temp = np.sum(field)*(dx*au)**3
 
     for ia in xrange(Nspec):
 
@@ -1192,10 +1317,13 @@ def convert_to_fits_alpha(path_image,path_fits, Npixf, dpc , lam0, newlam, mx=0.
 
 
 
-def convert_to_fits_canvas(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0 , pbm=False, omega=0.0):
+def convert_to_fits_canvas(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0 , pbm=False, omega=0.0, fstar=-1.0):
    
 
     image_in_jypix, nx, ny, nf, lam, pixdeg_x, pixdeg_y = load_image(path_image, dpc)
+    if fstar>=0.0:
+        istar, jstar=star_pix(nx, omega)
+        image_in_jypix[:, :, jstar,istar]=fstar
     image_in_jypix_shifted= shift_image(image_in_jypix, mx, my, pixdeg_x, pixdeg_y, omega=omega)
     flux = np.sum(image_in_jypix_shifted[0,0,:,:])
 
@@ -1368,7 +1496,7 @@ def convert_to_fits_canvas_fields_alpha(path_image,path_fits,path_canvas, dpc, l
     fits.writeto(path_fits, image_in_jypix_float, header, output_verify='fix')
 
 
-def convert_to_fits_canvas_alpha(path_image,path_fits,path_canvas, dpc, lam0, newlam, arcsec=False, mas=False, mx=0.0, my=0.0 , pbm=False, alpha_dust=3.0, omega=0.0):
+def convert_to_fits_canvas_alpha(path_image,path_fits,path_canvas, dpc, lam0, newlam, arcsec=False, mas=False, mx=0.0, my=0.0 , pbm=False, alpha_dust=3.0, omega=0.0, fstar=-1.0):
     
     # modifies existing image using a specral index alpha and assuming
     # the star has a spectral index of -2.
@@ -1381,8 +1509,11 @@ def convert_to_fits_canvas_alpha(path_image,path_fits,path_canvas, dpc, lam0, ne
     image_in_jypix[0,0,istar,istar]=0.0
     image_in_jypix=image_in_jypix*(newlam/lam0)**(-alpha_dust)
     ### star spectral index
-    Fstar=Fstar*(newlam/lam0)**(-2.0)
-    image_in_jypix[0,0,istar,istar]=Fstar
+    if fstar<0.0:
+        Fstar=Fstar*(newlam/lam0)**(-2.0)
+        image_in_jypix[0,0,istar,istar]=Fstar
+    else:
+        image_in_jypix[0,0,istar,istar]=fstar
 
     image_in_jypix_shifted= shift_image(image_in_jypix, mx, my, pixdeg_x, pixdeg_y, omega=omega)
 
@@ -1462,7 +1593,7 @@ def Simimage_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix, dpix,
     os.system('mv '+pathout+' ./images')
 
 
-def Simimage_canvas(dpc, imagename, wavelength, Npix, dpix, canvas, inc, PA, offx=0.0, offy=0.0, pb=0.0, tag='', omega=0.0):
+def Simimage_canvas(dpc, imagename, wavelength, Npix, dpix, canvas, inc, PA, offx=0.0, offy=0.0, pb=0.0, tag='', omega=0.0, fstar=-1.0):
 
     # X0, Y0, stellar position (e.g. useful if using a mosaic)
 
@@ -1471,12 +1602,11 @@ def Simimage_canvas(dpc, imagename, wavelength, Npix, dpix, canvas, inc, PA, off
     # fields: fields where to make images (=[0] unless observations are a mosaic)
 
     sau=Npix*dpix*dpc
-
-    os.system('radmc3d image incl '+str(inc)+' phi '+str(omega)+' posang '+str(PA-90.0)+'  npix '+str(Npix)+' lambda '+str(wavelength)+' sizeau '+str(sau)+' secondorder  > simimgaes.log')
+    os.system('radmc3d image incl '+str(inc)+' phi '+str(omega)+' posang '+str(PA-90.0)+'  npix '+str(Npix)+' lambda '+str(wavelength)+' sizeau '+str(sau)+' secondorder > simimgaes.log')
     pathin ='image_'+imagename+'_'+tag+'.out'
     os.system('mv image.out '+pathin)
     pathout='image_'+imagename+'_'+tag+'.fits'
-    convert_to_fits_canvas(pathin, pathout, canvas+'.fits' ,dpc, mx=offx, my=offy, pbm=pb, omega=omega)
+    convert_to_fits_canvas(pathin, pathout, canvas+'.fits' ,dpc, mx=offx, my=offy, pbm=pb, omega=omega, fstar=fstar)
     os.system('mv '+pathout+' ./images')
 
 
@@ -1501,7 +1631,7 @@ def Simimage_canvas_fields(dpc, X0, Y0, imagename, wavelength, Npix, dpix, canva
 
 
 
-def Simimage_canvas_alpha(dpc, imagename0, imagename, lam0, newlam, Npix, dpix, canvas, offx=0.0, offy=0.0, pb=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0):
+def Simimage_canvas_alpha(dpc, imagename0, imagename, lam0, newlam, Npix, dpix, canvas, offx=0.0, offy=0.0, pb=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0, fstar=-1.0):
 
     # images: array of names for images produced at wavelengths
     # wavelgnths: wavelengths at which to produce images
@@ -1511,7 +1641,7 @@ def Simimage_canvas_alpha(dpc, imagename0, imagename, lam0, newlam, Npix, dpix, 
     
     pathin ='image_'+imagename0+'_'+tag0+'.out'
     pathout='image_'+imagename+'_'+tag+'.fits'
-    convert_to_fits_canvas_alpha(pathin, pathout, canvas+'.fits' ,dpc, lam0, newlam, mx=offx, my=offy, pbm=pb, alpha_dust=alpha_d, omega=omega)
+    convert_to_fits_canvas_alpha(pathin, pathout, canvas+'.fits' ,dpc, lam0, newlam, mx=offx, my=offy, pbm=pb, alpha_dust=alpha_d, omega=omega, fstar=fstar)
     os.system('mv '+pathout+' ./images')
 
 def Simimage_canvas_fields_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix, dpix, canvas, offx=0.0, offy=0.0, pb=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0):
