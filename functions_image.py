@@ -4,6 +4,10 @@ from astropy.convolution import convolve_fft
 import matplotlib.colors as cl
 import matplotlib.pyplot as plt
 import os,sys
+from matplotlib.patches import Ellipse
+from matplotlib.colors import LogNorm
+from matplotlib import rc
+import copy
 
 G=6.67384e-11 # mks
 M_sun= 1.9891e30 # kg
@@ -32,7 +36,7 @@ def simple_phi(phi):
     else: 
         phir=phi
     if phir<0.0:
-        phir=2.0*np.pi-phir
+        phir=2.0*np.pi+phir
     return phir
 
 def x_phi(phi, a, b):
@@ -44,6 +48,18 @@ def x_phi(phi, a, b):
     else:
         sign=-1.0
     return sign/np.sqrt(np.tan(phi)**2.0/b**2.0 + 1./a**2.)
+
+def y_phi(phi, a, b):
+    
+    phi=simple_phi(phi)
+    
+    if phi>=0.0 and phi<=np.pi:
+        sign=1.0
+    else:
+        sign=-1.0
+    
+    return sign/np.sqrt(1./b**2.0 + 1./(a**2.*np.tan(phi)**2.0))
+
 
 def separate_intervals(phi1, phi2, Nint):
     # Figure out the right ranges of xs' to integrate. Does phi=0.0 pr phi=180 is contained in range?
@@ -61,7 +77,7 @@ def arc_length(a,b,phi1, phi2):
 
     phi1=simple_phi(phi1) 
     phi2=simple_phi(phi2)
-    # Figure out the right ranges of xs' to integrate. Does phi=0.0 pr phi=180 is contained in range?
+    # Figures out the right ranges of xs' to integrate. Does phi=0.0 pr phi=180 is contained in range?
     phis=separate_intervals(phi1, phi2, Nint)
     
     Nph=len(phis)
@@ -129,8 +145,10 @@ def arc_length2(a,b,phi1, phi2):
 
 
 
-def ellipse(x0,y0,phi,chi,a, PA):
+def ellipse1(x0,y0,phi,chi,a, PA):
 
+    ## phi is a position angle, but in the plane of the disc (i.e. inclined)
+    
     # x0,y0 ellipse center
     # phi pa at which calculate x,y phi=0 is +y axis
     # chi aspect ratio of ellipse with chi>1
@@ -151,21 +169,34 @@ def ellipse(x0,y0,phi,chi,a, PA):
     
     return xc , yc
 
-    
-    # phipp= phi - PA
-    
-    # xpp =  a/chi        * np.cos(phipp) 
-    # ypp =   a    * np.sin(phipp)
 
-    # xp=  xpp*np.cos(-PA) + ypp*np.sin(-PA)
-    # yp= -xpp*np.sin(-PA) + ypp*np.cos(-PA)
-    
-    # xc = xp + x0
-    # yc = yp + y0
-    
-    # return xc , yc
+def ellipse2(x0,y0,phi,chi,a, PA):
 
-#  non parametric fit 
+    ## phi is a position angle in the plane of the sky
+    
+    # x0,y0 ellipse center
+    # phi pa at which calculate x,y phi=0 is +y axis
+    # chi aspect ratio of ellipse with chi>1
+    # a semi-major axis
+    # a/chi semi-minor axis
+    # PA  pa of ellipse 0 is north and pi/2 is east
+
+    phipp= phi-PA
+    
+    
+    xpp=x_phi(np.pi/2.0-phipp, a/chi, a)
+    ypp=y_phi(np.pi/2.0-phipp, a/chi, a)
+    #xpp = (a/chi) * np.sin(phipp) 
+    #ypp =    a    * np.cos(phipp)
+
+    xp =  xpp*np.cos(PA) + ypp*np.sin(PA)
+    yp = -xpp*np.sin(PA) + ypp*np.cos(PA)
+    
+    xc = xp + x0
+    yc = yp + y0
+    
+    return xc , yc
+ 
 
 
 
@@ -224,8 +255,8 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
         ai=rs[i_r]
         for i_p in xrange(Nphi):
 
-            phi1=phis_rad[i_p] 
-            XS1,YS1=ellipse(x0,y0,phi1,chi,ai, PA_rad)
+            phi1=phis_rad[i_p]  # in the plane of the disc
+            XS1,YS1=ellipse2(x0,y0,phi1,chi,ai, PA_rad)
         
             ip1 = -int(XS1/ps_arcsec)+Np/2
             jp1 = int(YS1/ps_arcsec)+Np/2
@@ -309,8 +340,20 @@ def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, arc='eli
     # change units from Jy/pix to Jy/arcsec
 
     if header1['BUNIT']=='JY/PIXEL':
-        data1=data1/(ps_arcsec1**2)
-    
+        
+        try:
+            BMAJ=float(header1['BMAJ']) # deg
+            BMIN=float(header1['BMIN']) # deg
+            BPA=float(header1['BPA']) # deg
+
+            BMAJ_arcsec1=BMAJ*3600.0
+            BMIN_arcsec1=BMIN*3600.0
+            print BMAJ_arcsec1, BMIN_arcsec1
+            beam_area=np.pi*BMAJ_arcsec1*BMIN_arcsec1/(4.*np.log(2.))
+            
+            data1=data1*beam_area/(ps_arcsec1**2)
+        except:
+            data1=data1/(ps_arcsec1**2)
     return radial_profile(data1, np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc)
 
 
@@ -392,8 +435,8 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcs
 
     xv, yv = np.meshgrid(xs-x0, ys-y0, sparse=False, indexing='xy')
 
-    xpp = xv * np.cos(PA) - yv *np.sin(PA) ### along minor axis
-    ypp = xv * np.sin(PA) + yv *np.cos(PA) ###  along major axis
+    xpp = xv * np.cos(PA_rad) - yv *np.sin(PA_rad) ### along minor axis
+    ypp = xv * np.sin(PA_rad) + yv *np.cos(PA_rad) ###  along major axis
 
     # PAs=np.arctan2(xpp,ypp)*180.0/np.pi
 
@@ -411,7 +454,9 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcs
         
         F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
         
-    
+    # plt.pcolor(xs, ys, image)
+    # plt.contour(xs,ys,rdep)
+    # plt.show()
     return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI 
 
 
@@ -548,6 +593,13 @@ def Convolve_beam(path_image, BMAJ, BMIN, BPA):
 
 
     
+def fcolor_black_white(i,N):
+
+    l=i*1.0/(N-1)
+    rgb=[l, l, l]
+
+    return cl.colorConverter.to_rgb(rgb)
+    
 def fcolor_blue_red(i,N):
 
     rgb=[i*1.0/(N-1), 0.0, 1.0-i*1.0/(N-1)]
@@ -584,7 +636,7 @@ def inter(Nin,Nout,i,j,ps1,ps2,Fin):
 
 	f=0.0
 	S=0.0
-	a=2.0*ps1
+	a=1.0*ps1
 	di=(i-Nout/2.0)*ps2
 	dj=(j-Nout/2.0)*ps2
 	
@@ -609,7 +661,7 @@ def inter(Nin,Nout,i,j,ps1,ps2,Fin):
 			dm=(m-Nin/2.0)*ps1
 			
 			r=np.sqrt((dn-di)**2.0+(dm-dj)**2.0)
-			if r<a: 
+			if r<2*a: 
 				P=np.exp(-r**2.0/(2.0*a**2.0))
 				f=f+P*Fin[n,m]
 				S=S+P
@@ -621,12 +673,17 @@ def inter(Nin,Nout,i,j,ps1,ps2,Fin):
 		return f/S
 
 def interpol(Nin,Nout,ps1,ps2,Fin):
+    print Nin, Nout
+    if ps1!=ps2 or Nin!=Nout:
 	F=np.zeros((Nout,Nout), dtype=np.float64)
 	for i in range(Nout):
                 #print i
 		for j in range (Nout):	
 			F[i,j]=inter(Nin,Nout,i,j,ps1,ps2,Fin)
-	return F
+    else:
+        print 'no interpolation'
+        F=Fin
+    return F
 
     
 def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX): # for images from CASA
@@ -685,6 +742,32 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX): # for images 
         return image, rmsmap_out, xf, yf, BMAJ, BMIN, BPA
     else:
         return image, xf, yf, BMAJ, BMIN, BPA
+
+
+def fload_fits_image_mira(path_image, ps_final, XMAX): # for images from CASA
+
+    ### PS_final in mas
+
+    ##### LOAD IMAGE
+    fit1	= pyfits.open(path_image) # open image cube
+    data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
+
+    #### READ HEADER
+    header1	= fit1[0].header
+    ps_mas1=float(header1['CDELT2'])
+    
+    N1=len(data1[:,0])
+
+    Nf=int(XMAX*2.0/(ps_final))
+    
+    xf=np.zeros(Nf+1)
+    yf=np.zeros(Nf+1)
+    for i in range(Nf+1):
+        xf[i]=-(i-Nf/2.0)*ps_final  
+        yf[i]=(i-Nf/2.0)*ps_final
+
+    image=interpol(N1,Nf,ps_mas1,ps_final, data1)
+    return image, xf, yf
     
 
 
@@ -775,7 +858,7 @@ def fload_fits_cube(path_cube, line='CO32'): # for images from CASA
     fs=np.linspace(f0,f0+df*(Nf),Nf) #GHz
     vs=-(fs-f_line)*ckms/f_line  # km/s
     
-    dv=abs(vs[0]-vs[1]) # km/s
+    dv=vs[1]-vs[0] # km/s
     print "dv [km/s] = ", dv
     print "dnu [GHz] = ", df
 
@@ -814,7 +897,7 @@ def moment_0(path_cube, line='CO32', v0=0.0, dvel=10.0,  rmin=0.0, inc=90.0, M_s
         
 
 
-def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, x0, y0, corr=True):
+def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, x0, y0, averaged=True):
     
     # returns flux in Jy (cube must be in Jy/arcsec2) 
 
@@ -826,7 +909,7 @@ def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, 
     elif Dvel>0.0 and dv<0.0:
         k_min=max(0, int((v0+Dvel-vs[0])/dv) )
         k_max=min(Nf, int((v0-Dvel-vs[0])/dv) )
-        print k_min,k_max, dv, Dvel, v0
+        # print k_min,k_max, dv, Dvel, v0
 
     else:
         print 'error, dv<0 or Dvel<0'
@@ -862,10 +945,11 @@ def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, 
     # plt.show()
     Delta=(ps_arcsec**2.0)*abs(dv) # constant to obtain total flux in Jy km/s
     Rms=np.std(Rmss)
-    if corr:
-        factor=2.667
+    if averaged:
+        factor=1.15 # typically for 0.8 km/s wide channels that result from averaging 0.4km/2 channels
+        # https://safe.nrao.edu/wiki/pub/Main/ALMAWindowFunctions/Note_on_Spectral_Response.pdf
     else:
-        factor=1.0
+        factor=2.0 #  for 0.4 km/s wide channels without averaging
     dF=Rms*np.sqrt(Nfr*factor)*Delta
     if dF==0.0:
         return 1.0e-6, 1.0 
@@ -995,7 +1079,7 @@ def deproj_vis(u,v,Inc,pa):
     return up,vp
 
 
-def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0], ):
+def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
 
     
     amps=np.sqrt(reals**2+imags**2)
@@ -1052,3 +1136,93 @@ def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0], 
              Amp_mean[ir]=np.nan
              
     return Rs_edge, Rs, np.array([Real_mean, Real_std, Real_error]), np.array([Imag_mean, Imag_std, Imag_error]), np.array([Amp_mean, Amp_std, Amp_error])
+
+def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, star=True, xstar=0.0, ystar=0.0, cbar_log=False, xunit='arcsec'):
+
+
+    plt.style.use('style1')
+    font= {'family':'Times New Roman', 'size': 12}
+    rc('font', **font)
+
+    fig = plt.figure(figsize=(4,4.6))#(8,6))
+
+    ax1=fig.add_subplot(111)
+
+
+    if not cbar_log:
+        pc=ax1.pcolormesh(xedge,yedge,image, vmin=vmin, vmax=vmax,  cmap=colormap, rasterized=True)
+        #pc.set_edgecolor('face')
+        cb= fig.colorbar(pc,orientation='horizontal',label=clabel,format=formatcb, ticks=cbticks, pad=0.12)
+        cb.ax.minorticks_on()
+    else:
+        my_cmap = copy.copy(plt.cm.get_cmap(colormap)) # copy the default cmap
+        my_cmap.set_bad((0,0,0))
+        pc=ax1.pcolormesh(xedge,yedge,image, norm=LogNorm(vmin=vmin, vmax=vmax),  cmap=my_cmap, rasterized=True)
+        #pc.set_edgecolor('face')
+        cb= fig.colorbar(pc,orientation='horizontal',label=clabel, pad=0.12)
+
+    c1=fcolor_black_white(0.5,3)
+    c2=fcolor_black_white(1.0,3)
+    c3=fcolor_black_white(1.5,3)
+
+    if contours:
+        PS=abs(yedge[1]-yedge[0])
+        c1=plt.contour(xedge[:-1]-PS/2.0,yedge[:-1]+PS/2.0, image/rmsmap, levels=[3.0,5.0, 8.0],colors=[c1,c2, c3], linewidths=0.7)
+        # cb.add_lines(con2)
+
+    ax1.set_xticks(major_ticks)                                                       
+    ax1.set_xticks(minor_ticks, minor=True)                                           
+    ax1.set_yticks(major_ticks)                                                       
+    ax1.set_yticks(minor_ticks, minor=True) 
+
+    for tick in ax1.get_xticklines():
+        tick.set_color(tickcolor)
+
+    for minortick in ax1.xaxis.get_minorticklines():
+        minortick.set_color(tickcolor)
+
+    for tick in ax1.get_yticklines():
+        tick.set_color(tickcolor)
+
+    for minortick in ax1.yaxis.get_minorticklines():
+        minortick.set_color(tickcolor)
+
+        ax1.spines['bottom'].set_color(tickcolor)
+        ax1.spines['top'].set_color(tickcolor)
+        ax1.spines['left'].set_color(tickcolor)
+        ax1.spines['right'].set_color(tickcolor)
+
+    ax1.set_xlabel('RA offset ['+xunit+']')
+    ax1.set_ylabel('DEC offset ['+xunit+']')
+    ax1.set_xlim(XMAX,-XMAX)
+    ax1.set_ylim(-XMAX,XMAX)
+    ax1.set_aspect('equal')
+
+    #---add beam
+    if BMAJ!=0.0 and BMIN!=0.0:
+        xc=XMAX-2.0*abs(minor_ticks[1]-minor_ticks[0])
+        yc=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
+        width= BMAJ
+        height= BMIN
+        pa=BPA
+        elli=Ellipse((xc,yc),width,height,angle=90.-pa,linewidth=3,fill=True,color='white', alpha=1.0)
+        #elli.set_clip_box(ax1.bbox)
+        #elli.set_alpha(0.7)
+        #elli.set_facecolor('black')
+        #ax1.add_artist(elli)
+        ax1.add_patch(elli)
+
+    if star:
+        # add star
+        ax1.plot(xstar , ystar, marker='+', color=tickcolor, markersize=3.5, mew=1.0)
+
+
+    plt.tight_layout()
+    plt.subplots_adjust(left=0.17, bottom=0.01, right=0.97, top=1.0)
+    print 'saving...'
+
+    plt.savefig(filename, dpi=500)#,format='png', dpi=500)
+    print 'saved'
+
+    if show:
+        plt.show()
