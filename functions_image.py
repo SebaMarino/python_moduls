@@ -217,7 +217,8 @@ def xyarray(Np, ps_arcsec):
 
     return xs, ys, xedge, yedge
 
-def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcsec, ps_arcsec):
+
+def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcsec, ps_arcsec, error_std=False, arc='elipse'):#, plot=False):
 
     # x0, y0 are RA DEC offsets in arcsec
     # PA and inc are PA and inc of the disc in deg
@@ -258,11 +259,29 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
         
             ip1 = -int(XS1/ps_arcsec)+Np/2
             jp1 = int(YS1/ps_arcsec)+Np/2
-        
+            
             Irs1[i_r,i_p] = image[jp1,ip1] 
             Irs2[i_r,i_p] = image_pb[jp1,ip1]
 
-    Ir1=np.mean(Irs1, axis=1) # mean intensity in Jy/beam
+    # if plot:
+    #     imagep=image*1.0
+    #     for i_p in xrange(Nphi):
+            
+    #         phi1=phis_rad[i_p] 
+    #         XS1,YS1=ellipse(x0,y0,phi1,chi,2.8, PA_rad)
+        
+    #         ip1 = -int(XS1/ps_arcsec)+Np/2
+    #         jp1 = int(YS1/ps_arcsec)+Np/2
+            
+    #         imagep[jp1,ip1]=0.0#imagep[jp1,ip1]
+    #     fig=plt.figure()
+    #     ax1=fig.add_subplot(111)
+    #     pc=ax1.pcolormesh(imagep, vmin=0.0, vmax=2.0e-5)
+    #     cb= fig.colorbar(pc)
+    #     ax1.set_aspect('equal')
+    #     plt.show()
+        
+    Ir1=np.nanmean(Irs1, axis=1) # mean intensity in Jy/beam
     Ir2=np.zeros(Nr)
     
     for i in xrange(Nphi):
@@ -270,41 +289,40 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
 
     Ir2=np.sqrt(Ir2/(Nphi))
 
-    # Calculate number of independent points (this bit can be edited as it might not be true for highly inclined discs)
+    # Calculate number of independent points 
 
-    Nindeps_1=np.ones(Nr)
 
+    
     # arclength=dphi*(Nphi-1) # radians
-    arclength=(Nphi-1)*dphi* np.sqrt(  (1.0 + (1.0/chi)**2.0 )/2.0 )
-    for i in xrange(Nr):
+    if arc=='simple_elipse':
+        arclength=(Nphi-1)*dphi* np.sqrt(  (1.0 + (1.0/chi)**2.0 )/2.0 ) # normalice 
+    else:
+        arclength, phiint= arc_length2(1.0,1.0/chi, phis_rad[0], phis_rad[-1])
 
-        Nindeps_1i=rs[i]*arclength/BMAJ_arcsec
-
-        if Nindeps_1i>1.0:  Nindeps_1[i]=Nindeps_1i
-
-    print arclength
-    print np.max(Nindeps_1), BMAJ_arcsec
+    print 'arc length = [deg] ', arclength*180.0/np.pi
+    Nindeps_1=rs*arclength/BMAJ_arcsec
+    Nindeps_1[Nindeps_1<1.0]=1.0
     
-    Err_1=Ir2/np.sqrt(Nindeps_1)
 
-    
+    if error_std:
+        Err_1=np.nanstd(Irs1, axis=1)/np.sqrt(Nindeps_1)
+
+    else:
+        Err_1=Ir2/np.sqrt(Nindeps_1)
+
     
     return np.array([rs, Ir1, Err_1]) # rs, I, eI 
 
 
 
 
-def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, rms):
+
+
+def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, arc='elipse'):
 
 
     fit1=pyfits.open(fitsfile)
-    try: 
-        data1 	= fit1[0].data[0,0,:,:] #extraer matriz de datos
-    except:
-        try:
-            data1 	= fit1[0].data[0,:,:] #extraer matriz de datos
-        except:
-            data1 	= fit1[0].data[:,:] #extraer matriz de datos
+    data1 	= get_last2d(fit1[0].data) #extraer matriz de datos
     
     # print np.shape(data1)
     header1=fit1[0].header
