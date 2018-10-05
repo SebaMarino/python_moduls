@@ -776,3 +776,52 @@ def Surface_density_r(Particles, amin, amax, gamma, rmax, Nbins, a1=-1.0, a2=-1.
     Nr[0]=0.0
 
     return Nr, Rs
+
+
+def orbit_resonance_rotframe(aplt,  ecc, inc, p, q,
+                             eplt=0.0,
+                             iplt=0.0,
+                             Omegaplt=0.0,
+                             pomegaplt=0.0,
+                             Omegap=0.0,
+                             pomegap=0.0,
+                             Mstar=1.0,
+                             res='external'):
+
+    Norbits=100.0
+    Np=2000
+    #### PLANET ORBIT
+    
+    Tplt=np.sqrt(aplt**3.0/Mstar) # yr
+    
+    ts=np.linspace(0.0, Norbits*Tplt, Np)
+    Maplt=(ts/Tplt)*2.*np.pi
+
+    alphas=np.zeros(Np)
+
+    for i in xrange(Np):
+        #xi,yi,zi=cartesian_from_orbelement(aplt,eplt,iplt, Omegaplt, pomegaplt, Mplt[i])
+
+        fi=M_to_f(Maplt[i], eplt)
+        alphas[i]=pomegaplt+fi#np.arctan2(yi,xi)
+        
+    #### particles (external resonance)
+    if res=='external':
+        a=aplt*(float(p+q)/float(p))**(2./3.)
+    elif res=='internal':
+        a=aplt*(float(p)/float(p+q))**(2./3.)
+    else:
+        print 'error, no internal nor exernal resonance'
+        sys.exit()
+    Tp=np.sqrt(a**3.0/Mstar) # yr
+    print Tp, Tplt
+    Map=(ts/Tp)*2.*np.pi
+
+    xs=np.zeros(Np)
+    ys=np.zeros(Np)
+    
+    for i in xrange(Np):
+        xs[i],ys[i],zi=cartesian_from_orbelement_rotating_frame(a,ecc,0.0, Omegap, pomegap, Map[i], alphas[i])
+
+
+    return xs, ys, alphas, a

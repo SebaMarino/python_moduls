@@ -7,6 +7,8 @@ from matplotlib.patches import Ellipse
 from matplotlib.colors import LogNorm
 from matplotlib import rc
 import copy
+import colorsys
+    
 
 G=6.67384e-11 # mks
 M_sun= 1.9891e30 # kg
@@ -456,7 +458,73 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcs
     # plt.pcolor(xs, ys, image)
     # plt.contour(xs,ys,rdep)
     # plt.show()
-    return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI 
+    return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI
+
+def flux_azimuthal_profile(image, image_pb, x0, y0, PA, inc, rmin, rmax, NPA, rms,  BMAJ_arcsec, BMIN_arcsec, ps_arcsec):
+
+    # x0, y0 are RA DEC offsets in arcsec
+    # PA and inc are PA and inc of the disc in deg
+    # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
+    # Nr is the number of radial points to calculate
+    # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
+
+    # ################ SPATIAL GRID
+
+    # XY
+
+    Np=len(image[:,0])
+
+    xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
+
+    
+    # R phi
+
+    PA_rad=PA*np.pi/180.0
+    # phis_rad=phis*np.pi/180.0 
+    # dphi=abs(phis_rad[1]-phis_rad[0])
+    # Nphi=len(phis_rad)
+
+    
+    ecc= np.sin(inc*np.pi/180.0)
+    chi=1.0/(np.sqrt(1.0-ecc**2.0)) # aspect ratio between major and minor axis (>=1)
+
+    Beam_area=np.pi*BMAJ_arcsec*BMIN_arcsec/(4.0*np.log(2.0)) # in arcsec2
+
+    
+    ##### Calculate flux within rmin, rmax and PA bins
+    F=np.zeros((NPA,2))
+
+
+    xv, yv = np.meshgrid(xs-x0, ys-y0, sparse=False, indexing='xy')
+
+    xpp = xv * np.cos(PA_rad) - yv *np.sin(PA_rad) ### along minor axis
+    ypp = xv * np.sin(PA_rad) + yv *np.cos(PA_rad) ###  along major axis
+
+
+    rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
+
+    PAs=np.arctan2(xpp,ypp) # rad
+    
+    rmsmap2=(rms/image_pb)**2.0
+    
+    print Beam_area
+    PA_array=np.linspace(-np.pi, np.pi, NPA+1)
+    PA_mid=PA_array[:-1]+(PA_array[1]-PA_array[0])/2.
+    for i_pa in xrange(NPA):
+        
+        mask=(rdep<=rmax) & (rdep>rmin) & (PAs>PA_array[i_pa]) & (PAs<=PA_array[i_pa+1])
+    
+        F[i_pa,0]= np.sum(image[mask]*(ps_arcsec**2.0)/Beam_area)
+        F[i_pa,1]= np.sum( rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
+
+        # Correct by number of independent points
+    
+        F[i_pa,1]= np.sqrt(F[i_pa,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
+        
+    # plt.pcolor(xs, ys, image)
+    # plt.contour(xs,ys,rdep)
+    # plt.show()
+    return np.array([PA_mid, F[:,0], F[:,1]]) # rs, I, eI 
 
 
 def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, phis, rms):
@@ -487,6 +555,36 @@ def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,N
     BMIN_arcsec1=BMIN*3600.0
     
     return flux_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1)
+
+def flux_azimuthal_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmin, rmax, NPA,  rms):
+
+
+    fit1=pyfits.open(fitsfile_pbcor)
+    data1=get_last2d(fit1[0].data) 
+
+    # print np.shape(data1)
+    header1=fit1[0].header
+    ps_deg1=float(header1['CDELT2'])
+    ps_arcsec1=ps_deg1*3600.0
+    ps_rad1=ps_deg1*np.pi/180.0
+    Np1=len(data1[:,0])
+
+    if fitsfile_pb!='':
+        fit2=pyfits.open(fitsfile_pb)
+        data2 = get_last2d(fit2[0].data) #extraer matriz de datos
+    else:
+        data2=np.ones((Np1,Np1))
+
+    
+    BMAJ=float(header1['BMAJ']) # deg
+    BMIN=float(header1['BMIN']) # deg
+    BPA=float(header1['BPA']) # deg
+
+    BMAJ_arcsec1=BMAJ*3600.0
+    BMIN_arcsec1=BMIN*3600.0
+    
+    return flux_azimuthal_profile(data1, data2, x0, y0, PA, inc, rmin, rmax, NPA, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1)
+
 
 
 
@@ -676,7 +774,7 @@ def interpol(Nin,Nout,ps1,ps2,Fin):
         F=Fin
     return F
 
-def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX): # for images from CASA
+def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=False): # for images from CASA
 
     ### PS_final in mas
 
@@ -716,6 +814,11 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX): # for images 
         data1=data1/(ps_arcsec1**2.0) # Jy/pixel to Jy/arcsec2
     # x1, y1, x1edge, y1edge = xyarray(N1, ps_arcsec1)
 
+    if remove_star:
+        ij=np.unravel_index(np.argmax(data1, axis=None), data1.shape)
+        print ij
+        data1[ij]=0.0
+    
     Nf=int(XMAX*2.0/(ps_final/1000.0))
     psf_arcsec=ps_final/1000.0
     
@@ -1215,3 +1318,22 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
     if show:
         plt.show()
+
+        
+def lighten_color(color, amount=0.5):
+    # copied from https://stackoverflow.com/questions/37765197/darken-or-lighten-a-color-in-matplotlib
+    """
+    Lightens the given color by multiplying (1-luminosity) by the given amount.
+    Input can be matplotlib color string, hex string, or RGB tuple.
+
+    Examples:
+    >> lighten_color('g', 0.3)
+    >> lighten_color('#F034A3', 0.6)
+    >> lighten_color((.3,.55,.1), 0.5)
+    """
+    try:
+        c = cl.cnames[color]
+    except:
+        c = color
+    c = colorsys.rgb_to_hls(*cl.to_rgb(c))
+    return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
