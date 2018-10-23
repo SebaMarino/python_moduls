@@ -377,7 +377,7 @@ def corrupt_opacities(path_in, path_out, columns=[], factor=-1.0, value=-1.0 ):
     
 ###################################################################
 ######################## stellar spectrum ########################
-def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star=1.0*M_sun, save_npy=False): # if T_star <0 then it assumes black body of T=- T_star (use this mode if you dont have a stellar template)
+def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star=1.0*M_sun, save_npy=False, separation=0.0, inc=0.0, plt=False, T_plt=0.0, R_plt=0.0, M_plt=0.0): # if T_star <0 then it assumes black body of T=- T_star (use this mode if you dont have a stellar template)
 
     # -------- STAR and wavelength
     
@@ -445,16 +445,26 @@ def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star
     path='stars.inp'
     arch_star=open(path,'w')
     arch_star.write('2 \n')
-    arch_star.write('1  '+str(Nw)+'\n')
-    arch_star.write(str(R_star)+'\t'+str(M_star)+'\t'+'0.0   0.0   0.0 \n')
+    if plt:
+        arch_star.write('2  '+str(Nw)+'\n')
+    else:
+        arch_star.write('1  '+str(Nw)+'\n')
+    arch_star.write(str(R_star)+'\t'+str(M_star)+'\t'+str(separation)+' '+str(inc)+' 0.0 \n')
+    if plt:
+        arch_star.write(str(R_plt)+'\t'+str(M_plt)+'\t'+'0.0 0.0 0.0   \n')
+    ### wavelengths
     for i in xrange(Nw):
         arch_star.write(str(waves[i])+'\n')
-
+    ### star
     if T_star>0.0:
         for i in xrange(Nw):
             arch_star.write(str(Flux[i])+'\n')
     else:
             arch_star.write(str(T_star)+'\n')
+    ### planet
+    if plt:
+        arch_star.write(str(-T_plt)+'\n')
+
     arch_star.close()
 
     if save_npy:
