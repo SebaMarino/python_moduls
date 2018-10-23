@@ -6,6 +6,7 @@ import os,sys
 from matplotlib.patches import Ellipse
 from matplotlib.colors import LogNorm
 from matplotlib import rc
+import matplotlib.pyplot as plt
 import copy
 import colorsys
     
@@ -1336,4 +1337,5 @@ def lighten_color(color, amount=0.5):
     except:
         c = color
     c = colorsys.rgb_to_hls(*cl.to_rgb(c))
+    print c
     return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
