@@ -23,7 +23,7 @@ def dsdx(x,a,b): # ds/dx over an ellipse
 def Delta_s(xs, a,b): # delta s over an ellipse
 
     ys=np.zeros(len(xs))
-    mask=((xs >= a ) & (xs<=-a))
+    mask=((xs <= a ) & (xs>=-a)) # to avoid imaginary numbers 
 
     if xs[-1]<xs[0]:
         ys[mask]=b*np.sqrt(1.-xs[mask]**2.0/a**2)
@@ -240,7 +240,9 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
     # R phi
 
     PA_rad=PA*np.pi/180.0
-    phis_rad=phis*np.pi/180.0 
+    phis_rad=phis*np.pi/180.0
+    #phis_rad[phis_rad<0.0]=2.*np.pi+phis_rad[phis_rad<0.0] # phi is possitive everywhere, not necessary as this is properly accounted for later
+    
     dphi=abs(phis_rad[1]-phis_rad[0])
     Nphi=len(phis_rad)
 
