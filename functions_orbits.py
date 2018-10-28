@@ -24,6 +24,22 @@ def M_to_f(M,e):
 
     return f
 
+def M_to_f_array(M,e):
+
+    # Converts mean anomaly M in radians into true anomaly f in radians
+    mask=M>=2.0*np.pi
+    M[mask]=M[mask]-np.floor(M[mask]/(2.0*np.pi))*2.0*np.pi
+
+    # Newton's to find solution to E-e*sin(E)=M
+    E=M
+    for ip in xrange(10):
+        E= E - (E-e*np.sin(E)-M) / (1-e*np.cos(E))
+
+    # derive f from E
+    f = 2.0 * np.arctan2( (1+e)**0.5 * np.sin(E/2.0), (1-e)**0.5 * np.cos(E/2.0)) 
+
+    return f
+
 def f_to_M(f,e):
 
     # converts true anomaly f to mean anomaly M, both in radians.
@@ -39,8 +55,12 @@ def M_to_r(M, a, e ):
     
     # get true anomaly f
     if e<1.0:
-        f = M_to_f(M,e)
-        r = a*(1.0-e**2.0)/(1.0+e*np.cos(f)) 
+        if hasattr(M,"__len__"):
+            f = M_to_f_array(M,e)
+            r = a*(1.0-e**2.0)/(1.0+e*np.cos(f)) 
+        else:
+            f = M_to_f(M,e)
+            r = a*(1.0-e**2.0)/(1.0+e*np.cos(f)) 
         return r,f
     else:
         return 0.0, 0.0
@@ -114,7 +134,6 @@ def draw_random_projectedrfz(a,e,inc,omega, Nr):
     return Rs, Zs
 
 def cartesian_from_orbelement(a,e,inc, Omega, pomega, M):
-    
     r, f= M_to_r(M, a, e )
     arg_peri=pomega-Omega
     x=r* ((np.cos(Omega)*np.cos(arg_peri+f)) -  (np.sin(Omega)*np.sin(arg_peri+f)*np.cos(inc))  )
@@ -165,8 +184,9 @@ def draw_random_xyz_fromorb_dist_a(aps,e,inc, Omega, pomega, NM=0, random=True):
     for ia in xrange(Na):
         if random: Ms=np.random.uniform(0.0,2.0*np.pi,NM)
         else: Ms=np.linspace(0.0,2.0*np.pi,NM+1)[:-1]
-        for im in xrange(NM):
-            xs[ia*NM+im], ys[ia*NM+im], zs[ia*NM+im]=cartesian_from_orbelement(aps[ia],e,inc, Omega, pomega, Ms[im])
+        # for im in xrange(NM):
+        #     xs[ia*NM+im], ys[ia*NM+im], zs[ia*NM+im]=cartesian_from_orbelement(aps[ia],e,inc, Omega, pomega, Ms[im])
+        xs[ia*NM:(ia+1)*NM], ys[ia*NM:(ia+1)*NM], zs[ia*NM:(ia+1)*NM]=cartesian_from_orbelement(aps[ia],e,inc, Omega, pomega, Ms)
 
     return xs, ys, zs
     
