@@ -385,7 +385,7 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
     # SECOND, LOAD ORB ELEMENTS OF PLANET TO DE-ROTATE WITH RESPECT ITS POSITION
 
     # check how many epochs to save (Ntaverage)
-    if Tp<Ti or Tp>Tf:
+    if Tp<Ti or Tp>Tf+0.5*dT:
         print "error, epoch of interest does not overlay with simulation epochs"
         sys.exit()
 
@@ -467,16 +467,16 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
         elif Nspread>1:
             Mis=np.random.uniform(0.0, 2.0*np.pi, Nspread)
             
-            for i3 in xrange(Nspread):
-                x,y,z=cartesian_from_orbelement_rotating_frame(ai,ei,inci, Omegai, pomegai, Mis[i3], alphai)
-                Particles[i1, i3, 0]= ti
-                Particles[i1, i3, 1]= x
-                Particles[i1, i3, 2]= y
-                Particles[i1, i3, 3]= z
-                Particles[i1, i3, 4]= a0i
-                Particles[i1, i3, 5]= ai
-                Particles[i1, i3, 6]= ei
-                Particles[i1, i3, 7]= inci
+            # for i3 in xrange(Nspread):
+            x,y,z=cartesian_from_orbelement_rotating_frame(ai,ei,inci, Omegai, pomegai, Mis, alphai)
+            Particles[i1, :, 0]= ti
+            Particles[i1, :, 1]= x
+            Particles[i1, :, 2]= y
+            Particles[i1, :, 3]= z
+            Particles[i1, :, 4]= a0i
+            Particles[i1, :, 5]= ai
+            Particles[i1, :, 6]= ei
+            Particles[i1, :, 7]= inci
 
 
         filei.close()
@@ -592,18 +592,18 @@ def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',',
             Mis=Mrand+Mi
             Mps=Mrand*(nplt/ni)+Mp
             
-            for i3 in xrange(Nspread):
-                alphai=pomegap+M_to_f(Mps[i3],ep)
+            #for i3 in xrange(Nspread):
+            alphas=pomegap+M_to_f(Mps,ep)
 
-                x,y,z=cartesian_from_orbelement_rotating_frame(ai,ei,inci, Omegai, pomegai, Mis[i3], alphai)
-                Particles[i1, i3, 0]= ti
-                Particles[i1, i3, 1]= x
-                Particles[i1, i3, 2]= y
-                Particles[i1, i3, 3]= z
-                Particles[i1, i3, 4]= a0i
-                Particles[i1, i3, 5]= ai
-                Particles[i1, i3, 6]= ei
-                Particles[i1, i3, 7]= inci
+            x,y,z=cartesian_from_orbelement_rotating_frame(ai,ei,inci, Omegai, pomegai, Mis, alphas)
+            Particles[i1, :, 0]= ti
+            Particles[i1, :, 1]= x
+            Particles[i1, :, 2]= y
+            Particles[i1, :, 3]= z
+            Particles[i1, :, 4]= a0i
+            Particles[i1, :, 5]= ai
+            Particles[i1, :, 6]= ei
+            Particles[i1, :, 7]= inci
 
 
         filei.close()
@@ -704,15 +704,15 @@ def load_particles_spread_x(path_sim, Nspread, delimiter=',' ): # function to lo
         elif Nspread>1:
             Mis=np.random.uniform(0.0, 2.0*np.pi, Nspread)
             
-            for i3 in xrange(Nspread):
-                x,y,z=cartesian_from_orbelement(ai,ei,inci, Omegai, pomegai, Mis[i3])
-                Particles[i1, i3, 1]= x
-                Particles[i1, i3, 2]= y
-                Particles[i1, i3, 3]= z
-                Particles[i1, i3, 4]= a0i
-                Particles[i1, i3, 5]= ai
-                Particles[i1, i3, 6]= ei
-                Particles[i1, i3, 7]= inci
+            # for i3 in xrange(Nspread):
+            x,y,z=cartesian_from_orbelement(ai,ei,inci, Omegai, pomegai, Mis[:])
+            Particles[i1, :, 1]= x
+            Particles[i1, :, 2]= y
+            Particles[i1, :, 3]= z
+            Particles[i1, :, 4]= a0i
+            Particles[i1, :, 5]= ai
+            Particles[i1, :, 6]= ei
+            Particles[i1, :, 7]= inci
 
 
     return Particles
