@@ -14,7 +14,9 @@ import colorsys
 G=6.67384e-11 # mks
 M_sun= 1.9891e30 # kg
 au=1.496e11 # m
-
+c_light=2.99792458e8 # m/s
+Kb=1.38064852e-23
+h=6.62607004e-34 # mks
 
 def dsdx(x,a,b): # ds/dx over an ellipse
     
@@ -400,19 +402,40 @@ def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax
 
 
 
-def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcsec, BMIN_arcsec, ps_arcsec):
+def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcsec, BMIN_arcsec, ps_arcsec, rs=np.array([]), refine=1):
 
     # x0, y0 are RA DEC offsets in arcsec
     # PA and inc are PA and inc of the disc in deg
     # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
     # Nr is the number of radial points to calculate
     # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
-
+    # refine makes the image with higher resolution such that it works well for inclined discs
     # ################ SPATIAL GRID
 
     # XY
 
+
+    if len(rs)==0:
+        rs=np.linspace(rmax/1.0e3,rmax,Nr)
+    rmax=np.max(rs)
+    Nr=len(rs)
+
     Np=len(image[:,0])
+    
+    if (refine>1.0 and refine<10.0):
+        ps_f=ps_arcsec*1.e3/refine
+        Npf=int(rmax/(ps_f/1.0e3)*2.)
+        image   =interpol(Np,Npf,ps_arcsec*1.e3,ps_f, image)
+        image_pb=interpol(Np,Npf,ps_arcsec*1.e3,ps_f, image_pb)
+
+        ### redefine values for image dimensions and pixel zie
+        Np=len(image[:,0])
+        ps_arcsec=ps_f/1.0e3
+
+    elif refine>10.0:
+        print 'too much refining'
+        sys.exit()
+        
 
     xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
 
@@ -423,8 +446,7 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcs
     phis_rad=phis*np.pi/180.0 
     dphi=abs(phis_rad[1]-phis_rad[0])
     Nphi=len(phis_rad)
-
-    rs=np.linspace(rmax/1.0e3,rmax,Nr)
+    
     print rs
     
     ecc= np.sin(inc*np.pi/180.0)
@@ -457,10 +479,98 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcs
         # Correct by number of independent points
         
         F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
+
+        # if  F[i_r,1]==0.0 and rs[i_r]**2.0*np.pi*np.cos(inc*np.pi/180):
+            # mask=
+            # F[i_r,1]= np.sum( rmsmap2[rdep<rs[i_r]])
+
+            
+    plt.pcolor(xs, ys, image)
+    plt.contour(xs,ys,rdep, levels=rs)
+    plt.axes().set_aspect('equal')
+    plt.show()
+    return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI
+
+def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, phis, rms, BMAJ_arcsec, BMIN_arcsec, ps_arcsec, rs=np.array([]), refine=1, hv=0.05):
+
+    # x0, y0 are RA DEC offsets in arcsec
+    # PA and inc are PA and inc of the disc in deg
+    # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
+    # Nr is the number of radial points to calculate
+    # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
+    # refine makes the image with higher resolution such that it works well for inclined discs
+    # ################ SPATIAL GRID
+
+    # XY
+
+
+    if len(rs)==0:
+        rs=np.linspace(rmax/1.0e3,rmax,Nr)
+    rmax=np.max(rs)
+    Nr=len(rs)
+
+    Np=len(image[:,0])
+    
+    if (refine>1.0 and refine<10.0):
+        ps_f=ps_arcsec*1.e3/refine
+        Npf=int(rmax/(ps_f/1.0e3)*2.)
+        image   =interpol(Np,Npf,ps_arcsec*1.e3,ps_f, image)
+        image_pb=interpol(Np,Npf,ps_arcsec*1.e3,ps_f, image_pb)
+
+        ### redefine values for image dimensions and pixel zie
+        Np=len(image[:,0])
+        ps_arcsec=ps_f/1.0e3
+
+    elif refine>10.0:
+        print 'too much refining'
+        sys.exit()
         
-    # plt.pcolor(xs, ys, image)
-    # plt.contour(xs,ys,rdep)
-    # plt.show()
+    
+    xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
+
+    
+    # R phi
+
+    PA_rad=PA*np.pi/180.0
+    phis_rad=phis*np.pi/180.0 
+    dphi=abs(phis_rad[1]-phis_rad[0])
+    Nphi=len(phis_rad)
+    
+    print rs
+    
+    Beam_area=np.pi*BMAJ_arcsec*BMIN_arcsec/(4.0*np.log(2.0)) # in arcsec2
+
+    
+    ##### Calculate flux within rs
+    F=np.zeros((Nr,2))
+
+
+    xv, yv = np.meshgrid(xs-x0, ys-y0, sparse=False, indexing='xy')
+
+    xpp = xv * np.cos(PA_rad) - yv *np.sin(PA_rad) ### along minor axis
+    ypp = xv * np.sin(PA_rad) + yv *np.cos(PA_rad) ###  along major axis
+
+    # PAs=np.arctan2(xpp,ypp)*180.0/np.pi
+    # rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
+
+    rmsmap2=(rms/image_pb)**2.0
+    
+    print Beam_area
+    for i_r in xrange(Nr):
+        mask=((np.abs(ypp)<rs[i_r]) & ( (np.abs(xpp)<BMAJ_arcsec) | (np.abs(xpp)<rs[i_r]*hv)))
+        
+        F[i_r,0]= np.sum( image[mask]*(ps_arcsec**2.0)/Beam_area)
+        F[i_r,1]= np.sum( rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
+
+        # Correct by number of independent points
+        
+        F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
+
+            
+    image[mask]=0.0
+    plt.pcolor(xs, ys, image)
+    plt.axes().set_aspect('equal')
+    plt.show()
     return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI
 
 def flux_azimuthal_profile(image, image_pb, x0, y0, PA, inc, rmin, rmax, NPA, rms,  BMAJ_arcsec, BMIN_arcsec, ps_arcsec):
@@ -470,7 +580,7 @@ def flux_azimuthal_profile(image, image_pb, x0, y0, PA, inc, rmin, rmax, NPA, rm
     # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
     # Nr is the number of radial points to calculate
     # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
-
+    
     # ################ SPATIAL GRID
 
     # XY
@@ -530,7 +640,7 @@ def flux_azimuthal_profile(image, image_pb, x0, y0, PA, inc, rmin, rmax, NPA, rm
     return np.array([PA_mid, F[:,0], F[:,1]]) # rs, I, eI 
 
 
-def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, phis, rms):
+def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, rs=np.array([]), refine=1.0):
 
 
     fit1=pyfits.open(fitsfile_pbcor)
@@ -556,9 +666,11 @@ def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,N
 
     BMAJ_arcsec1=BMAJ*3600.0
     BMIN_arcsec1=BMIN*3600.0
-    
-    return flux_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1)
-
+    if inc<90.0:
+        return flux_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1, rs=rs, refine=refine)
+    elif inc==90.0:
+        return flux_profile_edgeon(data1, data2, x0, y0, PA,  rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1, rs=rs, refine=refine)
+        
 def flux_azimuthal_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmin, rmax, NPA,  rms):
 
 
@@ -769,7 +881,7 @@ def interpol(Nin,Nout,ps1,ps2,Fin):
     if ps1!=ps2 or Nin!=Nout:
 	F=np.zeros((Nout,Nout), dtype=np.float64)
 	for i in range(Nout):
-                print i
+                #print i
 		for j in range (Nout):	
 			F[i,j]=inter(Nin,Nout,i,j,ps1,ps2,Fin)
     else:
@@ -1341,3 +1453,16 @@ def lighten_color(color, amount=0.5):
     c = colorsys.rgb_to_hls(*cl.to_rgb(c))
     print c
     return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
+
+def Bbody(lam, T): # function returns Planck function Bnu in Janskys
+    # lam in m
+    # T in K
+    nu=c_light/lam # Hz
+
+    return (2.*h*nu**3.)/(c_light**2.)  * 1./(np.exp(h*nu/(Kb*T))-1.)*1.0e26
+
+def TempBB(r, Lstar=1.0):
+    return 278.3 * r**(-0.5) * Lstar**0.25
+
+def rBB(T, Lstar=1.0):
+    return (278.3/T)**2.0*Lstar**0.5
