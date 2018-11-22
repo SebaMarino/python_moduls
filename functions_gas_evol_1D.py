@@ -1,5 +1,5 @@
 import numpy as np
-import functions_gas_evol as fgas
+import functions_gas_evol_0D as fgas
 
 
 #### Physical constants
