@@ -70,7 +70,10 @@ def selfshielding_CO(NCO):#, NCOs, logfkCO, slope):
     return kco
 
 def tau_CO(r,dr,MCO, MC1):
-    area=2*np.pi*r*dr*au_cm**2.0 # cm2
+    r_min=max(r-dr,0.0)
+    r_max=r+dr
+    area=np.pi*(r_max**2.-r_min**2.)*au_cm**2.0 # cm2
+    # area=2*np.pi*r*dr*au_cm**2.0 # cm2
     
     NC1=(MC1*Mearth/m_c1)/area
     NCO=(MCO*Mearth/m_co)/area
@@ -86,28 +89,37 @@ def tau_CO2(Sigma_CO, Sigma_C1):
     return 120.0 * np.exp( sigma_c1*NC1)/ selfshielding_CO(NCO) # yr
 
     
-def tau_vis(r, alpha, cs, Mstar):
+def tau_vis(r, dr, alpha, cs, Mstar):
     
     Omega=np.sqrt(G*Mstar*Msun/((r*au_m)**3.0)) # s
-    return (r*au_m)**2.0*Omega/(alpha*cs**2.)/year_s/12.0
+    return (dr*au_m)**2.0*Omega/(alpha*cs**2.)/year_s #/3.0
 
-def MCOdot_n(r,dr,MCO, MC1, alpha, cs, Mstar):
-    
-    return MCO*(1./tau_CO(r,dr,MCO, MC1)+1./tau_vis(r, alpha, cs, Mstar)) # Mearth/yr
+def tau_vis2(r, dr, alpha, cs, Mstar):
 
-def MC1dot_n(MC1, r, alpha, cs, Mstar):
+    Omega=np.sqrt(G*Mstar*Msun/((r*au_m)**3.0)) # s
+    return (r*au_m)**2.0*Omega/(alpha*cs**2.)/year_s #/3.0
+
+
+def MCOdot_n(t,r,dr,MCO, MC1, alpha, cs, Mstar):
+
+    tv=tau_vis(r,dr, alpha, cs, Mstar)
+    return MCO*(1./tau_CO(r,dr,MCO, MC1) + 1./(tv)) # Mearth/yr
+
+
+
+def MC1dot_n(MC1, r, dr, alpha, cs, Mstar):
     
-    return MC1/tau_vis(r, alpha, cs, Mstar)
+    return MC1/tau_vis(r, dr, alpha, cs, Mstar)
 
 def MC1dot_p(r,dr,MCO, MC1):
     
     return MCO*(m_c1/m_co)/tau_CO(r,dr,MCO, MC1)
 
 
-def Onestep(MCO, MC1, MCOdot_p, dt, r,dr, alpha, cs , Mstar):
+def Onestep(MCO, MC1, MCOdot_p,  dt, r,dr, alpha, cs , Mstar):
 
-    MCOdot=MCOdot_p - MCOdot_n(r,dr,MCO, MC1, alpha, cs, Mstar)
-    MC1dot=MC1dot_p(r,dr,MCO, MC1) - MC1dot_n(MC1, r, alpha, cs, Mstar)
+    MCOdot=MCOdot_p - MCOdot_n(t, r,dr,MCO, MC1, alpha, cs, Mstar)
+    MC1dot=MC1dot_p(r,dr,MCO, MC1) - MC1dot_n(MC1, r, dr, alpha, cs, Mstar)
 
     MCOp=max(MCO+MCOdot*dt,0.0)
     MC1p=max(MC1+MC1dot*dt, 0.0)
@@ -117,8 +129,8 @@ def Onestep(MCO, MC1, MCOdot_p, dt, r,dr, alpha, cs , Mstar):
 def Onestep_fast(MCO, MC1, MCOdot_p, dt, r,dr, tph_CO, t_vis , Mstar):
 
     #tph_CO=tau_CO(r,dr,MCO, MC1) 
-    MCOdot=MCOdot_p - MCO*(1./tph_CO+1./t_vis) 
-    MC1dot= MCO*muc1co/tph_CO - MC1/t_vis  
+    MCOdot=MCOdot_p - MCO*(1./tph_CO+ 1./(t_vis)) 
+    MC1dot= MCO*muc1co/tph_CO - MC1/(t_vis)  
 
     MCOp=max(MCO+MCOdot*dt,0.0)
     MC1p=max(MC1+MC1dot*dt, 0.0)
@@ -131,7 +143,7 @@ def integrate(MCO, MC1, MCOdot_p, dt0,tf,tol, r,dr, alphai, cs,  Mstar=1.0 ):
     MC1s=[]
     ts=[]
     
-    tvis= tau_vis(r, alphai, cs, Mstar)
+    tvis= tau_vis2(r,dr, alphai, cs, Mstar)
     
     ti=0.0
     
@@ -169,39 +181,51 @@ def integrate(MCO, MC1, MCOdot_p, dt0,tf,tol, r,dr, alphai, cs,  Mstar=1.0 ):
     return np.array(ts), np.array(MCOs), np.array(MC1s) #, MC1s[-1], MC1pi
 
 
-def f_tc(Mtot, r, dr, Dc=10.0, e=0.05, Qd=150.0, Mstar=1.0): # collisional timescale of largest planetesimal
+def f_tc_simple(Mtot, r, dr, Dc=10.0, e=0.05, Qd=150.0, Mstar=1.0): # collisional timescale of largest planetesimal
 
     return 1.4e-3 * r**(13.0/3) * (dr/r) * Dc * Qd *e**(-5.0/3.0) * Mstar**(-4.0/3.0)*Mtot**(-1.0) # in yr
 
-    # return 1.0/Mtot
+def f_G(q,Xc):
 
-def Mtot_t(Mtot0, t, r, dr,  Dc=10.0, e=0.05, Qd=150.0, Mstar=1.0):
+    return (Xc**(5.-3*q)-1. ) + (6.*q-10.)*(3.*q-4.)**(-1.)*(Xc**(4.-3.*q) -1. ) + (3.*q-5.)*(3.*q-3.)**(-1.)*(Xc**(3.-3.*q)-1. )
+
+def f_Xc(Qd, r, Mstar, e, I):
+
+    return 1.3e-3*(Qd * r / (Mstar*(1.25*e**2. + I**2.)))**(1./3.)
+
+def f_tc_Xc(Mtot, r, dr, rho=2700.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, Mstar=1.0, q=11./6.): # collisional timescale of largest planetesimal
+    A=(3.8 * rho * r**2.5 * dr * Dc  )/(Mstar**0.5 * Mtot) # yr (error in Eq 9 Wyatt, Smith, Su, Rieke, Greaves et al. 2007, equation is in years)
+    B= ( (12.*q - 20.)*( 1.+1.25*(e/I)**2.0 )**(-0.5) )/((18.-9.*q)*f_G(q, f_Xc(Qd, r, Mstar, e, I)))
+    return A*B # yr
+    
+
+def Mtot_t(Mtot0, t, r, dr,  rho=2700.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, Mstar=1.0, q=11./6.):
     # t in years
-    tc0=f_tc(Mtot0, r, dr, Dc, e, Qd, Mstar)
+    tc0=f_tc_Xc(Mtot0, r, dr, rho, Dc, e, I, Qd, Mstar, q=q)
 
     return Mtot0/(1.0+t/tc0) 
 
-def Mtotdot_t(Mtot0, t, r, dr,  Dc=10.0, e=0.05, Qd=150.0, Mstar=1.0):
+def Mtotdot_t(Mtot0, t, r, dr, rho=2700.0,  Dc=10.0, e=0.05, I=0.05, Qd=150.0, Mstar=1.0, q=11./6.):
     # t in years
-    tc0=f_tc(Mtot0, r, dr, Dc, e, Qd, Mstar)
+    tc0=f_tc_Xc(Mtot0, r, dr, rho,  Dc, e, I, Qd, Mstar, q=q)
 
     return Mtot0/(1.0+t/tc0)**2. / tc0
 
-def integrate_evolcoll(MCO, MC1, dt0,tf,tol, r,dr, alphai, cs,  Mstar=1.0, fCO=0.1, Mtot0=10.0, Dc=10.0, e=0.05, Qd=150.0):
+def integrate_evolcoll(MCO, MC1, dt0,tf, tol, r,dr, alphai, cs,  Mstar=1.0, fCO=0.1, Mtot0=10.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, q=11./6., rho=2700.0, gamma=2.0  ):
     
     MCOs=[]
     MC1s=[]
     MCOdots=[]
     ts=[]
     
-    tvis= tau_vis(r, alphai, cs, Mstar)
+    tvis= tau_vis(r,dr, alphai, cs, Mstar)
     
     ti=0.0
     
     MCOs.append(MCO)
     MC1s.append(MC1)
     ts.append(ti)
-    MCOdot_p0=fCO*Mtotdot_t(Mtot0, 0.0, r, dr,  Dc, e, Qd, Mstar)
+    MCOdot_p0=fCO*Mtotdot_t(Mtot0, 0.0, r=r/gamma, dr=dr/gamma,  Dc=Dc, e=e, I=I, Qd=Qd, Mstar=Mstar)
     MCOdots.append(MCOdot_p0)
     
     dti=dt0
@@ -209,14 +233,14 @@ def integrate_evolcoll(MCO, MC1, dt0,tf,tol, r,dr, alphai, cs,  Mstar=1.0, fCO=0
     while ti<tf:
         
         tph_CO=tau_CO(r,dr,MCOs[-1], MC1s[-1])
-        MCOdot_p=fCO*Mtotdot_t(Mtot0, ti+dti, r, dr,  Dc, e, Qd, Mstar)
+        MCOdot_p=fCO*Mtotdot_t(Mtot0, ti+dti, r=r/gamma, dr=dr/gamma,  Dc=Dc, e=e, I=I, Qd=Qd, Mstar=Mstar)
 
         # calculate step
         MCOi0, MC1i0 = Onestep_fast(MCOs[-1], MC1s[-1],MCOdot_p, dti, r,dr,tph_CO, tvis , Mstar)
         # calculate mid step stopping in the middle
         MCOh, MC1h = Onestep_fast(MCOs[-1], MC1s[-1],MCOdot_p, dti/2, r,dr,tph_CO, tvis , Mstar)
         # calculate 2nd mid step  
-        MCOi1, MC1i1 = Onestep_fast(MCOh, MC1h, MCOdot_p, dti/2, r,dr, tph_CO, tvis , Mstar)
+        MCOi1, MC1i1 = Onestep_fast(MCOh, MC1h, MCOdot_p,  dti/2, r,dr, tph_CO, tvis , Mstar)
         
         # calculate difference in the solutions
         errorCO=MCOi1-MCOi0
@@ -236,129 +260,35 @@ def integrate_evolcoll(MCO, MC1, dt0,tf,tol, r,dr, alphai, cs,  Mstar=1.0, fCO=0
 
 
 
+def M_to_L(Mstar): # stellar mass to stellar L MS
 
-##### 1D evolution
-
-def Sigma_dot_vis(Sigmas, Nr, rs, rhalfs, hs, nus_au2_yr):
-  
-
-    ########## CALCULATE VR*Sigma=F1
-    
-    Sigma_tot=np.sum(Sigmas,axis=0)
-    eps=np.ones((2,Nr))*0.5
-    mask_m=Sigma_tot>0.0
-    eps[0,mask_m]=Sigmas[0,mask_m]/Sigma_tot[mask_m]
-    eps[1,mask_m]=Sigmas[1,mask_m]/Sigma_tot[mask_m]
-    
-
-    G1s=Sigma_tot*nus_au2_yr*np.sqrt(rs) # Nr
-    Sigma_vr_halfs=-3.0*(G1s[1:]-G1s[:-1])/(rs[1:]-rs[:-1])/np.sqrt(rhalfs[1:-1]) # Nr-1
-    
-
-    
-    ############## CALCULATE dSIGMA/dT
-    eps_halfs=np.zeros((2,Nr-1))
-    eps_halfs[:,:]=np.where(Sigma_vr_halfs[:]>0.0, eps[:,:-1], eps[:,1:])
-    
-    G2s=rhalfs[1:-1]*Sigma_vr_halfs  # Nr-1
-    G3s=G2s*eps_halfs    #  2x(Nr-1)
-    Sdot=np.zeros((2,Nr))
-    Sdot[:,1:-1]=-(G3s[:,1:]-G3s[:,:-1])*2./(rhalfs[2:-1]**2.-rhalfs[1:-2]) # Nr-2
-
-    ### inner boundary condition
-    #Fph=G3s[:,0] # F_{+1/2} 2 dim
-    #Sigma_vr_1=-3.0*(G1s[2]-G1s[0])/(rs[2]-rs[0])/np.sqrt(rs[1]) 
-    #F0=Sigma_vr_1*rs[1]/rs[0]*eps[:,0] # 2 dim
-    #Fmh=np.where(Sigma_vr_halfs[0]>0.0, np.array([0.0,0.0]),F0) # 2 dim
-    #Sdot[:,0]=-(rhalfs[1]*Fph - rhalfs[0]*Fmh)*2.0/(rhalfs[1]**2.0-rhalfs[0]**2.0)
-    
-    ### outer boundary condition
-    
+    if hasattr(Mstar,"__len__"):
+        L=np.zeros(Mstar.shape[0])
+        L[Mstar<0.43]=0.23*Mstar[Mstar<0.43]**2.3
+        mask2= ((Mstar>=0.43))# & (M<2)).
+        L[mask2]=Mstar[mask2]**4.
+        mask3= (Mstar>=2.) & (Mstar<20.)
+        L[mask3]=1.4*Mstar[mask3]**3.5
+        L[Mstar>55.]=3.2e4*Mstar[Mstar>55.]
         
-    return Sdot, Sigma_vr_halfs
-
-def Sig_dot_p_box(rs, r0, width, Mdot, mask_belt):
-    
-    sigdot_CO=np.ones(Nr)*Mdot/(np.pi*((r0+width/2.)**2.-(r0-width/2.)**2.))
-    sigdot_CO[mask_belt]=0.0
-    
-    return sigdot_CO
-
-
-def Sig_dot_p_gauss(rs, r0, sig_g, Mdot, mask_belt):
-    
-    Sdot_comets=np.zeros(len(rs))
-    Sdot_comets[mask_belt]=Mdot*np.exp( -(rs[mask_belt]-r0)**2.0 / (2.*sig_g**2.) )/(np.sqrt(2.*np.pi)*sig_g)/(2.*np.pi*rs[mask_belt])
-    return Sdot_comets
-
-def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2_yr, mask_belt):
-    
-    ## viscous evolution
-    Sdot_vis, Sigma_vr_halfs=Sigma_dot_vis(Sigma_prev,  Nr, rs, rhalfs, hs, nus_au2_yr)
-    Snext= Sigma_prev + epsilon*Sdot_vis # viscous evolution
-    
-    ## Inner boundary condition (constant Mdot)
-    Snext[:,0]=Snext[:,1]*(nus_au2_yr[1]/nus_au2_yr[0]) # constant Mdot
-    ## Outer boundary condition (power law or constant mass)
-    if np.all(Snext[:,-3])>0.0:
-        Snext[:,-1]=np.minimum(Snext[:,-2]*(nus_au2_yr[-2]/nus_au2_yr[-1]), Snext[:,-2]*(rs[-1]/rs[-2])**(np.log(Snext[:,-2]/Snext[:,-3])/np.log(rs[-2]/rs[-3])))
-    else: 
-        Snext[:,-1]=Snext[:,-2]*(nus_au2_yr[-2]/nus_au2_yr[-1])
-    
-    #if np.all(Snext[:,-2]<Snext[:,-3]) and np.all(Snext[:,-3]>0.0):
-    #    Snext[:,-1]=Snext[:,-2]*(rs[-1]/rs[-2])**(np.log(Snext[:,-2]/Snext[:,-3])/np.log(rs[-2]/rs[-3]))  #Snext2[:,-2]*np.sqrt(rs[-2]/rs[-1]) #*vrs[-2]/(rs[-1]*vrs[-1])
-    #elif np.all(Snext[:,-2]==Snext[:,-3]):
-    #    Snext[:,-1]=Snext[:,-2]
-    #else:
-    #    print 'Error: positive slope at outer edge'
-    #    sys.exit()
-    
-    ## CO mas input rate
-    Snext[0,:]=Snext[0,:]+epsilon*Sig_dot_p_gauss(rs, r0, width, Mdot, mask_belt)
-                                   
-    ## photodissociation
-    Snext2=np.zeros((2, Nr))
-    tphCO=tau_CO2(Snext[0,:], Snext[1,:])
-    Sdot_ph=(Snext[0,:]/tphCO)
-    Snext2[0,:]=Snext[0,:]-epsilon*Sdot_ph
-    Snext2[1,:]=Snext[1,:]+epsilon*Sdot_ph*muc1co
-    
-    return Snext2
-
-def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]) ):
-    
-    Nt=len(ts)
-    epsilon=ts[1]-ts[0]
-    Nr=len(rs)
-    Sigma_g=np.zeros((2,Nr,Nt))
-
-    mask_belt=((rs<rbelt+sig_g*2) & (rs>rbelt-sig_g*2))
-
-    
-    ## Temperature and angular velocity
-    Ts=278.3*(Lstar**0.25)*rs**(-0.5) # K
-    Omegas=2.0*np.pi*np.sqrt(Mstar/(rs**3.0)) # 1/yr
-    Omegas_s=Omegas/year_s # Omega in s-1
-    ## default viscosity
-    mus=np.ones(Nr)*12.
-    
-    
-    if np.shape(Sigma0)==(2,Nr) and np.all(Sigma0>=0.0):
-        Sigma_g[:,:,0]=Sigma0
+        
     else:
-        print np.shape(Sigma0), Sigma0>0.0
-    for i in xrange(1,Nt):
-        mask_m=np.sum(Sigma_g[:,:,i-1], axis=0)>0.0
-        mus[mask_m]=(Sigma_g[0,mask_m,i-1]+Sigma_g[1,mask_m,i-1]*(1.+16./12.))/(Sigma_g[0,mask_m, i-1]/28.+Sigma_g[1,mask_m, i-1]/6.) # Sigma+Oxigen/(N)
-        nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s
-        nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
-        Sigma_g[:,:,i]=Sigma_next(Sigma_g[:,:,i-1], Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdot, nus_au2_yr, mask_belt)
-    return Sigma_g
+        L=0.0
+        if Mstar<0.45:
+            L=0.23*Mstar**2.3
+        elif Mstar<2.:
+            L=Mstar**4.
+        elif Mstar<20.:
+            L=1.4*Mstar**3.5
+        else:
+            L=3.2e4*Mstar
 
-def radial_grid_powerlaw(rmin, rmax, Nr, alpha):
+    return L
 
-    u=np.linspace(rmin**alpha, rmax**alpha, Nr+1)
-    rhalfs=u**(1./alpha)
-    hs=rhalfs[1:]-rhalfs[:-1]
-    rs=0.5*(rhalfs[1:] + rhalfs[:-1])
-    return rs, rhalfs, hs
+def power_law_dist(xmin, xmax,alpha, N):
+
+    if alpha==-1.0: sys.exit(0)
+    u=np.random.uniform(0.0, 1.0,N)
+    beta=1.0+alpha
+    return ( (xmax**beta-xmin**beta)*u +xmin**beta  )**(1./beta)
+    

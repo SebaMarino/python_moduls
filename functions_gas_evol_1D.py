@@ -114,8 +114,8 @@ def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2
     ############## photodissociation
     ###########################################
 
-    tphCO=fgas.tau_CO2(Snext[0,:], Snext[1,:])
-    Sdot_ph=(Snext[0,:]/tphCO)
+    tphCO=fgas.tau_CO2(Sigma_prev[0,:], Sigma_prev[1,:])
+    Sdot_ph=Sigma_prev[0,:]/tphCO #(Snext[0,:]/tphCO)
     Snext2[0,:]=Snext2[0,:]-epsilon*Sdot_ph
     Snext2[1,:]=Snext2[1,:]+epsilon*Sdot_ph*muc1co
     
@@ -127,8 +127,8 @@ def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Ms
     epsilon=ts[1]-ts[0]
     Nr=len(rs)
     Sigma_g=np.zeros((2,Nr,Nt))
-
-    mask_belt=((rs<rbelt+sig_g*2) & (rs>rbelt-sig_g*2))
+    wbelt=sig_g*2*np.sqrt(2.*np.log(2))
+    mask_belt=((rs<rbelt+wbelt) & (rs>rbelt-wbelt))
 
     
     ## Temperature and angular velocity
@@ -150,6 +150,40 @@ def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Ms
         nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
         Sigma_g[:,:,i]=Sigma_next(Sigma_g[:,:,i-1], Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdot, nus_au2_yr, mask_belt)
     return Sigma_g
+
+
+
+def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0 ):
+    
+    Nt=len(ts)
+    epsilon=ts[1]-ts[0]
+    Nr=len(rs)
+    Sigma_g=np.zeros((2,Nr,Nt))
+    wbelt=sig_g*2*np.sqrt(2.*np.log(2))
+    mask_belt=((rs<rbelt+wbelt) & (rs>rbelt-wbelt))
+
+    
+    ## Temperature and angular velocity
+    Ts=278.3*(Lstar**0.25)*rs**(-0.5) # K
+    Omegas=2.0*np.pi*np.sqrt(Mstar/(rs**3.0)) # 1/yr
+    Omegas_s=Omegas/year_s # Omega in s-1
+    ## default viscosity
+    mus=np.ones(Nr)*mu0
+    
+    
+    if np.shape(Sigma0)==(2,Nr) and np.all(Sigma0>=0.0):
+        Sigma_g[:,:,0]=Sigma0
+    else:
+        print np.shape(Sigma0), Sigma0>0.0
+    for i in xrange(1,Nt):
+        #mask_m=np.sum(Sigma_g[:,:,i-1], axis=0)>0.0
+        #mus[mask_m]=(Sigma_g[0,mask_m,i-1]+Sigma_g[1,mask_m,i-1]*(1.+16./12.))/(Sigma_g[0,mask_m, i-1]/28.+Sigma_g[1,mask_m, i-1]/6.) # Sigma+Oxigen/(N)
+        nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 1.0e10*np.zeros(Nr) #
+        nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
+        Sigma_g[:,:,i]=Sigma_next(Sigma_g[:,:,i-1], Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdots[i], nus_au2_yr, mask_belt)
+    return Sigma_g
+
+
 
 def radial_grid_powerlaw(rmin, rmax, Nr, alpha):
 
