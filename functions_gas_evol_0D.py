@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.interpolate import interp1d
-
+#### functions to simulate 0D evolution of CO and C in debris discs
 
 # constants
 mp=1.6726219e-27 # kg
