@@ -819,6 +819,15 @@ def fcolor_green_yellow(i,N):
 
     return cmap(x)
 
+def fcolor_plasma(i,N):
+
+    cmap=plt.get_cmap('plasma')
+
+    x=i*1./(N-1)
+
+    return cmap(x)
+
+
 def get_last2d(data):
     if data.ndim == 2:
         return data[:]

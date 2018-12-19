@@ -1,5 +1,6 @@
 import numpy as np
 import functions_gas_evol_0D as fgas
+#from tqdm import tqdm
 
 
 #### Physical constants
@@ -116,13 +117,15 @@ def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2
 
     tphCO=fgas.tau_CO2(Sigma_prev[0,:], Sigma_prev[1,:])
     Sdot_ph=Sigma_prev[0,:]/tphCO #(Snext[0,:]/tphCO)
+    #Sdot_ph_epsilon=Sigma_prev[0,:]*(1.-np.exp(-epsilon/tphCO))   
     Snext2[0,:]=Snext2[0,:]-epsilon*Sdot_ph
     Snext2[1,:]=Snext2[1,:]+epsilon*Sdot_ph*muc1co
+    #Snext2[0,Snext2[0,:]<0.0]=0.0
     
     return Snext2
 
-def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0 ):
-    
+def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1 ):
+    ### 
     Nt=len(ts)
     epsilon=ts[1]-ts[0]
     Nr=len(rs)
@@ -149,11 +152,73 @@ def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Ms
         nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 1.0e10*np.zeros(Nr) #
         nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
         Sigma_g[:,:,i]=Sigma_next(Sigma_g[:,:,i-1], Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdot, nus_au2_yr, mask_belt)
-    return Sigma_g
+    return Sigma_g[:,:,::dt_skip], ts[::dt_skip]
+
+
+def viscous_evolution_adt(tf, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, tol=1.0e-3 ):
+    ### with adaptative timestep (based on total masses) it is not faster than fixed timestep.
+    Nr=len(rs)
+    Ntmax=int(tf/epsilon+1)+1
+    Sigma_g=np.zeros((2,Nr, Ntmax))
+    wbelt=sig_g*2*np.sqrt(2.*np.log(2))
+    mask_belt=((rs<rbelt+wbelt) & (rs>rbelt-wbelt))
+
+    
+    ## Temperature and angular velocity
+    Ts=278.3*(Lstar**0.25)*rs**(-0.5) # K
+    Omegas=2.0*np.pi*np.sqrt(Mstar/(rs**3.0)) # 1/yr
+    Omegas_s=Omegas/year_s # Omega in s-1
+    ## default viscosity
+    mus=np.ones(Nr)*mu0
+    
+    
+    if np.shape(Sigma0)==(2,Nr) and np.all(Sigma0>=0.0):
+        Sigma_g[:,:,0]=Sigma0
+    else:
+        print np.shape(Sigma0), Sigma0>0.0
+
+    i=1
+    ti=0.0
+    ts=[ti]
+    dti=epsilon*1.0
+    
+    while ti<tf:     # for i in xrange(1,Nt):
+        #mask_m=np.sum(Sigma_g[:,:,i-1], axis=0)>0.0
+        #mus[mask_m]=(Sigma_g[0,mask_m,i-1]+Sigma_g[1,mask_m,i-1]*(1.+16./12.))/(Sigma_g[0,mask_m, i-1]/28.+Sigma_g[1,mask_m, i-1]/6.) # Sigma+Oxigen/(N)
+        nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 1.0e10*np.zeros(Nr) #
+        nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr          
+        Sigma_g[:,:,i]=Sigma_next(Sigma_g[:,:,i-1], Nr, rs, rhalfs, hs, dti, rbelt, sig_g, Mdot, nus_au2_yr, mask_belt)
+
+        # MCO0=np.sum(Sigma_g[0,:,i]*rs*hs)
+        # MC10=np.sum(Sigma_g[1,:,i]*rs*hs)
+        ### adapt time step
+        Sh=Sigma_next(Sigma_g[:,:,i-1], Nr, rs, rhalfs, hs, dti/2., rbelt, sig_g, Mdot, nus_au2_yr, mask_belt)
+        Sf=Sigma_next(Sh, Nr, rs, rhalfs, hs, dti/2., rbelt, sig_g, Mdot, nus_au2_yr, mask_belt)
+
+        # MCOh=np.sum(Sh[0,:]*rs*hs)
+        # MC1h=np.sum(Sh[1,:]*rs*hs)
+        # MCOf=np.sum(Sf[0,:]*rs*hs)
+        # MC1f=np.sum(Sf[1,:]*rs*hs)
+
+        # calculate difference in the solutions
+        mCO=Sigma_g[0,:,i]>0.
+        mC1=Sigma_g[1,:,i]>0.
+        
+        errorCO=np.max(np.abs((Sf[0,mCO]-Sigma_g[0,mCO,i]))/Sigma_g[0,mCO,i])  #MCOf-MCO0
+        errorC1=np.max(np.abs((Sf[1,mC1]-Sigma_g[1,mC1,i]))/Sigma_g[1,mC1,i])         #MC1f-MC10
+        
+        i+=1
+        ti+=dti
+        ts.append(ti)
+        
+        # dti=max(0.9*dti*min( max( min(tol*MCO0/abs(errorCO),tol*MC10/abs(errorC1)),0.3),2.0), epsilon) # it does not go below epsilon
+        dti=max(0.9*dti*min( max( min(tol/errorCO,tol/errorC1),0.3),2.0), epsilon) # it does not go below epsilon
+        dti=min(dti,  0.02*hs[0]**2./nus_au2_yr[0])
+    return Sigma_g[:,:,:i], np.array(ts)
 
 
 
-def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0 ):
+def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1 ):
     
     Nt=len(ts)
     epsilon=ts[1]-ts[0]
@@ -181,7 +246,7 @@ def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots,
         nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 1.0e10*np.zeros(Nr) #
         nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
         Sigma_g[:,:,i]=Sigma_next(Sigma_g[:,:,i-1], Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdots[i], nus_au2_yr, mask_belt)
-    return Sigma_g
+    return Sigma_g[:,:,::dt_skip], ts[::dt_skip]
 
 
 
@@ -194,6 +259,22 @@ def radial_grid_powerlaw(rmin, rmax, Nr, alpha):
     return rs, rhalfs, hs
 
 
+
+def N_optim_radial_grid(rmin, rmax, rb, res):
+
+    Nr=10
+    f=0
+    while True:
+        rs, rhalfs, hs = radial_grid_powerlaw(rmin, rmax, Nr, 0.5)  #0.5)
+        for i in xrange(1,Nr):
+            if rs[i]>rb:
+                dr=rs[i]-rs[i-1]
+                break
+        if hs[i-1]/rs[i-1]<res:
+            break
+        else:
+            Nr=int(Nr*1.2)
+    return Nr
 
 
 

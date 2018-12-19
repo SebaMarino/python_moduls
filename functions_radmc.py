@@ -474,7 +474,7 @@ def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star
 ##### GRID (grid could be a class...future work) #####
 #########################################################
 
-def define_grid_sph(Nr, Nth, Nphi, Rmax, Rmin, Thmax, Thmin, logr=False, logtheta=False, save=True):
+def define_grid_sph(Nr, Nth, Nphi, Rmax, Rmin, Thmax, Thmin, logr=False, logtheta=False, save=True, axisym=0, south_emisphere=0):
 
     Redge=np.zeros(Nr) #from Rmin to Rmax
     R=np.zeros(Nr-1)
@@ -528,8 +528,15 @@ def define_grid_sph(Nr, Nth, Nphi, Rmax, Rmin, Thmax, Thmin, logr=False, logthet
         arch.write('0 \n') # Grid style (regular = 0)
         arch.write('101 \n') # coordsystem: If 100<=coordsystem<200 the coordinate system is spherical
         arch.write('0 \n') # gridinfo
-        arch.write('1 \t 1 \t 1 \n') # incl x, incl y, incl z
-        arch.write(str(Nr-1)+ '\t'+ str((Nth-1)*2)+'\t'+ str(Nphi)+'\n') 
+        if axisym and Nphi==1:
+            arch.write('1 \t 1 \t 0 \n') # incl x, incl y, incl z
+        else:
+            arch.write('1 \t 1 \t 1 \n') # incl x, incl y, incl z
+
+        if south_emisphere:
+            arch.write(str(Nr-1)+ '\t'+ str((Nth-1)*2)+'\t'+ str(Nphi)+'\n') 
+        else:
+            arch.write(str(Nr-1)+ '\t'+ str(Nth-1)+'\t'+ str(Nphi)+'\n') 
         # arch.write('0 \t 0 \t 0 \n') # levelmax, nleafsmax, nbranchmax 
 
         for i in range(Nr):
@@ -538,8 +545,9 @@ def define_grid_sph(Nr, Nth, Nphi, Rmax, Rmin, Thmax, Thmin, logr=False, logthet
 
         for i in range(Nth):
             arch.write(str(np.pi/2.0-Thedge[Nth-1-i])+'\t')  # from northpole to equator
-        for i in range(1,Nth):
-            arch.write(str(np.pi/2.0+Thedge[i])+'\t')       # from 0 to -pi/2
+        if south_emisphere:
+            for i in range(1,Nth):
+                arch.write(str(np.pi/2.0+Thedge[i])+'\t')       # from 0 to -pi/2
         arch.write('\n')
 
         for i in range(Nphi):
@@ -625,15 +633,14 @@ def rho_3d_dens(r, phi, z, h, sigmaf, *args):
 
 ##### create density matrix that is axisymmetric and save it for radmc 
 def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *args):
-
     # args has the arguments that sigmaf needs in the right order
-
+    # this function mirrors the south emisphere
     Nr=len(R)+1
     Nth=len(Th)+1
     Nphi=len(Phi)
-
-    rho_d=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # density field
-
+    rho_d=np.zeros((Nspec,Nth-1,Nphi,Nr-1)) # density field
+    # rho_d=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # density field
+        
     for ia in xrange(Nspec):
         M_dust_temp= 0.0 #np.zeros(Nspec) 
         # print ia
@@ -647,7 +654,7 @@ def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *
                 # for j in xrange(Nphi):
 
                 rho_d[ia,k,:,i]=rho_3d_dens(rho, 0.0, z,h, sigmaf, *args )
-                rho_d[ia,2*(Nth-1)-1-k,:,i]=rho_d[ia,k,:,i]
+                # if south_emisphere: rho_d[ia,2*(Nth-1)-1-k,:,i]=rho_d[ia,k,:,i]
                 M_dust_temp+=2.0*rho_d[ia,k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
         # for ia in xrange(Nspec):
         rho_d[ia,:,:,:]=rho_d[ia,:,:,:]*Ms[ia]/M_dust_temp
@@ -657,16 +664,25 @@ def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *
     path='dust_density.inp'
     dust_d=open(path,'w')
     
-    dust_d.write('1 \n') # iformat  
-    dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells 
+    dust_d.write('1 \n') # iformat
+    # if south_emisphere:
+    #     print 'saving south emisphere density'
+    #     dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells
+    dust_d.write(str((Nr-1)*(Nth-1)*(Nphi))+' \n') # iformat n cells
     dust_d.write(str(Nspec)+' \n') # n species
 
+    # if south_emisphere:
+    #     for ai in xrange(Nspec):
+    #         for j in range(Nphi):
+    #             for k in range(2*(Nth-1)):
+    #                 for i in range(Nr-1):
+    #                     dust_d.write(str(rho_d[ai,k,j,i])+' \n')
     for ai in xrange(Nspec):
         for j in range(Nphi):
-            for k in range(2*(Nth-1)):
+            for k in range(Nth-1):
                 for i in range(Nr-1):
                     dust_d.write(str(rho_d[ai,k,j,i])+' \n')
-                    
+
     dust_d.close()
 
 

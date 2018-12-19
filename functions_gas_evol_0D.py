@@ -19,6 +19,10 @@ G = 6.67408e-11 # mks
 kb = 1.38064852e-23 #mks
 year_s = 3.154e7
 
+sigma_C1c=(1./sigma_c1)*m_c1/Mearth*au_cm**2.0 # mearth/au2
+sigma_COc=(1./sigma_co)*m_co/Mearth*au_cm**2.0 # mearth/au2
+
+
 ## functions
 
 ####### CO PHOTODISSOCIATION
@@ -209,7 +213,7 @@ def Mtotdot_t(Mtot0, t, r, dr, rho=2700.0,  Dc=10.0, e=0.05, I=0.05, Qd=150.0, M
     # t in years
     tc0=f_tc_Xc(Mtot0, r, dr, rho,  Dc, e, I, Qd, Mstar, q=q)
 
-    return Mtot0/(1.0+t/tc0)**2. / tc0
+    return Mtot0/(1.0+t/tc0)**2. / tc0 # Mearth/yr
 
 def integrate_evolcoll(MCO, MC1, dt0,tf, tol, r,dr, alphai, cs,  Mstar=1.0, fCO=0.1, Mtot0=10.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, q=11./6., rho=2700.0, gamma=2.0  ):
     
