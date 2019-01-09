@@ -4,6 +4,7 @@ import cmath as cma
 import matplotlib.pyplot as plt
 from scipy.ndimage.interpolation import shift
 from astropy.io import fits
+from scipy import interpolate
 
 ############################################################
 # Module with funtions to use radmc and MCMC routines to fit visibilities by S. Marino
@@ -474,7 +475,7 @@ def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star
 ##### GRID (grid could be a class...future work) #####
 #########################################################
 
-def define_grid_sph(Nr, Nth, Nphi, Rmax, Rmin, Thmax, Thmin, logr=False, logtheta=False, save=True, axisym=0, south_emisphere=0):
+def define_grid_sph(Nr, Nth, Nphi, Rmax, Rmin, Thmax, Thmin, logr=False, logtheta=False, save=True, axisym=0, south_emisphere=1):
 
     Redge=np.zeros(Nr) #from Rmin to Rmax
     R=np.zeros(Nr-1)
@@ -634,6 +635,120 @@ def rho_3d_dens(r, phi, z, h, sigmaf, *args):
 ##### create density matrix that is axisymmetric and save it for radmc 
 def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *args):
     # args has the arguments that sigmaf needs in the right order
+    Nr=len(R)+1
+    Nth=len(Th)+1
+    Nphi=len(Phi)
+    rho_d=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # density field
+        
+    for ia in xrange(Nspec):
+        M_dust_temp= 0.0 #np.zeros(Nspec) 
+        # print ia
+        # print "Dust species = ", ia
+  
+        for k in xrange(Nth-1):
+            theta=Th[Nth-2-k]
+            for i in xrange(Nr-1):
+                rho=R[i]*np.cos(theta)
+                z=R[i]*np.sin(theta)
+                # for j in xrange(Nphi):
+
+                rho_d[ia,k,:,i]=rho_3d_dens(rho, 0.0, z,h, sigmaf, *args )
+                rho_d[ia,2*(Nth-1)-1-k,:,i]=rho_d[ia,k,:,i]
+                M_dust_temp+=2.0*rho_d[ia,k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
+        # for ia in xrange(Nspec):
+        rho_d[ia,:,:,:]=rho_d[ia,:,:,:]*Ms[ia]/M_dust_temp
+        
+        
+    # Save 
+    path='dust_density.inp'
+    dust_d=open(path,'w')
+    
+    dust_d.write('1 \n') # iformat
+    # if south_emisphere:
+    #     print 'saving south emisphere density'
+    dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells
+    dust_d.write(str(Nspec)+' \n') # n species
+
+    for ai in xrange(Nspec):
+        for j in range(Nphi):
+            for k in range(2*(Nth-1)):
+                for i in range(Nr-1):
+                    dust_d.write(str(rho_d[ai,k,j,i])+' \n')
+    
+    dust_d.close()
+
+
+def save_dens_axisym_settling(As, rho_grain, gdr, alpha_turb, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *args):
+    # args has the arguments that sigmaf needs in the right order
+    Nr=len(R)+1
+    Nth=len(Th)+1
+    Nphi=len(Phi)
+    Nspec=len(As)
+    rho_d=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # dust density field
+    res_theta=Thedge[(Nth-1)/2]-Thedge[(Nth-1)/2-1]
+
+    dR=np.zeros(Nr)
+    dR[1:-1]=(Redge[2:]-Redge[:-2]/2.)
+    dR[0]=Redge[1]-Redge[0]
+    dR[-1]=Redge[-1]-Redge[-2]
+    
+    M_gas=np.sum(Ms)*gdr
+
+   
+    ### create Surface density function to cumpute stoke number.
+    #### you have to iterate through as there is an if in the definition of sigmaf probably
+    Sigma_g=np.zeros(Nr)
+    for i in xrange(Nr):
+        Sigma_g[i]=sigmaf(Redge[i], 0.0, *args)
+    M_temp=np.sum(Sigma_g*2.0*np.pi*Redge*dR)*au**2
+    Sigma_g=Sigma_g*M_gas/M_temp
+    flogsigma_g=interpolate.interp1d(np.log10(Redge), np.log10(Sigma_g))
+
+    ### compute density field includding settling
+    for ia in xrange(Nspec):
+        M_dust_temp= 0.0 #np.zeros(Nspec) 
+        # print ia
+        # print "Dust species = ", ia
+  
+        for k in xrange(Nth-1):
+            theta=Th[Nth-2-k]
+            for i in xrange(Nr-1):
+                rho=R[i]*np.cos(theta)
+                z=R[i]*np.sin(theta)
+                # for j in xrange(Nphi):
+                if  rho>Redge[0]:
+                    S=   np.pi/2 * As[ia] * rho_grain/(10**flogsigma_g(np.log10(rho)) ) / alpha_turb 
+                    hs = h/ np.sqrt(S+1)
+                    if z<res_theta and hs<res_theta: # evaluate at z=0 such that the surface density is corect, i.e. rho=Sigma/res_z
+                        rho_d[ia,k,:,i]=sigmaf(rho, 0.0, *args)/(res_theta*rho) # rho_3d_dens(rho, 0.0, 0.0, hs, sigmaf, *args )
+                    else:
+                        rho_d[ia,k,:,i]=rho_3d_dens(rho, 0.0, z , hs, sigmaf, *args )
+                    rho_d[ia,2*(Nth-1)-1-k,:,i]=rho_d[ia,k,:,i]
+                    M_dust_temp+=2.0*rho_d[ia,k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
+        rho_d[ia,:,:,:]=rho_d[ia,:,:,:]*Ms[ia]/M_dust_temp
+        
+        
+    # Save 
+    path='dust_density.inp'
+    dust_d=open(path,'w')
+    
+    dust_d.write('1 \n') # iformat
+    # if south_emisphere:
+    #     print 'saving south emisphere density'
+    dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells
+    dust_d.write(str(Nspec)+' \n') # n species
+
+    for ai in xrange(Nspec):
+        for j in range(Nphi):
+            for k in range(2*(Nth-1)):
+                for i in range(Nr-1):
+                    dust_d.write(str(rho_d[ai,k,j,i])+' \n')
+    
+    dust_d.close()
+
+##### create density matrix that is axisymmetric and save it for radmc 
+def save_dens_axisym_mirror(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *args):
+    # args has the arguments that sigmaf needs in the right order
     # this function mirrors the south emisphere
     Nr=len(R)+1
     Nth=len(Th)+1
@@ -684,8 +799,9 @@ def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *
                     dust_d.write(str(rho_d[ai,k,j,i])+' \n')
 
     dust_d.close()
+    
 
-
+    
 ##### create density matrix that is non-axisymmetric and save it for radmc 
 def save_dens_nonaxisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *args):
 

@@ -147,8 +147,8 @@ def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Ms
     else:
         print np.shape(Sigma0), Sigma0>0.0
     for i in xrange(1,Nt):
-        #mask_m=np.sum(Sigma_g[:,:,i-1], axis=0)>0.0
-        #mus[mask_m]=(Sigma_g[0,mask_m,i-1]+Sigma_g[1,mask_m,i-1]*(1.+16./12.))/(Sigma_g[0,mask_m, i-1]/28.+Sigma_g[1,mask_m, i-1]/6.) # Sigma+Oxigen/(N)
+        mask_m=np.sum(Sigma_g[:,:,i-1], axis=0)>0.0
+        mus[mask_m]=(Sigma_g[0,mask_m,i-1]+Sigma_g[1,mask_m,i-1]*(1.+16./12.))/(Sigma_g[0,mask_m, i-1]/28.+Sigma_g[1,mask_m, i-1]/6.) # Sigma+Oxigen/(N)
         nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 1.0e10*np.zeros(Nr) #
         nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
         Sigma_g[:,:,i]=Sigma_next(Sigma_g[:,:,i-1], Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdot, nus_au2_yr, mask_belt)
@@ -183,8 +183,8 @@ def viscous_evolution_adt(tf, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha
     dti=epsilon*1.0
     
     while ti<tf:     # for i in xrange(1,Nt):
-        #mask_m=np.sum(Sigma_g[:,:,i-1], axis=0)>0.0
-        #mus[mask_m]=(Sigma_g[0,mask_m,i-1]+Sigma_g[1,mask_m,i-1]*(1.+16./12.))/(Sigma_g[0,mask_m, i-1]/28.+Sigma_g[1,mask_m, i-1]/6.) # Sigma+Oxigen/(N)
+        mask_m=np.sum(Sigma_g[:,:,i-1], axis=0)>0.0
+        mus[mask_m]=(Sigma_g[0,mask_m,i-1]+Sigma_g[1,mask_m,i-1]*(1.+16./12.))/(Sigma_g[0,mask_m, i-1]/28.+Sigma_g[1,mask_m, i-1]/6.) # Sigma+Oxigen/(N)
         nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 1.0e10*np.zeros(Nr) #
         nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr          
         Sigma_g[:,:,i]=Sigma_next(Sigma_g[:,:,i-1], Nr, rs, rhalfs, hs, dti, rbelt, sig_g, Mdot, nus_au2_yr, mask_belt)
@@ -241,8 +241,8 @@ def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots,
     else:
         print np.shape(Sigma0), Sigma0>0.0
     for i in xrange(1,Nt):
-        #mask_m=np.sum(Sigma_g[:,:,i-1], axis=0)>0.0
-        #mus[mask_m]=(Sigma_g[0,mask_m,i-1]+Sigma_g[1,mask_m,i-1]*(1.+16./12.))/(Sigma_g[0,mask_m, i-1]/28.+Sigma_g[1,mask_m, i-1]/6.) # Sigma+Oxigen/(N)
+        mask_m=np.sum(Sigma_g[:,:,i-1], axis=0)>0.0
+        mus[mask_m]=(Sigma_g[0,mask_m,i-1]+Sigma_g[1,mask_m,i-1]*(1.+16./12.))/(Sigma_g[0,mask_m, i-1]/28.+Sigma_g[1,mask_m, i-1]/6.) # Sigma+Oxigen/(N)
         nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 1.0e10*np.zeros(Nr) #
         nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
         Sigma_g[:,:,i]=Sigma_next(Sigma_g[:,:,i-1], Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdots[i], nus_au2_yr, mask_belt)

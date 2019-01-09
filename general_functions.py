@@ -72,3 +72,11 @@ def get_last3d(data):
         return data[:]
     if data.ndim == 4:
         return data[0, :]
+
+
+def power_law_dist(xmin, xmax,alpha, N):
+
+    if alpha==-1.0: sys.exit(0)
+    u=np.random.uniform(0.0, 1.0,N)
+    beta=1.0+alpha
+    return ( (xmax**beta-xmin**beta)*u +xmin**beta  )**(1./beta)
