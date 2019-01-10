@@ -127,9 +127,18 @@ def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2
 def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1 ):
     ### 
     Nt=len(ts)
+    if isinstance(dt_skip, int) and dt_skip>0:
+        if dt_skip>1: Nt2=Nt/dt_skip+2 #  skips dt_skip to make arrays smaller
+        elif dt_skip==1: Nt2=Nt
+    else:
+        print 'not a valid dt_skip'
+        sys.exit(0)
+
     epsilon=ts[1]-ts[0]
+    ts2=np.zeros(Nt2)
+
     Nr=len(rs)
-    Sigma_g=np.zeros((2,Nr,Nt))
+    Sigma_g=np.zeros((2,Nr,Nt2))
     wbelt=sig_g*2*np.sqrt(2.*np.log(2))
     mask_belt=((rs<rbelt+wbelt) & (rs>rbelt-wbelt))
 
@@ -146,13 +155,23 @@ def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Ms
         Sigma_g[:,:,0]=Sigma0
     else:
         print np.shape(Sigma0), Sigma0>0.0
+    Sigma_temp=Sigma_g[:,:,0]*1.0
+    j=1
     for i in xrange(1,Nt):
-        mask_m=np.sum(Sigma_g[:,:,i-1], axis=0)>0.0
-        mus[mask_m]=(Sigma_g[0,mask_m,i-1]+Sigma_g[1,mask_m,i-1]*(1.+16./12.))/(Sigma_g[0,mask_m, i-1]/28.+Sigma_g[1,mask_m, i-1]/6.) # Sigma+Oxigen/(N)
+        mask_m=np.sum(Sigma_temp, axis=0)>0.0
+        mus[mask_m]=(Sigma_temp[0,mask_m]+Sigma_temp[1,mask_m]*(1.+16./12.))/(Sigma_temp[0,mask_m]/28.+Sigma_temp[1,mask_m]/6.) # Sigma+Oxigen/(N)
+ 
         nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 1.0e10*np.zeros(Nr) #
         nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
-        Sigma_g[:,:,i]=Sigma_next(Sigma_g[:,:,i-1], Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdot, nus_au2_yr, mask_belt)
-    return Sigma_g[:,:,::dt_skip], ts[::dt_skip]
+
+        Sigma_temp=Sigma_next(Sigma_temp, Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdot, nus_au2_yr, mask_belt)
+
+        if i%dt_skip==0.0 or i==Nt-1:
+            Sigma_g[:,:,j]=Sigma_temp*1.
+            ts2[j]=ts[i]
+            j+=1
+    return Sigma_g, ts2
+
 
 
 def viscous_evolution_adt(tf, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, tol=1.0e-3 ):
@@ -221,9 +240,19 @@ def viscous_evolution_adt(tf, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha
 def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1 ):
     
     Nt=len(ts)
+    if isinstance(dt_skip, int) and dt_skip>0:
+        if dt_skip>1: Nt2=Nt/dt_skip+2 #  skips dt_skip to make arrays smaller
+        elif dt_skip==1: Nt2=Nt
+    else:
+        print 'not a valid dt_skip'
+        sys.exit(0)
+
+        
     epsilon=ts[1]-ts[0]
+    ts2=np.zeros(Nt2)
+
     Nr=len(rs)
-    Sigma_g=np.zeros((2,Nr,Nt))
+    Sigma_g=np.zeros((2,Nr,Nt2))
     wbelt=sig_g*2*np.sqrt(2.*np.log(2))
     mask_belt=((rs<rbelt+wbelt) & (rs>rbelt-wbelt))
 
@@ -240,13 +269,19 @@ def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots,
         Sigma_g[:,:,0]=Sigma0
     else:
         print np.shape(Sigma0), Sigma0>0.0
+    Sigma_temp=Sigma_g[:,:,0]*1.0
+    j=1
     for i in xrange(1,Nt):
-        mask_m=np.sum(Sigma_g[:,:,i-1], axis=0)>0.0
-        mus[mask_m]=(Sigma_g[0,mask_m,i-1]+Sigma_g[1,mask_m,i-1]*(1.+16./12.))/(Sigma_g[0,mask_m, i-1]/28.+Sigma_g[1,mask_m, i-1]/6.) # Sigma+Oxigen/(N)
-        nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 1.0e10*np.zeros(Nr) #
+        mask_m=np.sum(Sigma_temp, axis=0)>0.0
+        mus[mask_m]=(Sigma_temp[0,mask_m]+Sigma_temp[1,mask_m]*(1.+16./12.))/(Sigma_temp[0,mask_m]/28.+Sigma_temp[1,mask_m]/6.) # Sigma+Oxigen/(N)
+        nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 
         nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
-        Sigma_g[:,:,i]=Sigma_next(Sigma_g[:,:,i-1], Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdots[i], nus_au2_yr, mask_belt)
-    return Sigma_g[:,:,::dt_skip], ts[::dt_skip]
+        Sigma_temp=Sigma_next(Sigma_temp, Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdots[i], nus_au2_yr, mask_belt)
+        if i%dt_skip==0.0 or i==Nt-1:
+            Sigma_g[:,:,j]=Sigma_temp*1.
+            ts2[j]=ts[i]
+            j+=1
+    return Sigma_g, ts2
 
 
 
