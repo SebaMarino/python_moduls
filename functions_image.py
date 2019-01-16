@@ -1353,7 +1353,7 @@ def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
              
     return Rs_edge, Rs, np.array([Real_mean, Real_std, Real_error]), np.array([Imag_mean, Imag_std, Imag_error]), np.array([Amp_mean, Amp_std, Amp_error])
 
-def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, star=True, xstar=0.0, ystar=0.0, cbar_log=False, xunit='arcsec'):
+def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, star=True, xstar=0.0, ystar=0.0, cbar_log=False, xunit='arcsec', bad_color=(0,0,0)):
 
 
     plt.style.use('style1')
@@ -1366,13 +1366,16 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
 
     if not cbar_log:
-        pc=ax1.pcolormesh(xedge,yedge,image, vmin=vmin, vmax=vmax,  cmap=colormap, rasterized=True)
+        my_cmap = copy.copy(plt.cm.get_cmap(colormap)) # copy the default cmap
+        my_cmap.set_bad(bad_color)
+        pc=ax1.pcolormesh(xedge,yedge,image, vmin=vmin, vmax=vmax,  cmap=my_cmap, rasterized=True)
+  
         #pc.set_edgecolor('face')
         cb= fig.colorbar(pc,orientation='horizontal',label=clabel,format=formatcb, ticks=cbticks, pad=0.12)
         cb.ax.minorticks_on()
     else:
         my_cmap = copy.copy(plt.cm.get_cmap(colormap)) # copy the default cmap
-        my_cmap.set_bad((0,0,0))
+        my_cmap.set_bad(bad_color)
         pc=ax1.pcolormesh(xedge,yedge,image, norm=LogNorm(vmin=vmin, vmax=vmax),  cmap=my_cmap, rasterized=True)
         #pc.set_edgecolor('face')
         cb= fig.colorbar(pc,orientation='horizontal',label=clabel, pad=0.12)
@@ -1415,7 +1418,7 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
     ax1.set_aspect('equal')
 
     #---add beam
-    if BMAJ!=0.0 and BMIN!=0.0:
+    if BMAJ!=0.0 and BMIN!=0.0 and show_beam:
         xc=XMAX-2.0*abs(minor_ticks[1]-minor_ticks[0])
         yc=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
         width= BMAJ
