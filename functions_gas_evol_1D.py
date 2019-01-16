@@ -241,7 +241,11 @@ def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots,
     
     Nt=len(ts)
     if isinstance(dt_skip, int) and dt_skip>0:
-        if dt_skip>1: Nt2=Nt/dt_skip+2 #  skips dt_skip to make arrays smaller
+        if dt_skip>1:  #  skips dt_skip to make arrays smaller
+            if (Nt-1)%dt_skip==0:
+                Nt2=(Nt-1)/dt_skip+1
+            else:
+                Nt2=(Nt-1)/dt_skip+2
         elif dt_skip==1: Nt2=Nt
     else:
         print 'not a valid dt_skip'
