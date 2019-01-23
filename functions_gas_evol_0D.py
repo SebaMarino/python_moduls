@@ -215,6 +215,11 @@ def Mtotdot_t(Mtot0, t, r, dr, rho=2700.0,  Dc=10.0, e=0.05, I=0.05, Qd=150.0, M
 
     return Mtot0/(1.0+t/tc0)**2. / tc0 # Mearth/yr
 
+
+def f_Dbl(Mstar=1.0, Lstar=1.0, rho=2700.0):
+
+    return 0.8*(Lstar/Mstar)*(2700.0/rho)
+
 def integrate_evolcoll(MCO, MC1, dt0,tf, tol, r,dr, alphai, cs,  Mstar=1.0, fCO=0.1, Mtot0=10.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, q=11./6., rho=2700.0, gamma=2.0  ):
     
     MCOs=[]
@@ -296,3 +301,49 @@ def power_law_dist(xmin, xmax,alpha, N):
     beta=1.0+alpha
     return ( (xmax**beta-xmin**beta)*u +xmin**beta  )**(1./beta)
     
+
+
+
+def integrate_no_Cshielding_noviscosity(MCO, MC1, MCOdot_p, dt0,tf,tol, r,dr, alphai, cs,  Mstar=1.0 ):
+    
+    MCOs=[]
+    MC1s=[]
+    ts=[]
+    
+    tvis= tau_vis2(r,dr, alphai, cs, Mstar)
+    print 't vis = %1.1e yr'%tvis
+    ti=0.0
+    
+    MCOs.append(MCO)
+    MC1s.append(MC1)
+    ts.append(ti)
+      
+    # MCOpi= MCOdot_p
+    # MC1pi= MCOdot_p*(m_c1/m_co)
+    dti=dt0
+
+    while ti<tf:
+        
+        tph_CO=tau_CO(r,dr,MCOs[-1], 0.0) 
+        # calculate step
+        MCOi0, MC1i0 = Onestep_fast(MCOs[-1], MC1s[-1],MCOdot_p, dti, r,dr,tph_CO, tvis , Mstar)
+        # calculate mid step stopping in the middle
+        MCOh, MC1h = Onestep_fast(MCOs[-1], MC1s[-1],MCOdot_p, dti/2, r,dr,tph_CO, tvis , Mstar)
+        # calculate 2nd mid step  
+        MCOi1, MC1i1 = Onestep_fast(MCOh, MC1h, MCOdot_p, dti/2, r,dr, tph_CO, tvis , Mstar)
+        
+        # calculate difference in the solutions
+        errorCO=MCOi1-MCOi0
+        errorC1=MC1i1-MC1i0
+        
+        ti+=dti
+        MCOs.append(MCOi0)
+        MC1s.append(MC1i0)
+        ts.append(ti)
+        
+        # define next dt
+        dti=0.9*dti*min( max( min(tol*MCOs[-1]/abs(errorCO),tol*MC1s[-1]/abs(errorC1)),0.3),2.0)
+        #print dti
+        
+    return np.array(ts), np.array(MCOs), np.array(MC1s) #, MC1s[-1], MC1pi
+

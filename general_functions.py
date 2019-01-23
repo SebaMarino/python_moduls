@@ -1,6 +1,7 @@
 import numpy as np
 import math as ma
 import matplotlib.pyplot as plt
+import matplotlib.colors as cl
 
 
 def number_to_text(number):

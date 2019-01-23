@@ -128,11 +128,16 @@ def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Ms
     ### 
     Nt=len(ts)
     if isinstance(dt_skip, int) and dt_skip>0:
-        if dt_skip>1: Nt2=Nt/dt_skip+2 #  skips dt_skip to make arrays smaller
+        if dt_skip>1:  #  skips dt_skip to make arrays smaller
+            if (Nt-1)%dt_skip==0:
+                Nt2=(Nt-1)/dt_skip+1
+            else:
+                Nt2=(Nt-1)/dt_skip+2
         elif dt_skip==1: Nt2=Nt
     else:
         print 'not a valid dt_skip'
         sys.exit(0)
+
 
     epsilon=ts[1]-ts[0]
     ts2=np.zeros(Nt2)
