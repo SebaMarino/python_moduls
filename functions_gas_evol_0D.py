@@ -28,7 +28,7 @@ sigma_COc=(1./sigma_co)*m_co/Mearth*au_cm**2.0 # mearth/au2
 ####### CO PHOTODISSOCIATION
 # Visser+2009
 
-kCOs=[1.0, 0.9495, 0.7046, 0.4015, 0.09964, 0.01567, 0.003162, 0.0004839]
+kCOs=[1.0, 0.9405, 0.7046, 0.4015, 0.09964, 0.01567, 0.003162, 0.0004839]
 NCOs=[1.0, 1.e13, 1.e14, 1.e15, 1.e16, 1.e17, 1.e18, 1.e19]
 logfkCO = interp1d(np.log10(NCOs), np.log10(kCOs))
 slope=np.log(kCOs[-1]/kCOs[-2])/np.log(NCOs[-1]/NCOs[-2])
