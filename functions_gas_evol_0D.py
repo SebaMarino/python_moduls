@@ -98,6 +98,12 @@ def tau_vis(r, dr, alpha, cs, Mstar):
     Omega=np.sqrt(G*Mstar*Msun/((r*au_m)**3.0)) # s
     return (dr*au_m)**2.0*Omega/(alpha*cs**2.)/year_s #/3.0
 
+def tau_vis_local(r, dr, alpha, cs, Mstar):
+    
+    Omega=np.sqrt(G*Mstar*Msun/((r*au_m)**3.0)) # s
+    return (r*au_m)**2.0*Omega/(alpha*cs**2.)/year_s/12. #/3.0
+
+
 def tau_vis2(r, dr, alpha, cs, Mstar):
 
     Omega=np.sqrt(G*Mstar*Msun/((r*au_m)**3.0)) # s

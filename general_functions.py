@@ -18,7 +18,7 @@ def number_to_text(number):
         else:
             return r'%1.1f'%(factor)
     else:
-        if factor==1.0:
+        if str(factor)[:3]=='1.0':
             return r'$10^{%1.0f}$'%(exp)
         elif factor-int(factor)==0.0:
             return r'$%1.0f\times10^{%1.0f}$'%(factor,exp)
