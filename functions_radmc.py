@@ -1268,7 +1268,7 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
     # flux = np.sum(image_in_jypix[0,0,:,:])
     flux = np.sum(image_in_jypix_shifted[0,0,:,:])
 
-    # print "flux [Jy] = ", flux
+    print "flux [Jy] = ", flux
     ### HEADER
 
     
