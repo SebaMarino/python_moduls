@@ -33,7 +33,7 @@ def Delta_s(xs, a,b): # delta s over an ellipse
         ys[mask]=-b*np.sqrt(1.-xs[mask]**2.0/a**2)
     return np.sqrt( (ys[:-1]-ys[1:])**2.0 + (xs[:-1]-xs[1:])**2.0 )
 
-def simple_phi(phi):
+def simple_phi(phi): # returns phi between 0 and 2pi
     if abs(phi)!=2.0*np.pi:
         phir=phi%(2.0*np.pi)
     else: 
@@ -64,7 +64,7 @@ def y_phi(phi, a, b):
     return sign/np.sqrt(1./b**2.0 + 1./(a**2.*np.tan(phi)**2.0))
 
 
-def separate_intervals(phi1, phi2, Nint):
+def separate_intervals(phi1, phi2):
     # Figure out the right ranges of xs' to integrate. Does phi=0.0 pr phi=180 is contained in range?
     phis=[phi1]
     if phi1>phi2: # passes through zero
@@ -81,7 +81,7 @@ def arc_length(a,b,phi1, phi2):
     phi1=simple_phi(phi1) 
     phi2=simple_phi(phi2)
     # Figures out the right ranges of xs' to integrate. Does phi=0.0 pr phi=180 is contained in range?
-    phis=separate_intervals(phi1, phi2, Nint)
+    phis=separate_intervals(phi1, phi2)
     
     Nph=len(phis)
     Arc_length=0.0
@@ -116,7 +116,7 @@ def arc_length2(a,b,phi1, phi2):
     phi1=simple_phi(phi1) 
     phi2=simple_phi(phi2)
     # Figure out the right ranges of xs' to integrate. Does phi=0.0 pr phi=180 is contained in range?
-    phis=separate_intervals(phi1, phi2, Nint)
+    phis=separate_intervals(phi1, phi2)
     
     Nph=len(phis)
     Arc_length=0.0
@@ -402,7 +402,7 @@ def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax
 
 
 
-def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcsec, BMIN_arcsec, ps_arcsec, rs=np.array([]), refine=1):
+def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, BMIN_arcsec, ps_arcsec, rs=np.array([]), refine=1, phi1=0.0, phi2=360.0, rmin=0.0):
 
     # x0, y0 are RA DEC offsets in arcsec
     # PA and inc are PA and inc of the disc in deg
@@ -443,9 +443,9 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcs
     # R phi
 
     PA_rad=PA*np.pi/180.0
-    phis_rad=phis*np.pi/180.0 
-    dphi=abs(phis_rad[1]-phis_rad[0])
-    Nphi=len(phis_rad)
+    phi1_rad=simple_phi(phi1*np.pi/180.0 )
+    phi2_rad=simple_phi(phi2*np.pi/180.0 )
+
     
     print rs
     
@@ -464,17 +464,24 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcs
     xpp = xv * np.cos(PA_rad) - yv *np.sin(PA_rad) ### along minor axis
     ypp = xv * np.sin(PA_rad) + yv *np.cos(PA_rad) ###  along major axis
 
-    # PAs=np.arctan2(xpp,ypp)*180.0/np.pi
-
+    PAs=np.arctan2(xv,yv)# -pi to pi
+    PAs[PAs<0.0]=PAs[PAs<0.0]+2.*np.pi # from 0 to 2pi, discontinuity in 0.0
+    
     rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
-
     rmsmap2=(rms/image_pb)**2.0
     
-    print Beam_area
+    print rmin
     for i_r in xrange(Nr):
 
-        F[i_r,0]= np.sum(image[rdep<rs[i_r]]*(ps_arcsec**2.0)/Beam_area)
-        F[i_r,1]= np.sum( rmsmap2[rdep<rs[i_r]]) # Jy/beam Note: /beam is ok as then it is correct
+        mask_r=(rdep<=rs[i_r]) & (rdep>=rmin)
+        if phi2_rad>=phi1_rad:
+            mask_phis=(PAs>= phi1_rad) & (PAs<=phi2_rad)
+        else: ### goes trough zero
+            mask_phis=(PAs>= phi1_rad) | (PAs<=phi2_rad)
+            
+        mask=mask_r & mask_phis
+        F[i_r,0]= np.sum(image[mask]*(ps_arcsec**2.0)/Beam_area)
+        F[i_r,1]= np.sum( rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
 
         # Correct by number of independent points
         
@@ -484,14 +491,14 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcs
             # mask=
             # F[i_r,1]= np.sum( rmsmap2[rdep<rs[i_r]])
 
-            
+    image[mask]=0.0  
     plt.pcolor(xs, ys, image)
-    plt.contour(xs,ys,rdep, levels=rs)
+    plt.contour(xs,ys,rdep, levels=rs[::3])
     plt.axes().set_aspect('equal')
     plt.show()
     return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI
 
-def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, phis, rms, BMAJ_arcsec, BMIN_arcsec, ps_arcsec, rs=np.array([]), refine=1, hv=0.05):
+def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, rms, BMAJ_arcsec, BMIN_arcsec, ps_arcsec, rs=np.array([]), refine=1, hv=0.05):
 
     # x0, y0 are RA DEC offsets in arcsec
     # PA and inc are PA and inc of the disc in deg
@@ -532,9 +539,9 @@ def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, phis, rms, BMAJ_ar
     # R phi
 
     PA_rad=PA*np.pi/180.0
-    phis_rad=phis*np.pi/180.0 
-    dphi=abs(phis_rad[1]-phis_rad[0])
-    Nphi=len(phis_rad)
+    # phis_rad=phis*np.pi/180.0 
+    # dphi=abs(phis_rad[1]-phis_rad[0])
+    # Nphi=len(phis_rad)
     
     print rs
     
@@ -616,8 +623,9 @@ def flux_azimuthal_profile(image, image_pb, x0, y0, PA, inc, rmin, rmax, NPA, rm
 
     rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
 
-    PAs=np.arctan2(xpp,ypp) # rad
-    
+    PAs=np.arctan2(xv,yv) # rad
+
+    print 'rms =', rms
     rmsmap2=(rms/image_pb)**2.0
     
     print Beam_area
@@ -640,7 +648,7 @@ def flux_azimuthal_profile(image, image_pb, x0, y0, PA, inc, rmin, rmax, NPA, rm
     return np.array([PA_mid, F[:,0], F[:,1]]) # rs, I, eI 
 
 
-def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, rs=np.array([]), refine=1.0):
+def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, rms, rs=np.array([]), refine=1.0, phi1=0.0, phi2=360.0, rmin=0.0):
 
 
     fit1=pyfits.open(fitsfile_pbcor)
@@ -667,9 +675,9 @@ def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,N
     BMAJ_arcsec1=BMAJ*3600.0
     BMIN_arcsec1=BMIN*3600.0
     if inc<90.0:
-        return flux_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1, rs=rs, refine=refine)
+        return flux_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phi1=phi1, phi2=phi2, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1, rs=rs, refine=refine, rmin=rmin)
     elif inc==90.0:
-        return flux_profile_edgeon(data1, data2, x0, y0, PA,  rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1, rs=rs, refine=refine)
+        return flux_profile_edgeon(data1, data2, x0, y0, PA,  rmax,Nr, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1, rs=rs, refine=refine)
         
 def flux_azimuthal_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmin, rmax, NPA,  rms):
 

@@ -222,6 +222,10 @@ def Mtotdot_t(Mtot0, t, r, dr, rho=2700.0,  Dc=10.0, e=0.05, I=0.05, Qd=150.0, M
     return Mtot0/(1.0+t/tc0)**2. / tc0 # Mearth/yr
 
 
+def f_Gamma(Lstar): # Fig 8.3 Nicole Pawellek's thesis
+
+    return 6.42*Lstar**(-0.37)
+
 def f_Dbl(Mstar=1.0, Lstar=1.0, rho=2700.0):
 
     return 0.8*(Lstar/Mstar)*(2700.0/rho)
