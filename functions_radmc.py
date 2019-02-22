@@ -1928,14 +1928,28 @@ def dered(lam,f,Av,Rv):  # unredenning according to cardelli's law
 
 
 
-
-
-
-
-
-
-
-
-
-
+# Opacity function from Kataoka+2014
+def f_kappa(a, lam, rho, f , nf, kf):
+    # Kataoka+2014
+    # lam in cm
+    lamc=2.*np.pi*a
+    
+    m=nf(lam*1.0e4)+kf(lam*1.0e4)*1.j
+    eps0=m**2.0
+    F=(eps0-1.)/(eps0+2.)
+    eps_ef=(1.+2.*f*F)/(1.-f*F)
+    mef=cma.sqrt(eps_ef)
+    nef=mef.real
+    kef=mef.imag
+    
+    x=lamc/lam
+    if x<1.0:
+        Qabs=24.*nef*kef*x / ((nef**2.-kef**2. +2.)**2. + (2.*nef*kef)**2.)
+    else: #kef*x<3./8.:
+        Qabs2=8.*kef*x*(nef**3. - (nef**2-1.)**1.5)/(3.*nef)
+        Qabs3=1.-0.1*f
+        Qabs=min(Qabs2, Qabs3)
+    #print x, lam
+    kappa0=3./(4.*a*rho)
+    return kappa0*Qabs
 

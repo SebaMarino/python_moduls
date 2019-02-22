@@ -10,13 +10,13 @@ Mearth=5.972e24 # [kg]
 year= 3.154e+7  # [s]
 
 
-def f_Qd(Di, vimp=3.0e3, Qs=500.0, bs=0.37, Qg=0.03, bg=1.38 ): ### DISPERSAL THRESHOLD
+def f_Qd(Di, vimp=3.0e3, Qs=608.0, bs=0.38, Qg=0.011, bg=1.36 ): ### DISPERSAL THRESHOLD
     # Di in meters
-    # # Basalt at 3 km s^-1 (Benz and Asphaug 1999)
-    # Qa=500.0 # J kg-1
-    # a=0.37  
-    # Qb=0.03 # J kg-1
-    # b=1.38
+    # # Basalt at 3 km s^-1 (Benz and Asphaug 1999) and assuming rho=2.7 g/cm3
+    # Qa=608.0 # J kg-1
+    # a=0.38  
+    # Qb=0.011 # J kg-1
+    # b=1.36
     
     v0=3.0e3 # m/s
 
@@ -58,10 +58,10 @@ def SizeDist(Mstar=1.0,
              ND=500,
              alphap=-3.7,
              ts=[100.0],
-             Qs=500.0,
-             bs=0.37,
-             Qg=0.03,
-             bg=1.38): 
+             Qs=608.0,
+             bs=0.38,
+             Qg=0.011,
+             bg=1.36): 
     # ##################################################
     # returns size distribution: Ds, M(Ds)
     # Mstar=1.0, stellar mass in solar masses 
@@ -277,21 +277,21 @@ def SizeDist(Mstar=1.0,
 
 
 def SizeDist_dmax(Mstar=1.0, 
-             e=0.05,
-             I=0.05/2.0,    
-             r0=1.0,          
-             dr=0.05*2.0*1.0, 
-             Mbeltem=1.0,          
-             rho=2700.0,
-             dmin=0.8e-6,
-             dmax=1.0e5,
-             ND=500,
-             alphap=-3.7,
-             ts=[100.0],
-             Qs=500.0,
-             bs=0.37,
-             Qg=0.03,
-             bg=1.38): 
+                  e=0.05,
+                  I=0.05/2.0,    
+                  r0=1.0,          
+                  dr=0.05*2.0*1.0, 
+                  Mbeltem=1.0,          
+                  rho=2700.0,
+                  dmin=0.8e-6,
+                  dmax=1.0e5,
+                  ND=500,
+                  alphap=-3.7,
+                  ts=[100.0],
+                  Qs=608.0,
+                  bs=0.38,
+                  Qg=0.011,
+                  bg=1.36): 
     # ##################################################
     # returns size distribution: Ds, M(Ds)
     # Mstar=1.0, stellar mass in solar masses 
@@ -537,21 +537,21 @@ def SizeDist_dmax(Mstar=1.0,
 
 
 def SizeDist_dmax_gas(Mstar=1.0, 
-             e=0.05,
-             I=0.05/2.0,    
-             r0=1.0,          
-             dr=0.05*2.0*1.0, 
-             Mbeltem=1.0,          
-             rho=2700.0,
-             dmin=0.8e-6,
-             dmax=1.0e5,
-             ND=500,
-             alphap=-3.7,
-             ts=[100.0],
-             Qs=500.0,
-             bs=0.37,
-             Qg=0.03,
-             bg=1.38): 
+                      e=0.05,
+                      I=0.05/2.0,    
+                      r0=1.0,          
+                      dr=0.05*2.0*1.0, 
+                      Mbeltem=1.0,          
+                      rho=2700.0,
+                      dmin=0.8e-6,
+                      dmax=1.0e5,
+                      ND=500,
+                      alphap=-3.7,
+                      ts=[100.0],
+                      Qs=500.0,
+                      bs=0.37,
+                      Qg=0.03,
+                      bg=1.36): 
     # ##################################################
     # returns size distribution: Ds, M(Ds)
     # Mstar=1.0, stellar mass in solar masses 

@@ -19,8 +19,9 @@ G = 6.67408e-11 # mks
 kb = 1.38064852e-23 #mks
 year_s = 3.154e7
 
-sigma_C1c=(1./sigma_c1)*m_c1/Mearth*au_cm**2.0 # mearth/au2
-sigma_COc=(1./sigma_co)*m_co/Mearth*au_cm**2.0 # mearth/au2
+# factor 2 as average column density is ~half of the total one
+sigma_C1c=2*(1./sigma_c1)*m_c1/Mearth*au_cm**2.0 # mearth/au2
+sigma_COc=2*(1./sigma_co)*m_co/Mearth*au_cm**2.0 # mearth/au2
 
 
 ## functions
@@ -87,8 +88,8 @@ def tau_CO(r,dr,MCO, MC1):
 def tau_CO2(Sigma_CO, Sigma_C1):
     #area=2*np.pi*r*dr*au_cm**2.0 # cm2
     
-    NC1=Sigma_C1*Mearth/m_c1/au_cm**2.0
-    NCO=Sigma_CO*Mearth/m_co/au_cm**2.0
+    NC1=Sigma_C1/2.*Mearth/m_c1/au_cm**2.0
+    NCO=Sigma_CO/2.*Mearth/m_co/au_cm**2.0
     
     return 120.0 * np.exp( sigma_c1*NC1)/ selfshielding_CO(NCO) # yr
 

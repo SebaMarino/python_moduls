@@ -491,11 +491,11 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, B
             # mask=
             # F[i_r,1]= np.sum( rmsmap2[rdep<rs[i_r]])
 
-    image[mask]=0.0  
-    plt.pcolor(xs, ys, image)
-    plt.contour(xs,ys,rdep, levels=rs[::3])
-    plt.axes().set_aspect('equal')
-    plt.show()
+    # image[mask]=0.0  
+    # plt.pcolor(xs, ys, image)
+    # plt.contour(xs,ys,rdep, levels=rs[::3])
+    # plt.axes().set_aspect('equal')
+    # plt.show()
     return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI
 
 def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, rms, BMAJ_arcsec, BMIN_arcsec, ps_arcsec, rs=np.array([]), refine=1, hv=0.05):
@@ -574,10 +574,10 @@ def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, rms, BMAJ_arcsec, 
         F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
 
             
-    image[mask]=0.0
-    plt.pcolor(xs, ys, image)
-    plt.axes().set_aspect('equal')
-    plt.show()
+    # image[mask]=0.0
+    # plt.pcolor(xs, ys, image)
+    # plt.axes().set_aspect('equal')
+    # plt.show()
     return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI
 
 def flux_azimuthal_profile(image, image_pb, x0, y0, PA, inc, rmin, rmax, NPA, rms,  BMAJ_arcsec, BMIN_arcsec, ps_arcsec):
@@ -1361,7 +1361,7 @@ def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
              
     return Rs_edge, Rs, np.array([Real_mean, Real_std, Real_error]), np.array([Imag_mean, Imag_std, Imag_error]), np.array([Amp_mean, Amp_std, Amp_error])
 
-def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, star=True, xstar=0.0, ystar=0.0, cbar_log=False, xunit='arcsec', bad_color=(0,0,0)):
+def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, star=True, xstar=0.0, ystar=0.0, cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=True, dpc=10.):
 
 
     plt.style.use('style1')
@@ -1443,7 +1443,13 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
         # add star
         ax1.plot(xstar , ystar, marker='+', color=tickcolor, markersize=3.5, mew=1.0)
 
-
+    if ruller:
+        x1=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
+        x2=x1+30./dpc
+        yc=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
+        plt.plot([x1,x2], [yc, yc], color='white')
+        plt.text(x2, yc*0.95, '30 au', color='white')
+        
     plt.tight_layout()
     plt.subplots_adjust(left=0.17, bottom=0.01, right=0.97, top=1.0)
     print 'saving...'
