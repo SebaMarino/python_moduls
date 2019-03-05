@@ -777,7 +777,7 @@ def Convolve_beam(path_image, BMAJ, BMIN, BPA):
     # Gaussimage=Gaussimage/np.max(Gaussimage)
 
 
-    Fout1=convolve_fft(Fin1,Gaussimage)
+    Fout1=convolve_fft(Fin1,Gaussimage, normalize_kernel=False)
 
     # a=BMAJ*np.pi/180.0
     # b=BMIN*np.pi/180.0
