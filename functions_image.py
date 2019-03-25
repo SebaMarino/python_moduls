@@ -727,7 +727,7 @@ def Convolve_beam(path_image, BMAJ, BMIN, BPA):
     #  -----cargar fit y extraer imagen
 
     fit1	= pyfits.open(path_image) #abrir objeto cubo de datos
-
+    
     data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
 
     print np.shape(data1)
@@ -778,6 +778,89 @@ def Convolve_beam(path_image, BMAJ, BMIN, BPA):
 
 
     Fout1=convolve_fft(Fin1,Gaussimage, normalize_kernel=False)
+
+    # a=BMAJ*np.pi/180.0
+    # b=BMIN*np.pi/180.0
+    # C=np.pi*a*b/(4.0*ma.log(2.0)) # in strad
+    # Fout1=Fout1*C/(dtheta**2.0) # Jy/pixel to Jy/beam
+
+
+    # x2=np.zeros(N+1)
+    # y2=np.zeros(N+1)
+    # for i in range(N+1):
+    #     x2[i]=-(i-(N-1)/2.0)*ps2-ps2/2.0
+    #     y2[i]=(i-(N-1)/2.0)*ps2-ps2/2.0
+
+    # x2=x2/1000.0
+    # y2=y2/1000.0
+
+    header1['BMIN'] = BMIN
+    header1['BMAJ'] = BMAJ
+    header1['BPA'] = BPA
+
+    header1['BUNIT']='Jy/beam'
+
+    path_fits=path_image[:-5]+'_beamconvolved.fits'
+    os.system('rm '+ path_fits)
+    pyfits.writeto(path_fits, Fout1, header1, output_verify='fix')
+
+
+def Convolve_beam_cube(path_image, BMAJ, BMIN, BPA):
+
+    #  -----cargar fit y extraer imagen
+
+    fit1	= pyfits.open(path_image) #abrir objeto cubo de datos
+    
+    data1 	= fit1[0].data # [0,0,:,:] # extract image matrix
+
+    print np.shape(data1)
+
+    header1	= fit1[0].header
+    ps_deg=float(header1['CDELT2'])
+    ps_mas= ps_deg*3600.0*1000.0 # pixel size input in mas
+    dtheta=ps_deg*np.pi/180.0 # dtheta in rad
+
+    N=len(data1[0,0,0,:])
+    Nf=len(data1[0,:,0,0])
+    
+    ps1= ps_mas # pixel size input in mas
+    ps2= ps1 # pixel size output in mas
+
+    dtheta2=ps2*np.pi/(3600.0*1000.0*180.0)
+
+    d=0
+
+    Fin1=data1[:,:]#*1e23/(dtheta**2.0) #  JY/PIXEL to ergs/s cm2 Hz sr
+
+    x1=np.zeros(N)
+    y1=np.zeros(N)
+    for i in range(N):
+	x1[i]=(i-N/2.0)*ps1
+	y1[i]=(i-N/2.0)*ps1
+
+
+    # BMAJ = float(sys.argv[1])#2.888e-4#*3600.0 #deg
+    # BMIN = float(sys.argv[2])#2.240e-4#*3600.0  #deg
+    # PA   = float(sys.argv[3])#63.7       # deg
+
+
+    sigx=BMIN*3600.0*1000.0/(2.0*np.sqrt(2.0*np.log(2.0))) 
+    sigy=BMAJ*3600.0*1000.0/(2.0*np.sqrt(2.0*np.log(2.0)))  
+    theta=BPA*np.pi/180.0   #np.pi/4.0
+
+    # Fout1=interpol(N,M,ps1,ps2,Fin1,sigx,sigy,theta)
+
+    Gaussimage=np.zeros((N,N))
+    for j in xrange(N):
+        for i in xrange(N):
+            x=(i-N/2.0)*ps2
+            y=(j-N/2.0)*ps2
+            Gaussimage[j,i]=Gauss2d(x,y,0.0,0.0,sigx,sigy,theta)
+    # Gaussimage=Gaussimage/np.max(Gaussimage)
+
+    Fout1=np.zeros((1,Nf,N,N))
+    for k in xrange(Nf):
+        Fout1[0,k,:,:]=convolve_fft(Fin1[0,k,:,:],Gaussimage, normalize_kernel=False)
 
     # a=BMAJ*np.pi/180.0
     # b=BMIN*np.pi/180.0
@@ -1043,8 +1126,9 @@ def fload_fits_cube(path_cube, line='CO32'): # for images from CASA
         f_line=230.538000 # GHz
     if line=='HCN43':
         f_line=354.50547590 # GHz
-
-
+    if line=='C10':
+        f_line=492.1606510 # GHz
+        
     ##### LOAD CUBE
     fit1	= pyfits.open(path_cube) # open image cube
     data1 	= get_last3d(fit1[0].data) # [0,0,:,:] # extract image matrix
@@ -1128,13 +1212,12 @@ def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, 
     dv=vs[1]-vs[0] # km/s
     Nf=len(vs)
     if Dvel>0.0 and dv>0.0:
-        k_min=max(0, int((v0-Dvel-vs[0])/dv) )
-        k_max=min(Nf, int((v0+Dvel-vs[0])/dv) )
+        k_min=max(0, int(round((v0-Dvel-vs[0])/dv)) )
+        k_max=min(Nf, int(round((v0+Dvel-vs[0])/dv)) )
     elif Dvel>0.0 and dv<0.0:
-        k_min=max(0, int((v0+Dvel-vs[0])/dv) )
-        k_max=min(Nf, int((v0-Dvel-vs[0])/dv) )
+        k_min=max(0, int(round((v0+Dvel-vs[0])/dv)) )
+        k_max=min(Nf, int(round((v0-Dvel-vs[0])/dv)) )
         # print k_min,k_max, dv, Dvel, v0
-
     else:
         print 'error, dv<0 or Dvel<0'
         return -1
@@ -1163,18 +1246,20 @@ def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, 
                 # plt.plot(xi,yi, 'o',color='blue')                            
                 F+=np.sum(cube[k_min:k_max+1,j,i]) # Jy/arcsec
                 Rmss[0:k_min]=  Rmss[0:k_min]+  cube[0:k_min,j,i]     
-                Rmss[k_min:]=  Rmss[k_min:]+  cube[k_max+1:,j,i]     
+                Rmss[k_min:]=  Rmss[k_min:]+  cube[k_max+1:,j,i]    
     # plt.xlim(10.0,-10.0)
     # plt.ylim(-10.0,10.0)
     # plt.show()
     Delta=(ps_arcsec**2.0)*abs(dv) # constant to obtain total flux in Jy km/s
     Rms=np.std(Rmss)
+
     if averaged:
         factor=1.15 # typically for 0.8 km/s wide channels that result from averaging 0.4km/2 channels
         # https://safe.nrao.edu/wiki/pub/Main/ALMAWindowFunctions/Note_on_Spectral_Response.pdf
     else:
         factor=2.0 #  for 0.4 km/s wide channels without averaging
     dF=Rms*np.sqrt(Nfr*factor)*Delta
+    print Nfr
     if dF==0.0:
         return 1.0e-6, 1.0 
     else:
@@ -1186,21 +1271,21 @@ def Spectrum(amin,amax, cube,  ps_arcsec, vs, Dvel, v0, PArad, incrad, x0, y0):
 
     dv=vs[1]-vs[0] # km/s
     Nf=len(vs)
-
+    # print v0, Dvel, vs[0], dv 
     if Dvel>0.0 and dv>0.0:
-        k_min=max(0, int((v0-Dvel-vs[0])/dv) )
-        k_max=min(Nf, int((v0+Dvel-vs[0])/dv) )
+        k_min=max(0, int(round((v0-Dvel-vs[0])/dv)))
+        k_max=min(Nf, int(round((v0+Dvel-vs[0])/dv)))
     elif Dvel>0.0 and dv<0.0:
-        k_min=max(0, int((v0+Dvel-vs[0])/dv) )
-        k_max=min(Nf, int((v0-Dvel-vs[0])/dv) )
+        k_min=max(0, int(round((v0+Dvel-vs[0])/dv)))
+        k_max=min(Nf, int(round((v0-Dvel-vs[0])/dv)))
     else:
         print 'error, dv<0 or Dvel<0'
-        print k_min,k_max, dv, Dvel, v0
         return -1
 
-    
+
+    bad_chan=2
     F=np.zeros(Nf) # spectrum
-    F2=np.zeros(Nf-(k_max-k_min+1)) # spectrum without line where we calculate rms
+    F2=np.zeros(Nf-(k_max-k_min+1)-2*bad_chan) # spectrum without line where we calculate rms, removing bad_chan channels from each edge
     Npix=0 # number of pixels over which we integrate
     N1=len(cube[0,0,:]) # number of pixels image
     chi=1.0/np.cos(incrad) # aspect ratio of disc
@@ -1222,9 +1307,14 @@ def Spectrum(amin,amax, cube,  ps_arcsec, vs, Dvel, v0, PArad, incrad, x0, y0):
                 Npix+=1.0
                 # for k in xrange(Nf):           
                 F[:]+=cube[:,j,i] # Jy/arcsec
-    F2[0:k_min]=F[0:k_min]
-    F2[k_min:]=F[k_max+1:]
-    rms=np.std(F2)                        
+    F2[0:k_min-bad_chan]=F[bad_chan:k_min]
+    F2[k_min-bad_chan:]=F[k_max+1:-(bad_chan)]
+    # corr=np.correlate(F2, F2, mode='full')
+    # plt.plot(corr[corr.size/2:])
+    # plt.axvline(k_min)
+    # plt.axvline(k_max)
+    # plt.show()
+    rms=np.nanstd(F2)                        
     Delta=(ps_arcsec**2.0)
     
     return F*Delta, rms*Delta, Delta, Npix, k_max, k_min

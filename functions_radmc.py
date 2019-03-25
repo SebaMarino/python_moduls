@@ -1056,7 +1056,7 @@ def save_dens_gas_axisym( Redge, R, Thedge, Th, Phiedge, Phi, Mh2, Mco, h, sigma
     path_hcop='numberdens_hcop.inp'
 
     paths=[path_h2, path_12co, path_13c16o, path_12c18o, path_hcop]
-    ms=np.array([2.0, 16.0, 17.0, 17.0, 17.0])* 1.67262178e-24 # molecular masses in grams
+    ms=np.array([2.0, 28.0, 29.0, 30.0, 29.0])* 1.67262178e-24 # molecular masses in grams
     abundances=[Mh2, Mco, Mco*1.0e-2, Mco*1.0e-3, Mco*1.0e-3] # mass in grams
 
     for ip in xrange(len(paths)):
@@ -1083,6 +1083,94 @@ def save_dens_gas_axisym( Redge, R, Thedge, Th, Phiedge, Phi, Mh2, Mco, h, sigma
     file_lines.write('h2 \n')
 
     file_lines.close()
+
+
+def save_dens_gas_axisym_carbon_electrons( Redge, R, Thedge, Th, Phiedge, Phi, h, Mco, Mc,  sigmaf1, sigmaf2, args1, args2, f=0.0):
+
+    # args has the arguments that sigmaf needs in the right order
+
+    Nr=len(R)+1
+    Nth=len(Th)+1
+    Nphi=len(Phi)
+
+    rho_g1=np.zeros(((Nth-1)*2,Nphi,Nr-1)) # density field
+    rho_g2=np.zeros(((Nth-1)*2,Nphi,Nr-1)) # density field
+
+    M_gas_temp1= 0.0 #np.zeros(Nspec) 
+    M_gas_temp2= 0.0 #np.zeros(Nspec) 
+    # print ia
+    # print "Dust species = ", ia
+  
+    for k in xrange(Nth-1):
+        theta=Th[Nth-2-k]
+        for i in xrange(Nr-1):
+            rho=R[i]*np.cos(theta)
+            z=R[i]*np.sin(theta)
+            # for j in xrange(Nphi):
+
+            rho_g1[k,:,i]=rho_3d_dens(rho, 0.0, z,h, sigmaf1, *args1 )
+            rho_g1[2*(Nth-1)-1-k,:,i]=rho_g1[k,:,i]
+            M_gas_temp1+=2.0*rho_g1[k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
+
+            rho_g2[k,:,i]=rho_3d_dens(rho, 0.0, z,h, sigmaf2, *args2 )
+            rho_g2[2*(Nth-1)-1-k,:,i]=rho_g2[k,:,i]
+            M_gas_temp2+=2.0*rho_g2[k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
+
+    rho_g1=rho_g1/M_gas_temp1
+    rho_g2=rho_g2/M_gas_temp2
+        
+    
+    #### Save
+
+    path_12co='numberdens_12c16o.inp'
+    path_carbon='numberdens_catom.inp'
+    path_electrons='numberdens_electrons.inp'
+    path_H='numberdens_h.inp'
+
+    # path_h2='numberdens_h2.inp'
+    # path_12co='numberdens_12c16o.inp'
+    # path_13c16o='numberdens_13c16o.inp'
+    # path_12c18o='numberdens_12c18o.inp'
+    # path_hcop='numberdens_hcop.inp'
+
+    paths=[path_12co, path_carbon, path_electrons, path_H] 
+    ms=np.array([28.0, 12.0, 0.0005446, 1.0])* 1.67262178e-24 # molecular masses in grams
+    Masses=[Mco, Mc*(1-f), Mc*f*0.0005446, Mc*0.0 ] # mass in grams
+    rhogs=[rho_g1, rho_g2, rho_g2, rho_g2]
+    # paths=path_h2, path_12co, path_13c16o, path_12c18o, path_hcop]
+    # ms=np.array([2.0, 28.0, 29.0, 30.0, 29.0])* 1.67262178e-24 # molecular masses in grams
+    # abundances=[Mh2, Mco, Mco*1.0e-2, Mco*1.0e-3, Mco*1.0e-3] # mass in grams
+    for ip in xrange(len(paths)):
+        print 'Mass = %1.1e'%Masses[ip]
+
+        file_g=open(paths[ip],'w')
+        file_g.write('1 \n') # iformat  
+        file_g.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells 
+
+        for j in range(Nphi):
+            for k in range(2*(Nth-1)):
+                for i in range(Nr-1):
+                    file_g.write(str(rhogs[ip][k,j,i]*Masses[ip]/ms[ip])+' \n')
+        file_g.close()
+        
+    file_lines=open('lines.inp', 'w')
+    file_lines.write('2 \n')
+    file_lines.write('2 \n')
+    file_lines.write('12c16o    leiden    0    0    1 \n')
+    file_lines.write('electrons \n')
+    file_lines.write('catom    leiden    0    0    2 \n')
+    file_lines.write('h \n')
+    file_lines.write('electrons \n')
+    # file_lines.write('13c16o    leiden    0    0    1 \n')
+    # file_lines.write('h2 \n')
+    # file_lines.write('12c18o    leiden    0    0    1 \n')
+    # file_lines.write('h2 \n')
+    # file_lines.write('hcop    leiden    0    0    1 \n')
+    # file_lines.write('h2 \n')
+
+    file_lines.close()
+
+    
 
 def gas_velocities( Redge, R, Thedge, Th, Phiedge, Phi, M_star=1.0*M_sun, turb=0.1, ecc=-1.0):
     # turb in km/s
@@ -1259,21 +1347,40 @@ def fpad_image(image_in, pad_x, pad_y, nx, ny):
 
     else:                      # padding is not necessary as image is already the right size (potential bug if nx>pad_x)
         return image_in
-def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y0=0.0, omega=0.0):
+def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y0=0.0, omega=0.0, fstar=-1.0, vel=False, continuum_subtraction=False):
 
     image_in_jypix, nx, ny, nf, lam, pixdeg_x, pixdeg_y = load_image(path_image, dpc)
-
+    
+    if fstar>=0.0:
+        istar, jstar=star_pix(nx, omega)
+        image_in_jypix[:, :, jstar,istar]=fstar
+        
     image_in_jypix_shifted= shift_image(image_in_jypix, mx, my, pixdeg_x, pixdeg_y, omega=omega)
-
-    # flux = np.sum(image_in_jypix[0,0,:,:])
-    flux = np.sum(image_in_jypix_shifted[0,0,:,:])
-
-    print "flux [Jy] = ", flux
-    ### HEADER
 
     
     lam0=lam[0]
+    
     reffreq=cc/(lam0*1.0e-4)
+
+    
+    if nf==1:
+        flux = np.sum(image_in_jypix_shifted[0,0,:,:])
+        print "flux [Jy] = ", flux
+    else:
+        delta_freq= (lam[0] - lam[1])*cc*1.0e4/lam[nf/2]**2.0 # Hz
+        delta_velocity = (lam[1] - lam[0])*cc*1e-5/lam0 # km/s
+
+        if continuum_subtraction:
+         
+            m=(image_in_jypix_shifted[0,-1,:,:]- image_in_jypix_shifted[0,0,:,:])/(lam[nf-1]-lam[0])
+            for k in xrange(nf):
+                Cont=image_in_jypix_shifted[0,0,:,:]+(lam[k]-lam[0])*m
+                image_in_jypix_shifted[0,:,:,:]= image_in_jypix_shifted[0,:,:,:] - Cont 
+        flux = np.sum(image_in_jypix_shifted[0,:,:,:])*delta_velocity
+        print "flux [Jy km/s] = ", flux
+  
+        
+    ### HEADER
 
 
     # Make FITS header information:
@@ -1328,16 +1435,24 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
 
     # FREQ
     if nf > 1:
-        # multiple frequencies - set up the header keywords to define the
-        #    third axis as frequency
-        header['CTYPE3'] = 'VELOCITY'
-        header['CUNIT3'] = 'km/s'
-        header['CRPIX3'] = 1.0* ((nf+1)/2)
-        header['CRVAL3'] = 0.0
-        # Calculate the frequency step, assuming equal steps between all:
-        delta_velocity = (lam[1] - lam[0])*cc*1e-5/lam0
-        header['CDELT3'] = delta_velocity
-        header['RESTWAVE']=lam0
+        if vel==True:
+            # multiple frequencies - set up the header keywords to define the
+            #    third axis as frequency
+            header['CTYPE3'] = 'VELOCITY'
+            header['CUNIT3'] = 'km/s'
+            header['CRPIX3'] = 1.0* ((nf+1)/2)
+            header['CRVAL3'] = 0.0
+            # Calculate the frequency step, assuming equal steps between all:
+            header['CDELT3'] = delta_velocity
+            header['RESTWAVE']=lam0
+        else:
+            header['CTYPE3'] = 'FREQ-LSR'
+            header['CUNIT3'] = 'HZ'
+            header['CRPIX3'] = 1.0* ((nf+1)/2)
+            header['CRVAL3'] = cc*1.0e4/lam[0]
+            # Calculate the frequency step, assuming equal steps between all:
+            header['CDELT3'] = delta_freq
+            header['RESTFRQ']=cc/(lam[nf/2]*1.0e-4)
     else:                # only one frequency
         header['RESTWAVE'] = lam[0]
         header['CUNIT3'] = 'Hz'
@@ -1346,7 +1461,6 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
 
     # PAD IMAGE
     image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, Npixf, Npixf, nx, ny)
-
 
 
     image_in_jypix_float=image_in_jypix_shifted.astype(np.float32)
@@ -1700,7 +1814,7 @@ def convert_to_fits_canvas_alpha(path_image,path_fits,path_canvas, dpc, lam0, ne
 
 
 
-def Simimage(dpc, X0, Y0, imagename, wavelength, Npix, dpix, inc, PA, offx=0.0, offy=0.0, tag='', omega=0.0, Npixf=-1):
+def Simimage(dpc, X0, Y0, imagename, wavelength, Npix, dpix, inc, PA, offx=0.0, offy=0.0, tag='', omega=0.0, Npixf=-1, fstar=-1.0):
 
     # X0, Y0, stellar position (e.g. useful if using a mosaic)
 
@@ -1711,12 +1825,11 @@ def Simimage(dpc, X0, Y0, imagename, wavelength, Npix, dpix, inc, PA, offx=0.0, 
         Npixf=Npix
 
     sau=Npix*dpix*dpc
-
     os.system('radmc3d image incl '+str(inc)+' phi '+str(omega)+' posang '+str(PA-90.0)+'  npix '+str(Npix)+' lambda '+str(wavelength)+' sizeau '+str(sau)+' secondorder  > simimgaes.log')
     pathin ='image_'+imagename+'_'+tag+'.out'
     os.system('mv image.out '+pathin)
     pathout='image_'+imagename+'_'+tag+'.fits'
-    convert_to_fits(pathin, pathout,Npixf, dpc, mx=offx, my=offy, x0=X0, y0=Y0, omega=omega)
+    convert_to_fits(pathin, pathout,Npixf, dpc, mx=offx, my=offy, x0=X0, y0=Y0, omega=omega,  fstar=fstar)
     os.system('mv '+pathout+' ./images')
 
 def Simimage_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix, dpix, offx=0.0, offy=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0, Npixf=-1):
@@ -1854,7 +1967,27 @@ def Simimages_canvas_fields_alpha(dpc, X0, Y0, image0, image_new, lam0, newlam, 
 ## ...pending
 
 
+def Simimage_gas(dpc, X0, Y0, imagename, mol, line, vmax, Nnu, Npix, dpix, inc, PA, offx=0.0, offy=0.0, tag='', omega=0.0, Npixf=-1, fstar=-1.0, vel=False, continuum_subtraction=False):
 
+    # X0, Y0, stellar position (e.g. useful if using a mosaic)
+
+    # images: array of names for images produced at wavelengths
+    # wavelgnths: wavelengths at which to produce images
+    # fields: fields where to make images (=[0] unless observations are a mosaic)
+    if Npixf==-1:
+        Npixf=Npix
+
+    transition='iline '+str(line)+' imolspec '+str(mol)+' widthkms '+str(vmax)+' vkms 0.0 linenlam '+str(Nnu)
+    
+    sau=Npix*dpix*dpc
+    print Npix, transition
+    os.system('radmc3d image incl '+str(inc)+' phi '+str(omega)+' posang '+str(PA-90.0)+' '+transition+ ' npix '+str(Npix)+' sizeau '+str(sau)+' doppcatch noscat')
+    pathin ='image_'+imagename+'_'+tag+'.out'
+    os.system('mv image.out '+pathin)
+    pathout='image_'+imagename+'_'+tag+'.fits'
+    convert_to_fits(pathin, pathout,Npixf, dpc, mx=offx, my=offy, x0=X0, y0=Y0, omega=omega,  fstar=fstar, vel=vel, continuum_subtraction=continuum_subtraction)
+    
+    os.system('mv '+pathout+' ./images')
 
 
 ############### MISCELANEOUS
