@@ -72,7 +72,10 @@ def Chi2_simvisC_bilinear(pathfitsfile, table, offra=0.0, offdec=0.0):
 
     # print np.shape(table)
     if Umax<np.max(np.abs(table[:,0])) or Umax<np.max(np.abs(table[:,1])):
-        print "error, uv point outside grid"
+        print "error, uv point outside grid",
+        print "Umax model = %1.1e klambda"%(Umax/1.0e3)
+        print "Umax data = %1.1e klambda"%(np.max(np.abs(table[:,0])/1.0e3))
+        print "Vmax data = %1.1e klambda"%(np.max(np.abs(table[:,1])/1.0e3))
         sys.exit()
 
    
@@ -187,8 +190,12 @@ def Model_simvisC_bilinear(pathfitsfile, table, save=False, tag='', offra=0.0, o
 
     # print np.shape(table)
     if Umax<np.max(np.abs(table[:,0])) or Umax<np.max(np.abs(table[:,1])):
-        print "error, uv point outside grid"
+        print "error, uv point outside grid",
+        print "Umax model = %1.1e klambda"%(Umax/1.0e3)
+        print "Umax data = %1.1e klambda"%(np.max(np.abs(table[:,0])/1.0e3))
+        print "Vmax data = %1.1e klambda"%(np.max(np.abs(table[:,1])/1.0e3))
         sys.exit()
+
 
     chi2=0
     # Bilinear interpolation

@@ -1135,7 +1135,7 @@ def save_dens_gas_axisym_carbon_electrons( Redge, R, Thedge, Th, Phiedge, Phi, h
 
     paths=[path_12co, path_carbon, path_electrons, path_H] 
     ms=np.array([28.0, 12.0, 0.0005446, 1.0])* 1.67262178e-24 # molecular masses in grams
-    Masses=[Mco, Mc*(1-f), Mc*f*0.0005446, Mc*0.0 ] # mass in grams
+    Masses=[Mco, Mc*(1-f), Mc*f*0.0005446, Mc*6.0 ] # mass in grams
     rhogs=[rho_g1, rho_g2, rho_g2, rho_g2]
     # paths=path_h2, path_12co, path_13c16o, path_12c18o, path_hcop]
     # ms=np.array([2.0, 28.0, 29.0, 30.0, 29.0])* 1.67262178e-24 # molecular masses in grams

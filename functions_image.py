@@ -1259,7 +1259,7 @@ def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, 
     else:
         factor=2.0 #  for 0.4 km/s wide channels without averaging
     dF=Rms*np.sqrt(Nfr*factor)*Delta
-    print Nfr
+    # print Nfr, Delta, factor
     if dF==0.0:
         return 1.0e-6, 1.0 
     else:
