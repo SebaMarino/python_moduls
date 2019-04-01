@@ -364,7 +364,7 @@ def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, arc='eli
             data1=data1/(ps_arcsec1**2)
     return radial_profile(data1, np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc)
 
-def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, error_std=False, arcsec2=False , arc='elipse'):
+def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, error_std=False, arcsec2=False , arc='elipse', ret_beam=False):
 
 
     fit1=pyfits.open(fitsfile_pbcor)
@@ -398,8 +398,10 @@ def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax
         data1=data1/beam_area
         rms=rms/beam_area
         print 'hey'
-    return radial_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, ps_arcsec=ps_arcsec1, error_std=error_std, arc=arc)
-
+    if not ret_beam:
+        return radial_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, ps_arcsec=ps_arcsec1, error_std=error_std, arc=arc)
+    else:
+        return radial_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, ps_arcsec=ps_arcsec1, error_std=error_std, arc=arc), BMAJ_arcsec1
 
 
 def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, BMIN_arcsec, ps_arcsec, rs=np.array([]), refine=1, phi1=0.0, phi2=360.0, rmin=0.0):
