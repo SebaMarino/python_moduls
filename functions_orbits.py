@@ -189,7 +189,27 @@ def draw_random_xyz_fromorb_dist_a(aps,e,inc, Omega, pomega, NM=0, random=True):
         xs[ia*NM:(ia+1)*NM], ys[ia*NM:(ia+1)*NM], zs[ia*NM:(ia+1)*NM]=cartesian_from_orbelement(aps[ia],e,inc, Omega, pomega, Ms)
 
     return xs, ys, zs
+
+
+def draw_random_xyz_fromorb_dist_orbital_elemts(aps,e,inc, Omega, pomega, NM=0, random=True):
+
+    Na=aps.size
+
     
+    Nt=Na*NM
+    xs=np.zeros(Nt)
+    ys=np.zeros(Nt)
+    zs=np.zeros(Nt)
+
+    for ia in xrange(Na):
+        if random: Ms=np.random.uniform(0.0,2.0*np.pi,NM)
+        else: Ms=np.linspace(0.0,2.0*np.pi,NM+1)[:-1]
+        # for im in xrange(NM):
+        #     xs[ia*NM+im], ys[ia*NM+im], zs[ia*NM+im]=cartesian_from_orbelement(aps[ia],e,inc, Omega, pomega, Ms[im])
+        xs[ia*NM:(ia+1)*NM], ys[ia*NM:(ia+1)*NM], zs[ia*NM:(ia+1)*NM]=cartesian_from_orbelement(aps[ia],e[ia],inc[ia], Omega[ia], pomega[ia], Ms)
+
+    return xs, ys, zs
+
 def f_Tiss(aplt, a, e, I):
     return aplt/a + 2.0*( (1.0-e**2.0)*a/aplt )**0.5 * np.cos(I)
 

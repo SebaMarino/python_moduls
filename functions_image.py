@@ -1180,14 +1180,14 @@ def moment_0(path_cube, line='CO32', v0=0.0, dvel=10.0,  rmin=0.0, inc=90.0, M_s
 
     data1, ps_arcsec1, x1, y1, x1edge, y1edge, BMAJ, BMIN, BPA, fs, vs, dv = fload_fits_cube(path_cube, line='CO32')
 
-
     if rmin!=0.0:
         Dvel=np.sqrt(G*M_star*M_sun/(rmin*au)) *np.sin(inc*np.pi/180.0) /1.0e3
     else:
         Dvel=dvel
-    
-    mask_v=(vs>=v0-dvel) & (vs<=v0+dvel)
+    print 'Dvel = [km/s]', Dvel
+    mask_v=(vs>=v0-Dvel) & (vs<=v0+Dvel)
     moment0=np.sum(data1[mask_v,:,:], axis=0)*abs(dv) # Jy km/s
+    
     print 'dvel, dv = ', Dvel, dv
     if ps_final==0.0 or XMAX==0.0:
         
@@ -1453,7 +1453,7 @@ def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
              
     return Rs_edge, Rs, np.array([Real_mean, Real_std, Real_error]), np.array([Imag_mean, Imag_std, Imag_error]), np.array([Amp_mean, Amp_std, Amp_error])
 
-def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, star=True, xstar=0.0, ystar=0.0, cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=True, dpc=10.):
+def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, star=True, xstar=0.0, ystar=0.0, cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=False, dpc=10.):
 
 
     plt.style.use('style1')
@@ -1551,7 +1551,6 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
     if show:
         plt.show()
-
         
 def lighten_color(color, amount=0.5):
     # copied from https://stackoverflow.com/questions/37765197/darken-or-lighten-a-color-in-matplotlib

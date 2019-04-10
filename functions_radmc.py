@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage.interpolation import shift
 from astropy.io import fits
 from scipy import interpolate
-
+import functions_image as fimage
 ############################################################
 # Module with funtions to use radmc and MCMC routines to fit visibilities by S. Marino
 ###########################################################
@@ -962,7 +962,7 @@ def save_density_cartesian_flat(Ms, field, Nspec, Nx, Xmax, Nz):
     dust_d.close()
 
 def save_density_cartesian(Ms, field, Nspec, Nx, Xmax, Nz):
-    # field is a matrix with the surface density of Nx x Nx 
+    # field is a matrix with the surface density of Nx x Nx x Nz
 
 
     Xedge=np.linspace(-Xmax,Xmax,Nx+1)
@@ -1017,8 +1017,182 @@ def save_density_cartesian(Ms, field, Nspec, Nx, Xmax, Nz):
     dust_d.close()
 
 
+def save_grid_dens_from_fits(fits_file, Ms, Nspec, dx=1.0, h=0.0):
+    #### LOAD DENSITY MATRIX FROM FITS FILE AND USE IT TO SAVE DENSITY FIELD IN CARTESIAN COORDINATES FOR RADMC
+
+    fit1=fits.open(fits_file)
+    data = fimage.get_last2d(fit1[0].data) #extraer matriz de datos    
+    Nx=len(data[:,0])
+    Xmax=Nx/2. * dx
+    
+    if h<=0.0:
+        save_density_cartesian_flat(Ms, data, Nspec, Nx, Xmax, 2)
+        
+    else:
+        #### first create third dimension
+        Zmaxp=3.*h*Xmax
+        Nz_2=int(Zmaxp/dx)
+        Nz=2*Nz_2 # Nz must be even
+        Zmax=Nz/2. * dx
+        
+        field=np.zeros((Nz,Nx,Nx))
+        xs=np.linspace(-Xmax+dx/2., Xmax-dx/2., Nx)
+        zs=np.linspace(-Zmax + dx/2., Zmax+dx/2., Nz)
+
+        Xs, Ys  = np.meshgrid( xs, xs) # x, y, z
+        rs=np.sqrt(Xs**2. + Ys**2.)
+        for k in xrange(Nz):
+            
+            field[k, :, :] =  data [:, :] * np.exp( - (zs[k])**2./(2.*(h*rs[:,:])**2.) )
+        if Nx%2!=0.0: # make sure central point has zero density
+            field[:, Nx/2, Nx/2]=0.0
+        save_density_cartesian(Ms, field, Nspec, Nx, Xmax, Nz)
+
+    Xedge, Zedge = define_grid_cart(Nx, Nz, Xmax, save=True)
+    # return Xedge, Zedge, field
+
+    # if h<=0.0:
+    #     return Nx, Nz, data # it should return field with Nz=2 so it can easily be transformed later to a gas density field and saved
+    # else:
+    #     return Nx, Nz, field
 
 
+
+
+def save_gas_dens_velocity_from_fits(fits_file, Mco=0.0, Mc=0.0, Mh=0.0, fion=0.0, dx=1.0, h=0.0, Mstar=1.0):
+    #### LOAD DENSITY MATRIX FROM FITS FILE AND USE IT TO SAVE DENSITY FIELD IN CARTESIAN COORDINATES FOR RADMC
+
+    fit1=fits.open(fits_file)
+    data = fimage.get_last2d(fit1[0].data) #extraer matriz de datos    
+    Nx=len(data[:,0])
+    Xmax=Nx/2. * dx
+    
+    if h<=0.0:
+        Nz=2
+        field=np.zeros(Nz, Nx, Nx)
+        field[:]=data
+        field=field/(np.sum(field)*(dx*au)**3) # normalized  to g/cm3
+        zs=np.linspace(- dx/2., dx/2., Nz)
+ 
+    else:
+        #### first create third dimension
+        Zmaxp=3.*h*Xmax
+        Nz_2=int(Zmaxp/dx)
+        Nz=2*Nz_2 # Nz must be even
+        Zmax=Nz/2. * dx
+        
+        field=np.zeros((Nz,Nx,Nx))
+        xs=np.linspace(-Xmax+dx/2., Xmax-dx/2., Nx)
+        zs=np.linspace(-Zmax + dx/2., Zmax+dx/2., Nz)
+
+        Xs, Ys  = np.meshgrid( xs, xs) # x, y, z
+        rs=np.sqrt(Xs**2. + Ys**2.)
+        for k in xrange(Nz):
+            field[k, :, :] =  data [:, :] * np.exp( - (zs[k])**2./(2.*(h*rs[:,:])**2.) )
+        if Nx%2!=0.0: # make sure central point has zero density
+            field[:, Nx/2, Nx/2]=0.0
+        ## normalize
+        field=field/(np.sum(field)*(dx*au)**3)
+
+        
+
+
+    #### Save
+
+    path_12co='numberdens_12c16o.inp'
+    path_carbon='numberdens_catom.inp'
+    path_electrons='numberdens_electrons.inp'
+    path_H='numberdens_h.inp'
+
+    # path_h2='numberdens_h2.inp'
+    # path_12co='numberdens_12c16o.inp'
+    # path_13c16o='numberdens_13c16o.inp'
+    # path_12c18o='numberdens_12c18o.inp'
+    # path_hcop='numberdens_hcop.inp'
+
+    paths=[path_12co, path_carbon, path_electrons, path_H] 
+    ms=np.array([28.0, 12.0, 0.0005446, 1.0])* 1.67262178e-24 # molecular masses in grams
+    Masses=[Mco, Mc*(1-fion), Mc*fion*0.0005446, Mh ] # mass in grams
+    rhogs=[field, field, field, field]
+    # paths=path_h2, path_12co, path_13c16o, path_12c18o, path_hcop]
+    # ms=np.array([2.0, 28.0, 29.0, 30.0, 29.0])* 1.67262178e-24 # molecular masses in grams
+    # abundances=[Mh2, Mco, Mco*1.0e-2, Mco*1.0e-3, Mco*1.0e-3] # mass in grams
+    for ip in xrange(len(paths)):
+        print 'Mass = %1.1e [Mearth]'%(Masses[ip]/M_earth)
+
+        file_g=open(paths[ip],'w')
+        file_g.write('1 \n') # iformat
+        file_g.write(str((Nx)*(Nx)*(Nz))+' \n') # iformat n cells 
+
+        for k in range(Nz):
+            for j in range(Nx):
+                for i in range(Nx):
+                    file_g.write(str(rhogs[ip][k,j,i]*Masses[ip]/ms[ip])+' \n')
+
+        file_g.close()
+        
+    file_lines=open('lines.inp', 'w')
+    file_lines.write('2 \n')
+    file_lines.write('2 \n')
+    file_lines.write('12c16o    leiden    0    0    1 \n')
+    file_lines.write('electrons \n')
+    file_lines.write('catom    leiden    0    0    2 \n')
+    file_lines.write('h \n')
+    file_lines.write('electrons \n')
+    # file_lines.write('13c16o    leiden    0    0    1 \n')
+    # file_lines.write('h2 \n')
+    # file_lines.write('12c18o    leiden    0    0    1 \n')
+    # file_lines.write('h2 \n')
+    # file_lines.write('hcop    leiden    0    0    1 \n')
+    # file_lines.write('h2 \n')
+
+    file_lines.close()
+
+    #############################################
+    ############  Velocities
+    #############################################
+    
+    path_velocity='gas_velocity.inp'
+    arch=open(path_velocity,'w')
+    arch.write('1 \n') # iformat  
+    arch.write(str((Nx)*(Nx)*(Nz))+' \n') # iformat n cells   
+
+    vz=0.0
+    for k in range(Nz):
+        zi=zs[k]
+        for j in range(Nx):
+            yi=xs[j]
+            for i in range(Nx):
+                xi=xs[i]
+                rho=np.sqrt(xi**2.+yi**2.)
+                r=np.sqrt(xi**2.+yi**2.+zi**2)
+                if rho>0.0:
+                    phi=np.arctan2(yi, xi)
+                    vphi=np.sqrt(G*Mstar*rho**2./(r**3.*au)) 
+                    vr = 0.0
+                    vx=-vphi*np.sin(phi)
+                    vy= vphi*np.cos(phi)
+                
+                    arch.write(str(vx)+'\t'+str(vy)+'\t'+str(vz)+' \n')
+                else:
+                    arch.write(str(0.0)+'\t'+str(0.0)+'\t'+str(0.0)+' \n')
+
+
+    arch.close() 
+
+    arch_v=open('microturbulence.inp','w')
+    arch_v.write('1 \n')
+    arch_v.write(str(Nx*Nx*Nz)+' \n') # n cells
+    # ----------------------TURBULENCES 0.1 km/s
+    turb=0.1
+    for k in xrange(Nz):
+        for j in xrange(Nx):
+            for i in xrange(Nx):
+                arch_v.write(str(turb*1.0e5)+' \n') # cm/s
+
+
+
+        
 def save_dens_gas_axisym( Redge, R, Thedge, Th, Phiedge, Phi, Mh2, Mco, h, sigmaf, *args):
 
     # args has the arguments that sigmaf needs in the right order
@@ -1319,7 +1493,6 @@ def shift_image(image, mx, my, pixdeg_x, pixdeg_y, omega=0.0 ):
     # cp star and remove it
     istar, jstar=star_pix(len(image[0,0,0,:]), omega)
     Fstar=image[0,0,jstar,istar]
-    # print 'Fstar=', Fstar
     # print  image[0,0,jstar-1,istar-1  ]
 
     image[0,0,jstar,istar]=0.0
@@ -1350,11 +1523,13 @@ def fpad_image(image_in, pad_x, pad_y, nx, ny):
 def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y0=0.0, omega=0.0, fstar=-1.0, vel=False, continuum_subtraction=False):
 
     image_in_jypix, nx, ny, nf, lam, pixdeg_x, pixdeg_y = load_image(path_image, dpc)
-    
+
+    istar, jstar=star_pix(nx, omega)
+       
     if fstar>=0.0:
-        istar, jstar=star_pix(nx, omega)
-        image_in_jypix[:, :, jstar,istar]=fstar
-        
+         image_in_jypix[:, :, jstar,istar]=fstar
+    print 'Fstar=', image_in_jypix[0, 0, jstar,istar]
+    
     image_in_jypix_shifted= shift_image(image_in_jypix, mx, my, pixdeg_x, pixdeg_y, omega=omega)
 
     

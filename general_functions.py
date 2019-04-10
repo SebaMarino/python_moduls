@@ -127,3 +127,31 @@ def mean_free_path(cross_section, Sigma, r, L, M, mu):
     n_mks= n_au/(au_m**3) # in m-3
     
     return 1./(cross_section*n_mks) # in m
+
+
+def Poisson_error(n, S):
+    ### Poissonian error approximation based on Gehrels+1986 http://adsabs.harvard.edu/abs/1986ApJ...303..336G
+    ## n is the number of events and s is the confidence limit ("+-sigmas")
+
+
+    ### upper limit
+    # lambda_up= n + S*np.sqrt(n+1) + ( S**2 + 2.0) /3.0 # equation 10
+    lambda_up= (n+1.0)* (1.0 - 1.0/(9.*(n+1.)) + S/(3.*np.sqrt(n+.1)))**(3.) # equation 9
+
+    ### lower limit
+    if S==1:
+        beta=0.0
+        gamma=1.0
+    elif S==2:
+        beta =0.062
+        gamma=-2.22
+    elif S==3:
+        beta=0.222
+        gamma=-1.88
+
+    else: 
+        print "S different from 1,2 or 3. Error"
+        return -1.0
+
+    lambda_low= n*(1.-1./(9.*n) - S/(3.*np.sqrt(n))+beta*n**gamma )**3. # equation 14
+    return lambda_up, lambda_low
