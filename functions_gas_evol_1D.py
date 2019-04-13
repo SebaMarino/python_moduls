@@ -156,6 +156,65 @@ def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2
     
     return Snext2
 
+
+def Sigma_next_fMdot(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, fMdot, args_fMdot, Mdot, nus_au2_yr,  diffusion=0):
+    
+    ###########################################
+    ################ viscous evolution
+    ###########################################
+    Sdot_vis, Sigma_vr_halfs=Sigma_dot_vis(Sigma_prev,  Nr, rs, rhalfs, hs, nus_au2_yr)
+    Snext= Sigma_prev + epsilon*Sdot_vis # viscous evolution
+
+
+  
+    
+    ###########################################
+    ############### inner boundary condition
+    ###########################################
+
+    #if np.all(Snext[:,2])>0.0:
+    #    Snext[:,0]=np.minimum(Snext[:,1]*(nus_au2_yr[1]/nus_au2_yr[0]), Snext[:,1]*(rs[0]/rs[1])**(np.log(Snext[:,2]/Snext[:,1])/np.log(rs[2]/rs[1])))
+    #else: 
+    Snext[:,0]=Snext[:,1]*(nus_au2_yr[1]/nus_au2_yr[0]) # constant Mdot
+    
+    ###########################################
+    ############# Outer boundary condition (power law or constant mass)
+    ###########################################
+
+    if np.all(Snext[:,-3])>0.0: # minimum between power law and constant Mdot
+        Snext[:,-1]=np.minimum(Snext[:,-2]*(nus_au2_yr[-2]/nus_au2_yr[-1]), Snext[:,-2]*(rs[-1]/rs[-2])**(np.log(Snext[:,-2]/Snext[:,-3])/np.log(rs[-2]/rs[-3])))
+    else: 
+        Snext[:,-1]=Snext[:,-2]*(nus_au2_yr[-2]/nus_au2_yr[-1])
+
+
+    ###########################################
+    ################ diffusion evolution
+    ###########################################
+    if diffusion:
+        Snext=Snext+epsilon* Difussion(Snext, Nr, rs, rhalfs, hs, nus_au2_yr)
+        
+    ###########################################
+    ############### CO mas input rate
+    ###########################################
+    Snext2=np.zeros((2, Nr))
+
+    Snext2[0,:]=Snext[0,:]+epsilon*fMdot(rs, hs, Mdot, *args_fMdot)
+    Snext2[1,:]=Snext[1,:]*1.
+    ###########################################
+    ############## photodissociation
+    ###########################################
+
+    tphCO=fgas.tau_CO2(Sigma_prev[0,:], Sigma_prev[1,:])
+    Sdot_ph=Sigma_prev[0,:]/tphCO #(Snext[0,:]/tphCO)
+    #Sdot_ph_epsilon=Sigma_prev[0,:]*(1.-np.exp(-epsilon/tphCO))   
+    Snext2[0,:]=Snext2[0,:]-epsilon*Sdot_ph
+    Snext2[1,:]=Snext2[1,:]+epsilon*Sdot_ph*muc1co
+    #Snext2[0,Snext2[0,:]<0.0]=0.0
+    
+    return Snext2
+
+
+
 def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1, diffusion=0 ):
     ### 
     Nt=len(ts)
@@ -202,6 +261,63 @@ def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Ms
         nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
 
         Sigma_temp=Sigma_next(Sigma_temp, Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdot, nus_au2_yr, mask_belt, diffusion=diffusion)
+
+        if i%dt_skip==0.0 or i==Nt-1:
+            Sigma_g[:,:,j]=Sigma_temp*1.
+            ts2[j]=ts[i]
+            j+=1
+    return Sigma_g, ts2
+
+
+
+
+def viscous_evolution_fMdot(ts, epsilon, rs, rhalfs, hs, fMdot, par_fMdot, Mdot,  alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1, diffusion=0 ):
+    ### 
+    Nt=len(ts)
+    if isinstance(dt_skip, int) and dt_skip>0:
+        if dt_skip>1:  #  skips dt_skip to make arrays smaller
+            if (Nt-1)%dt_skip==0:
+                Nt2=(Nt-1)/dt_skip+1
+            else:
+                Nt2=(Nt-1)/dt_skip+2
+        elif dt_skip==1: Nt2=Nt
+    else:
+        print 'not a valid dt_skip'
+        sys.exit(0)
+
+
+    epsilon=ts[1]-ts[0]
+    ts2=np.zeros(Nt2)
+
+    Nr=len(rs)
+    
+    Sigma_g=np.zeros((2,Nr,Nt2))
+    # wbelt=sig_g*2*np.sqrt(2.*np.log(2))
+    # mask_belt=((rs<rbelt+wbelt) & (rs>rbelt-wbelt))
+
+    
+    ## Temperature and angular velocity
+    Ts=278.3*(Lstar**0.25)*rs**(-0.5) # K
+    Omegas=2.0*np.pi*np.sqrt(Mstar/(rs**3.0)) # 1/yr
+    Omegas_s=Omegas/year_s # Omega in s-1
+    ## default viscosity
+    mus=np.ones(Nr)*mu0
+    
+    
+    if np.shape(Sigma0)==(2,Nr) and np.all(Sigma0>=0.0):
+        Sigma_g[:,:,0]=Sigma0
+    else:
+        print np.shape(Sigma0), Sigma0>0.0
+    Sigma_temp=Sigma_g[:,:,0]*1.0
+    j=1
+    for i in xrange(1,Nt):
+        mask_m=np.sum(Sigma_temp, axis=0)>0.0
+        mus[mask_m]=(Sigma_temp[0,mask_m]+Sigma_temp[1,mask_m]*(1.+16./12.))/(Sigma_temp[0,mask_m]/28.+Sigma_temp[1,mask_m]/6.) # Sigma+Oxigen/(N)
+ 
+        nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 1.0e10*np.zeros(Nr) #
+        nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
+
+        Sigma_temp=Sigma_next_fMdot(Sigma_temp, Nr, rs, rhalfs, hs, epsilon, fMdot, par_fMdot, Mdot, nus_au2_yr, diffusion=diffusion)
 
         if i%dt_skip==0.0 or i==Nt-1:
             Sigma_g[:,:,j]=Sigma_temp*1.
