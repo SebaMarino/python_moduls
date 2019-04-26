@@ -1176,7 +1176,7 @@ def fload_fits_cube(path_cube, line='CO32'): # for images from CASA
     return data1, ps_arcsec1, x1, y1, x1edge, y1edge, BMAJ, BMIN, BPA, fs, vs, dv
         
 
-def moment_0(path_cube, line='CO32', v0=0.0, dvel=10.0,  rmin=0.0, inc=90.0, M_star=1.0, ps_final=0.0, XMAX=0.0):
+def moment_0(path_cube, line='CO32', v0=0.0, dvel=10.0,  rmin=0.0, inc=90.0, M_star=1.0, ps_final=0.0, XMAX=0.0, rms=0.0):
 
     data1, ps_arcsec1, x1, y1, x1edge, y1edge, BMAJ, BMIN, BPA, fs, vs, dv = fload_fits_cube(path_cube, line='CO32')
 
@@ -1186,12 +1186,14 @@ def moment_0(path_cube, line='CO32', v0=0.0, dvel=10.0,  rmin=0.0, inc=90.0, M_s
         Dvel=dvel
     print 'Dvel = [km/s]', Dvel
     mask_v=(vs>=v0-Dvel) & (vs<=v0+Dvel)
+    print len(vs[mask_v]), len(vs)
     moment0=np.sum(data1[mask_v,:,:], axis=0)*abs(dv) # Jy km/s
-    
+    if rms>=0.0:
+        rms_moment0=rms*abs(dv)*np.sqrt( 2*Dvel/abs(dv) )
     print 'dvel, dv = ', Dvel, dv
     if ps_final==0.0 or XMAX==0.0:
         
-        return moment0, x1edge, y1edge, BMAJ, BMIN, BPA, dv
+        return moment0, x1edge, y1edge, BMAJ, BMIN, BPA, dv, rms_moment0
     else:
         Nf=int(XMAX*2.0/(ps_final/1000.0))
         psf_arcsec=ps_final/1000.0
@@ -1203,7 +1205,7 @@ def moment_0(path_cube, line='CO32', v0=0.0, dvel=10.0,  rmin=0.0, inc=90.0, M_s
 
         image=interpol(N1,Nf,ps_mas1,ps_final, moment0)
    
-        return image, xfedge, yfedge, BMAJ, BMIN, BPA, dv
+        return image, xfedge, yfedge, BMAJ, BMIN, BPA, dv, rms_moment0
         
 
 
@@ -1453,13 +1455,17 @@ def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
              
     return Rs_edge, Rs, np.array([Real_mean, Real_std, Real_error]), np.array([Imag_mean, Imag_std, Imag_error]), np.array([Amp_mean, Amp_std, Amp_error])
 
-def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, star=True, xstar=0.0, ystar=0.0, cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=False, dpc=10.):
+def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, YMAX=0.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, loc_beam='ll', show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, star=True, xstar=0.0, ystar=0.0, cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=False, dpc=10.):
 
 
     plt.style.use('style1')
     font= {'family':'Times New Roman', 'size': 12}
     rc('font', **font)
 
+    if YMAX<=0.0:
+        YMAX=XMAX
+
+    # ysize=YMAX/XMAX
     fig = plt.figure(figsize=(4,4.6))#(8,6))
 
     ax1=fig.add_subplot(111)
@@ -1486,7 +1492,7 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
     if contours:
         PS=abs(yedge[1]-yedge[0])
-        c1=plt.contour(xedge[:-1]-PS/2.0,yedge[:-1]+PS/2.0, image/rmsmap, levels=[3.0,5.0, 8.0],colors=[c1,c2, c3], linewidths=0.7)
+        c1=plt.contour(xedge[:-1]-PS/2.0,yedge[:-1]+PS/2.0, image/rmsmap, levels=[3.0,5.0, 8.0],colors=[c1,c2, c3], linewidths=1.0)
         # cb.add_lines(con2)
 
     ax1.set_xticks(major_ticks)                                                       
@@ -1514,13 +1520,18 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
     ax1.set_xlabel('RA offset ['+xunit+']')
     ax1.set_ylabel('DEC offset ['+xunit+']')
     ax1.set_xlim(XMAX,-XMAX)
-    ax1.set_ylim(-XMAX,XMAX)
+    ax1.set_ylim(-YMAX,YMAX)
     ax1.set_aspect('equal')
 
     #---add beam
     if BMAJ!=0.0 and BMIN!=0.0 and show_beam:
-        xc=XMAX-2.0*abs(minor_ticks[1]-minor_ticks[0])
-        yc=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
+        if loc_beam=='lr':
+            xc=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
+            yc=-YMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
+        else:
+            xc=XMAX-2.0*abs(minor_ticks[1]-minor_ticks[0])
+            yc=-YMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
+        
         width= BMAJ
         height= BMIN
         pa=BPA
