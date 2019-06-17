@@ -23,7 +23,7 @@ year_s = 3.154e7
 sigma_C1c=2*(1./sigma_c1)*m_c1/Mearth*au_cm**2.0 # mearth/au2
 sigma_COc=2*(1./sigma_co)*m_co/Mearth*au_cm**2.0 # mearth/au2
 
-
+print sigma_C1c, sigma_COc
 ## functions
 
 ####### CO PHOTODISSOCIATION
