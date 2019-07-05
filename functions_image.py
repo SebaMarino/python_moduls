@@ -449,7 +449,7 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, B
     phi2_rad=simple_phi(phi2*np.pi/180.0 )
 
     
-    print rs
+    #print rs
     
     ecc= np.sin(inc*np.pi/180.0)
     chi=1.0/(np.sqrt(1.0-ecc**2.0)) # aspect ratio between major and minor axis (>=1)
@@ -472,7 +472,7 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, B
     rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
     rmsmap2=(rms/image_pb)**2.0
     
-    print rmin
+    #print rmin
     for i_r in xrange(Nr):
 
         mask_r=(rdep<=rs[i_r]) & (rdep>=rmin)
@@ -942,14 +942,14 @@ def inter(Nin,Nout,i,j,ps1,ps2,Fin):
 
 	f=0.0
 	S=0.0
-	a=1.0*ps1
+	a=1.0*ps1 # sigma
 	di=(i-Nout/2.0)*ps2
 	dj=(j-Nout/2.0)*ps2
 	
-	ni=int(di/ps1+Nin/2.0-2.0*a/ps1)
-	mi=int(dj/ps1+Nin/2.0-2.0*a/ps1)
-	nmax=int(di/ps1+Nin/2.0+2.0*a/ps1)
-	mmax=int(dj/ps1+Nin/2.0+2.0*a/ps1)
+	ni=int(di/ps1+Nin/2.0-5.0*a/ps1)
+	mi=int(dj/ps1+Nin/2.0-5.0*a/ps1)
+	nmax=int(di/ps1+Nin/2.0+5.0*a/ps1)
+	mmax=int(dj/ps1+Nin/2.0+5.0*a/ps1)
 	if ni<0: ni=0
 	if mi<0: mi=0
 	if nmax<0: nmax=0
@@ -967,7 +967,7 @@ def inter(Nin,Nout,i,j,ps1,ps2,Fin):
 			dm=(m-Nin/2.0)*ps1
 			
 			r=np.sqrt((dn-di)**2.0+(dm-dj)**2.0)
-			if r<2*a: 
+			if r<2.*a: 
 				P=np.exp(-r**2.0/(2.0*a**2.0))
 				f=f+P*Fin[n,m]
 				S=S+P
@@ -979,6 +979,7 @@ def inter(Nin,Nout,i,j,ps1,ps2,Fin):
 		return f/S
 
 def interpol(Nin,Nout,ps1,ps2,Fin):
+    print ps1, ps2, Nin, Nout
     print Nin, Nout
     if ps1!=ps2 or Nin!=Nout:
 	F=np.zeros((Nout,Nout), dtype=np.float64)
@@ -1063,7 +1064,13 @@ def fload_fits_image_mira(path_image, ps_final, XMAX): # for images from CASA
 
     #### READ HEADER
     header1	= fit1[0].header
-    ps_mas1=float(header1['CDELT2'])
+    ps_deg1=float(header1['CDELT2'])
+    
+    if ps_deg1<1.0: # i.e. in degrees rather than mas
+        ps_mas1= ps_deg1*3600.0*1000.0 # pixel size input in mas
+    else:
+        ps_mas1= ps_deg1 # pixel size input in mas
+  
     
     N1=len(data1[:,0])
 
@@ -1526,11 +1533,11 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
     #---add beam
     if BMAJ!=0.0 and BMIN!=0.0 and show_beam:
         if loc_beam=='lr':
-            xc=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
-            yc=-YMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
+            xc=-XMAX+2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
+            yc=-YMAX+2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
         else:
-            xc=XMAX-2.0*abs(minor_ticks[1]-minor_ticks[0])
-            yc=-YMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
+            xc=XMAX-2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
+            yc=-YMAX+2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
         
         width= BMAJ
         height= BMIN

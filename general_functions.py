@@ -138,12 +138,11 @@ def f_H(r, Lstar, Mstar, mu=2.): # disc scale height based on radius, luminosity
 
 
 
-def mean_free_path(cross_section, Sigma, r, L, M, mu):
+def mean_free_path(cross_section, Sigma, r, L, M, mu, H=0.0):
 
-
-    H=f_H(r, L, M, mu=mu) # au
+    if H<=0.0:
+        H=f_H(r, L, M, mu=mu) # au
     n_au= Sigma*Mearth_kg/(np.sqrt(2.*np.pi)*H*mu*mp_kg) # au-3
-    
     n_mks= n_au/(au_m**3) # in m-3
     
     return 1./(cross_section*n_mks) # in m
