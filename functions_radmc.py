@@ -1520,10 +1520,11 @@ def fpad_image(image_in, pad_x, pad_y, nx, ny):
 
     else:                      # padding is not necessary as image is already the right size (potential bug if nx>pad_x)
         return image_in
-def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y0=0.0, omega=0.0, fstar=-1.0, vel=False, continuum_subtraction=False):
+def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y0=0.0, omega=0.0, fstar=-1.0, vel=False, continuum_subtraction=False, background_args=[]):
 
     image_in_jypix, nx, ny, nf, lam, pixdeg_x, pixdeg_y = load_image(path_image, dpc)
-
+  
+  
     istar, jstar=star_pix(nx, omega)
        
     if fstar>=0.0:
@@ -1637,6 +1638,9 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
     # PAD IMAGE
     image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, Npixf, Npixf, nx, ny)
 
+    if len(background_args) != 0:
+        for iback in background_args:
+            image_in_jypix_shifted=image_in_jypix_shifted + background_object(*iback)
 
     image_in_jypix_float=image_in_jypix_shifted.astype(np.float32)
     fits.writeto(path_fits, image_in_jypix_float, header, output_verify='fix')
@@ -1748,7 +1752,7 @@ def convert_to_fits_alpha(path_image,path_fits, Npixf, dpc , lam0, newlam, mx=0.
 
 
 
-def convert_to_fits_canvas(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0 , pbm=False, omega=0.0, fstar=-1.0):
+def convert_to_fits_canvas(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0 , pbm=False, omega=0.0, fstar=-1.0, background_args=[]):
    
 
     image_in_jypix, nx, ny, nf, lam, pixdeg_x, pixdeg_y = load_image(path_image, dpc)
@@ -1773,7 +1777,11 @@ def convert_to_fits_canvas(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0
 
     image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, pad_x, pad_y, nx, ny)
 
-
+    # background sources
+    if len(background_args) != 0:
+        for iback in background_args:
+            image_in_jypix_shifted=image_in_jypix_shifted + background_object(*iback)
+   
     ##### multiply by primary beam or not. 
 
     if pbm:
@@ -1989,7 +1997,7 @@ def convert_to_fits_canvas_alpha(path_image,path_fits,path_canvas, dpc, lam0, ne
 
 
 
-def Simimage(dpc, X0, Y0, imagename, wavelength, Npix, dpix, inc, PA, offx=0.0, offy=0.0, tag='', omega=0.0, Npixf=-1, fstar=-1.0):
+def Simimage(dpc, imagename, wavelength, Npix, dpix, inc, PA, offx=0.0, offy=0.0, X0=0., Y0=0., tag='', omega=0.0, Npixf=-1, fstar=-1.0, background_args=[]):
 
     # X0, Y0, stellar position (e.g. useful if using a mosaic)
 
@@ -2004,10 +2012,10 @@ def Simimage(dpc, X0, Y0, imagename, wavelength, Npix, dpix, inc, PA, offx=0.0, 
     pathin ='image_'+imagename+'_'+tag+'.out'
     os.system('mv image.out '+pathin)
     pathout='image_'+imagename+'_'+tag+'.fits'
-    convert_to_fits(pathin, pathout,Npixf, dpc, mx=offx, my=offy, x0=X0, y0=Y0, omega=omega,  fstar=fstar)
+    convert_to_fits(pathin, pathout,Npixf, dpc, mx=offx, my=offy, x0=X0, y0=Y0, omega=omega,  fstar=fstar, background_args=background_args)
     os.system('mv '+pathout+' ./images')
 
-def Simimage_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix, dpix, offx=0.0, offy=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0, Npixf=-1):
+def Simimage_alpha(dpc, imagename0, imagename, lam0, newlam, Npix, dpix, offx=0.0, offy=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0, Npixf=-1):
 
     # images: array of names for images produced at wavelengths
     # wavelgnths: wavelengths at which to produce images
@@ -2023,7 +2031,7 @@ def Simimage_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix, dpix,
     os.system('mv '+pathout+' ./images')
 
 
-def Simimage_canvas(dpc, imagename, wavelength, Npix, dpix, canvas, inc, PA, offx=0.0, offy=0.0, pb=0.0, tag='', omega=0.0, fstar=-1.0):
+def Simimage_canvas(dpc, imagename, wavelength, Npix, dpix, canvas, inc, PA, offx=0.0, offy=0.0, pb=0.0, tag='', omega=0.0, fstar=-1.0, background_args=[]):
 
     # X0, Y0, stellar position (e.g. useful if using a mosaic)
 
@@ -2036,7 +2044,7 @@ def Simimage_canvas(dpc, imagename, wavelength, Npix, dpix, canvas, inc, PA, off
     pathin ='image_'+imagename+'_'+tag+'.out'
     os.system('mv image.out '+pathin)
     pathout='image_'+imagename+'_'+tag+'.fits'
-    convert_to_fits_canvas(pathin, pathout, canvas+'.fits' ,dpc, mx=offx, my=offy, pbm=pb, omega=omega, fstar=fstar)
+    convert_to_fits_canvas(pathin, pathout, canvas+'.fits' ,dpc, mx=offx, my=offy, pbm=pb, omega=omega, fstar=fstar, background_args=background_args)
     os.system('mv '+pathout+' ./images')
 
 
@@ -2261,3 +2269,28 @@ def f_kappa(a, lam, rho, f , nf, kf):
     kappa0=3./(4.*a*rho)
     return kappa0*Qabs
 
+
+def Gauss2d(xi , yi, x0,y0,sigx,sigy,theta):
+
+        xp= (xi-x0)*np.cos(theta) + (yi-y0)*np.sin(theta)
+        yp= -(xi-x0)*np.sin(theta) + (yi-y0)*np.cos(theta)
+
+        a=1.0/(2.0*sigx**2.0)
+        b=1.0/(2.0*sigy**2.0)
+
+        return np.exp(- ( a*(xp)**2.0 + b*(yp)**2.0 ) )#/(2.0*np.pi*sigx*sigy)
+
+def background_object(Ni, dpix, Flux, offx, offy, Rmaj, Rmin, Rpa):
+
+    
+
+    Xmax=(Ni-1)*dpix/2.
+        
+    xs=np.linspace(Xmax, -Xmax, Ni)
+    ys=np.linspace(-Xmax, Xmax, Ni)
+
+    Xs, Ys =np.meshgrid(xs, ys)
+    rs=np.sqrt( (Xs-offx)**2. + (Ys-offy)**2. )
+
+    F=Gauss2d(Xs , Ys, offx, offy, Rmaj, Rmin, (Rpa+90.)*np.pi/180.)
+    return F*Flux/np.sum(F)

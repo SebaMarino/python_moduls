@@ -1133,6 +1133,13 @@ def fload_fits_cube(path_cube, line='CO32'): # for images from CASA
         f_line=345.79599 # GHz
     if line=='CO21':
         f_line=230.538000 # GHz
+
+    if line=='13CO21':
+        f_line=220.3986 # GHz
+
+    if line=='C18O21':
+        f_line=219.56035410 # GHz
+        
     if line=='HCN43':
         f_line=354.50547590 # GHz
     if line=='C10':
@@ -1157,9 +1164,15 @@ def fload_fits_cube(path_cube, line='CO32'): # for images from CASA
         BPA=float(header1['BPA']) # deg 
         print "beam = %1.2f x %1.2f" %(BMAJ, BMIN)
     except:
-        BMAJ=0.0
-        BMIN=0.0
-        BPA=0.0
+        header = fits.getheader(path_cube)
+        if header.get('CASAMBM', False):
+            beam = fits.open(path_cube)[1].data
+            beam = np.median([b[:3] for b in beam.view()], axis=0)
+            BMAJ=beam[0]
+            BMIN=beam[1]
+            BPA= beam[2]
+
+            print beam
 
     ########### SPATIAL GRID
 
@@ -1347,7 +1360,7 @@ def sub_baseline_spectrum(I, vs, Nf, k_min, k_max, order=4 ):
     return Baseline, I-Baseline
 
 
-def f_shift(N1, x0, y0, ps_arcsec, PA, inc, M_star, dpc, vlim=10.0):
+def f_shift(N1, x0, y0, ps_arcsec, PA, inc, M_star, dpc, vlim=10.0, rlim=0.0):
 
     # vlim in km/s
     ### return matrix of the size of the image with the shifts on each pixel
@@ -1378,7 +1391,9 @@ def f_shift(N1, x0, y0, ps_arcsec, PA, inc, M_star, dpc, vlim=10.0):
             if np.abs(vr)<vlim:
                 shifts[j,i]=vr
             else: shifts[j,i]=vlim*vr/abs(vr)
-            
+
+            if r<rlim:
+                shifts[j,i]=0.0
 
     return shifts # km/s
 
