@@ -656,7 +656,6 @@ def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *
                     rho_d[ia,2*(Nth-1)-1-k,:,i]=rho_d[ia,k,:,i]
                     M_dust_temp+=2.0*rho_d[ia,k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0
         elif len(Th)==1:# one cell
-            print 'hey'
             theta=Th[0]
             for i in xrange(Nr-1):
 
@@ -711,7 +710,6 @@ def save_dens_axisym_mirror(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, si
                     M_dust_temp+=2.0*rho_d[ia,k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
 
         elif len(Th)==1:# one cell
-            print 'hey'
             theta=Th[0]
             for i in xrange(Nr-1):
                 rho=R[i]*np.cos(theta)
