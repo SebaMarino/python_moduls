@@ -494,7 +494,7 @@ def define_grid_sph(Nr, Nth, Nphi, Rmax, Rmin, Thmax, Thmin, logr=False, logthet
         R=Redge[1:]-dR/2.0
 
     ### Theta
-    if logtheta: # log sampling
+    if logtheta and Nth>2: # log sampling
         
         Pth=(Thmax/Thmin)**(1.0/(Nth-2)) 
         Thedge=np.zeros(Nth) #from Rmin to Rmax
@@ -639,23 +639,31 @@ def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *
     Nth=len(Th)+1
     Nphi=len(Phi)
     rho_d=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # density field
+    res_theta=Thedge[-1]-Thedge[-2]
+
         
     for ia in xrange(Nspec):
         M_dust_temp= 0.0 #np.zeros(Nspec) 
-        # print ia
-        # print "Dust species = ", ia
-  
-        for k in xrange(Nth-1):
-            theta=Th[Nth-2-k]
-            for i in xrange(Nr-1):
-                rho=R[i]*np.cos(theta)
-                z=R[i]*np.sin(theta)
-                # for j in xrange(Nphi):
+       
+        if len(Th)>1: # more than one cell per emisphere
 
-                rho_d[ia,k,:,i]=rho_3d_dens(rho, 0.0, z,h, sigmaf, *args )
-                rho_d[ia,2*(Nth-1)-1-k,:,i]=rho_d[ia,k,:,i]
-                M_dust_temp+=2.0*rho_d[ia,k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
-        # for ia in xrange(Nspec):
+            for k in xrange(Nth-1):
+                theta=Th[Nth-2-k]
+                for i in xrange(Nr-1):
+                    rho=R[i]*np.cos(theta)
+                    z=R[i]*np.sin(theta)
+                    rho_d[ia,k,:,i]=rho_3d_dens(rho, 0.0, z,h, sigmaf, *args )
+                    rho_d[ia,2*(Nth-1)-1-k,:,i]=rho_d[ia,k,:,i]
+                    M_dust_temp+=2.0*rho_d[ia,k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0
+        elif len(Th)==1:# one cell
+            theta=Th[0]
+            for i in xrange(Nr-1):
+
+                rho=R[i]*np.cos(theta)
+                rho_d[ia,0,:,i]=sigmaf(rho, 0.0, *args)/(res_theta*rho) # rho_3d_dens(rho, 0.0, 0.0, hs, sigmaf, *args )
+                rho_d[ia,1,:,i]=rho_d[ia,0,:,i]
+                M_dust_temp+=2.0*rho_d[ia,0,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(res_theta)*R[i]*au**3.0
+
         rho_d[ia,:,:,:]=rho_d[ia,:,:,:]*Ms[ia]/M_dust_temp
         
         
@@ -677,7 +685,67 @@ def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *
     
     dust_d.close()
 
+##### create density matrix that is axisymmetric and save it for radmc 
+def save_dens_axisym_mirror(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *args):
+    # args has the arguments that sigmaf needs in the right order
+    # this function mirrors the south emisphere
+    Nr=len(R)+1
+    Nth=len(Th)+1
+    Nphi=len(Phi)
+    rho_d=np.zeros((Nspec,Nth-1,Nphi,Nr-1)) # density field
+    res_theta=Thedge[-1]-Thedge[-2]
 
+    for ia in xrange(Nspec):
+        M_dust_temp= 0.0 #np.zeros(Nspec) 
+        
+        if len(Th)>1: # more than one cell per emisphere
+
+            for k in xrange(Nth-1):
+                theta=Th[Nth-2-k]
+                for i in xrange(Nr-1):
+                    rho=R[i]*np.cos(theta)
+                    z=R[i]*np.sin(theta)
+
+                    rho_d[ia,k,:,i]=rho_3d_dens(rho, 0.0, z,h, sigmaf, *args )
+                    M_dust_temp+=2.0*rho_d[ia,k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
+
+        elif len(Th)==1:# one cell
+            theta=Th[0]
+            for i in xrange(Nr-1):
+                rho=R[i]*np.cos(theta)
+                rho_d[ia,0,:,i]=sigmaf(rho, 0.0, *args)/(res_theta*rho) # rho_3d_dens(rho, 0.0, 0.0, hs, sigmaf, *args )
+                M_dust_temp+=2.0*rho_d[ia,0,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(res_theta)*R[i]*au**3.0
+
+        rho_d[ia,:,:,:]=rho_d[ia,:,:,:]*Ms[ia]/M_dust_temp
+        
+        
+    # Save 
+    path='dust_density.inp'
+    dust_d=open(path,'w')
+    
+    dust_d.write('1 \n') # iformat
+    # if south_emisphere:
+    #     print 'saving south emisphere density'
+    #     dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells
+    dust_d.write(str((Nr-1)*(Nth-1)*(Nphi))+' \n') # iformat n cells
+    dust_d.write(str(Nspec)+' \n') # n species
+
+    # if south_emisphere:
+    #     for ai in xrange(Nspec):
+    #         for j in range(Nphi):
+    #             for k in range(2*(Nth-1)):
+    #                 for i in range(Nr-1):
+    #                     dust_d.write(str(rho_d[ai,k,j,i])+' \n')
+    for ai in xrange(Nspec):
+        for j in range(Nphi):
+            for k in range(Nth-1):
+                for i in range(Nr-1):
+                    dust_d.write(str(rho_d[ai,k,j,i])+' \n')
+
+    dust_d.close()
+    
+
+    
 def save_dens_axisym_settling(As, rho_grain, gdr, alpha_turb, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *args):
     # args has the arguments that sigmaf needs in the right order
     Nr=len(R)+1
@@ -685,7 +753,7 @@ def save_dens_axisym_settling(As, rho_grain, gdr, alpha_turb, Redge, R, Thedge, 
     Nphi=len(Phi)
     Nspec=len(As)
     rho_d=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # dust density field
-    res_theta=Thedge[(Nth-1)/2]-Thedge[(Nth-1)/2-1]
+    res_theta=Thedge[-1]-Thedge[-2]
 
     dR=np.zeros(Nr)
     dR[1:-1]=(Redge[2:]-Redge[:-2]/2.)
@@ -746,60 +814,7 @@ def save_dens_axisym_settling(As, rho_grain, gdr, alpha_turb, Redge, R, Thedge, 
     
     dust_d.close()
 
-##### create density matrix that is axisymmetric and save it for radmc 
-def save_dens_axisym_mirror(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *args):
-    # args has the arguments that sigmaf needs in the right order
-    # this function mirrors the south emisphere
-    Nr=len(R)+1
-    Nth=len(Th)+1
-    Nphi=len(Phi)
-    rho_d=np.zeros((Nspec,Nth-1,Nphi,Nr-1)) # density field
-    # rho_d=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # density field
-        
-    for ia in xrange(Nspec):
-        M_dust_temp= 0.0 #np.zeros(Nspec) 
-        # print ia
-        # print "Dust species = ", ia
-  
-        for k in xrange(Nth-1):
-            theta=Th[Nth-2-k]
-            for i in xrange(Nr-1):
-                rho=R[i]*np.cos(theta)
-                z=R[i]*np.sin(theta)
-                # for j in xrange(Nphi):
 
-                rho_d[ia,k,:,i]=rho_3d_dens(rho, 0.0, z,h, sigmaf, *args )
-                # if south_emisphere: rho_d[ia,2*(Nth-1)-1-k,:,i]=rho_d[ia,k,:,i]
-                M_dust_temp+=2.0*rho_d[ia,k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
-        # for ia in xrange(Nspec):
-        rho_d[ia,:,:,:]=rho_d[ia,:,:,:]*Ms[ia]/M_dust_temp
-        
-        
-    # Save 
-    path='dust_density.inp'
-    dust_d=open(path,'w')
-    
-    dust_d.write('1 \n') # iformat
-    # if south_emisphere:
-    #     print 'saving south emisphere density'
-    #     dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells
-    dust_d.write(str((Nr-1)*(Nth-1)*(Nphi))+' \n') # iformat n cells
-    dust_d.write(str(Nspec)+' \n') # n species
-
-    # if south_emisphere:
-    #     for ai in xrange(Nspec):
-    #         for j in range(Nphi):
-    #             for k in range(2*(Nth-1)):
-    #                 for i in range(Nr-1):
-    #                     dust_d.write(str(rho_d[ai,k,j,i])+' \n')
-    for ai in xrange(Nspec):
-        for j in range(Nphi):
-            for k in range(Nth-1):
-                for i in range(Nr-1):
-                    dust_d.write(str(rho_d[ai,k,j,i])+' \n')
-
-    dust_d.close()
-    
 
     
 ##### create density matrix that is non-axisymmetric and save it for radmc 
@@ -1520,10 +1535,11 @@ def fpad_image(image_in, pad_x, pad_y, nx, ny):
 
     else:                      # padding is not necessary as image is already the right size (potential bug if nx>pad_x)
         return image_in
-def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y0=0.0, omega=0.0, fstar=-1.0, vel=False, continuum_subtraction=False):
+def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y0=0.0, omega=0.0, fstar=-1.0, vel=False, continuum_subtraction=False, background_args=[]):
 
     image_in_jypix, nx, ny, nf, lam, pixdeg_x, pixdeg_y = load_image(path_image, dpc)
-
+  
+  
     istar, jstar=star_pix(nx, omega)
        
     if fstar>=0.0:
@@ -1637,6 +1653,9 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
     # PAD IMAGE
     image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, Npixf, Npixf, nx, ny)
 
+    if len(background_args) != 0:
+        for iback in background_args:
+            image_in_jypix_shifted=image_in_jypix_shifted + background_object(*iback)
 
     image_in_jypix_float=image_in_jypix_shifted.astype(np.float32)
     fits.writeto(path_fits, image_in_jypix_float, header, output_verify='fix')
@@ -1748,7 +1767,7 @@ def convert_to_fits_alpha(path_image,path_fits, Npixf, dpc , lam0, newlam, mx=0.
 
 
 
-def convert_to_fits_canvas(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0 , pbm=False, omega=0.0, fstar=-1.0):
+def convert_to_fits_canvas(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0 , pbm=False, omega=0.0, fstar=-1.0, background_args=[]):
    
 
     image_in_jypix, nx, ny, nf, lam, pixdeg_x, pixdeg_y = load_image(path_image, dpc)
@@ -1773,7 +1792,11 @@ def convert_to_fits_canvas(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0
 
     image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, pad_x, pad_y, nx, ny)
 
-
+    # background sources
+    if len(background_args) != 0:
+        for iback in background_args:
+            image_in_jypix_shifted=image_in_jypix_shifted + background_object(*iback)
+   
     ##### multiply by primary beam or not. 
 
     if pbm:
@@ -1989,7 +2012,7 @@ def convert_to_fits_canvas_alpha(path_image,path_fits,path_canvas, dpc, lam0, ne
 
 
 
-def Simimage(dpc, X0, Y0, imagename, wavelength, Npix, dpix, inc, PA, offx=0.0, offy=0.0, tag='', omega=0.0, Npixf=-1, fstar=-1.0):
+def Simimage(dpc, imagename, wavelength, Npix, dpix, inc, PA, offx=0.0, offy=0.0, X0=0., Y0=0., tag='', omega=0.0, Npixf=-1, fstar=-1.0, background_args=[]):
 
     # X0, Y0, stellar position (e.g. useful if using a mosaic)
 
@@ -2004,10 +2027,10 @@ def Simimage(dpc, X0, Y0, imagename, wavelength, Npix, dpix, inc, PA, offx=0.0, 
     pathin ='image_'+imagename+'_'+tag+'.out'
     os.system('mv image.out '+pathin)
     pathout='image_'+imagename+'_'+tag+'.fits'
-    convert_to_fits(pathin, pathout,Npixf, dpc, mx=offx, my=offy, x0=X0, y0=Y0, omega=omega,  fstar=fstar)
+    convert_to_fits(pathin, pathout,Npixf, dpc, mx=offx, my=offy, x0=X0, y0=Y0, omega=omega,  fstar=fstar, background_args=background_args)
     os.system('mv '+pathout+' ./images')
 
-def Simimage_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix, dpix, offx=0.0, offy=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0, Npixf=-1):
+def Simimage_alpha(dpc, imagename0, imagename, lam0, newlam, Npix, dpix, offx=0.0, offy=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0, Npixf=-1):
 
     # images: array of names for images produced at wavelengths
     # wavelgnths: wavelengths at which to produce images
@@ -2023,7 +2046,7 @@ def Simimage_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix, dpix,
     os.system('mv '+pathout+' ./images')
 
 
-def Simimage_canvas(dpc, imagename, wavelength, Npix, dpix, canvas, inc, PA, offx=0.0, offy=0.0, pb=0.0, tag='', omega=0.0, fstar=-1.0):
+def Simimage_canvas(dpc, imagename, wavelength, Npix, dpix, canvas, inc, PA, offx=0.0, offy=0.0, pb=0.0, tag='', omega=0.0, fstar=-1.0, background_args=[]):
 
     # X0, Y0, stellar position (e.g. useful if using a mosaic)
 
@@ -2036,7 +2059,7 @@ def Simimage_canvas(dpc, imagename, wavelength, Npix, dpix, canvas, inc, PA, off
     pathin ='image_'+imagename+'_'+tag+'.out'
     os.system('mv image.out '+pathin)
     pathout='image_'+imagename+'_'+tag+'.fits'
-    convert_to_fits_canvas(pathin, pathout, canvas+'.fits' ,dpc, mx=offx, my=offy, pbm=pb, omega=omega, fstar=fstar)
+    convert_to_fits_canvas(pathin, pathout, canvas+'.fits' ,dpc, mx=offx, my=offy, pbm=pb, omega=omega, fstar=fstar, background_args=background_args)
     os.system('mv '+pathout+' ./images')
 
 
@@ -2261,3 +2284,28 @@ def f_kappa(a, lam, rho, f , nf, kf):
     kappa0=3./(4.*a*rho)
     return kappa0*Qabs
 
+
+def Gauss2d(xi , yi, x0,y0,sigx,sigy,theta):
+
+        xp= (xi-x0)*np.cos(theta) + (yi-y0)*np.sin(theta)
+        yp= -(xi-x0)*np.sin(theta) + (yi-y0)*np.cos(theta)
+
+        a=1.0/(2.0*sigx**2.0)
+        b=1.0/(2.0*sigy**2.0)
+
+        return np.exp(- ( a*(xp)**2.0 + b*(yp)**2.0 ) )#/(2.0*np.pi*sigx*sigy)
+
+def background_object(Ni, dpix, Flux, offx, offy, Rmaj, Rmin, Rpa):
+
+    
+
+    Xmax=(Ni-1)*dpix/2.
+        
+    xs=np.linspace(Xmax, -Xmax, Ni)
+    ys=np.linspace(-Xmax, Xmax, Ni)
+
+    Xs, Ys =np.meshgrid(xs, ys)
+    rs=np.sqrt( (Xs-offx)**2. + (Ys-offy)**2. )
+
+    F=Gauss2d(Xs , Ys, offx, offy, Rmaj, Rmin, (Rpa+90.)*np.pi/180.)
+    return F*Flux/np.sum(F)
