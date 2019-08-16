@@ -213,7 +213,9 @@ def f_tc_Xc(Mtot, r, dr, rho=2700.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, Mstar=1.
 def Mtot_t(Mtot0, t, r, dr,  rho=2700.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, Mstar=1.0, q=11./6.):
     # t in years
     tc0=f_tc_Xc(Mtot0, r, dr, rho, Dc, e, I, Qd, Mstar, q=q)
-
+    if tc0<0.0:
+        tc0=f_tc_simple(Mtot0, r, dr,  Dc, e, Qd, Mstar)
+        
     return Mtot0/(1.0+t/tc0) 
 
 def Mtot_t_simple(Mtot0, t, r, dr,  rho=2700.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, Mstar=1.0, q=11./6.):
@@ -225,6 +227,8 @@ def Mtot_t_simple(Mtot0, t, r, dr,  rho=2700.0, Dc=10.0, e=0.05, I=0.05, Qd=150.
 def Mtotdot_t(Mtot0, t, r, dr, rho=2700.0,  Dc=10.0, e=0.05, I=0.05, Qd=150.0, Mstar=1.0, q=11./6.):
     # t in years
     tc0=f_tc_Xc(Mtot0, r, dr, rho,  Dc, e, I, Qd, Mstar, q=q)
+    if tc0<0.0:
+        tc0=f_tc_simple(Mtot0, r, dr,  Dc, e, Qd, Mstar)
 
     return Mtot0/(1.0+t/tc0)**2. / tc0 # Mearth/yr
 

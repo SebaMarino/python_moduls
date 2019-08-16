@@ -397,7 +397,7 @@ def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax
     if arcsec2:
         data1=data1/beam_area
         rms=rms/beam_area
-        print 'hey'
+        print 'transforming to Jy/arcsec2'
     if not ret_beam:
         return radial_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, ps_arcsec=ps_arcsec1, error_std=error_std, arc=arc)
     else:
