@@ -2307,5 +2307,5 @@ def background_object(Ni, dpix, Flux, offx, offy, Rmaj, Rmin, Rpa):
     Xs, Ys =np.meshgrid(xs, ys)
     rs=np.sqrt( (Xs-offx)**2. + (Ys-offy)**2. )
 
-    F=Gauss2d(Xs , Ys, offx, offy, Rmaj, Rmin, (Rpa+90.)*np.pi/180.)
+    F=Gauss2d(Xs , Ys, offx, offy, Rmaj, Rmin, -(Rpa+90.)*np.pi/180.)
     return F*Flux/np.sum(F)
