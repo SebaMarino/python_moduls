@@ -474,8 +474,10 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, B
     
     #print rmin
     for i_r in xrange(Nr):
-
-        mask_r=(rdep<=rs[i_r]) & (rdep>=rmin)
+        try:
+            mask_r=(rdep<=rs[i_r]) & (rdep>=rmin)
+        except:
+            mask_r=(rdep<=rs[i_r]) & (rdep>=rmin[i_r])
         if phi2_rad>=phi1_rad:
             mask_phis=(PAs>= phi1_rad) & (PAs<=phi2_rad)
         else: ### goes trough zero
@@ -486,9 +488,12 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, B
         F[i_r,1]= np.sum( rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
 
         # Correct by number of independent points
-        
-        F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
 
+        if len(image[mask])*ps_arcsec**2.>Beam_area:
+        
+            F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
+        else:
+            F[i_r,1]=rms
         # if  F[i_r,1]==0.0 and rs[i_r]**2.0*np.pi*np.cos(inc*np.pi/180):
             # mask=
             # F[i_r,1]= np.sum( rmsmap2[rdep<rs[i_r]])
@@ -545,7 +550,7 @@ def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, rms, BMAJ_arcsec, 
     # dphi=abs(phis_rad[1]-phis_rad[0])
     # Nphi=len(phis_rad)
     
-    print rs
+    print BMAJ_arcsec
     
     Beam_area=np.pi*BMAJ_arcsec*BMIN_arcsec/(4.0*np.log(2.0)) # in arcsec2
 
@@ -564,20 +569,25 @@ def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, rms, BMAJ_arcsec, 
 
     rmsmap2=(rms/image_pb)**2.0
     
-    print Beam_area
     for i_r in xrange(Nr):
-        mask=((np.abs(ypp)<rs[i_r]) & ( (np.abs(xpp)<BMAJ_arcsec) | (np.abs(xpp)<rs[i_r]*hv)))
+        mask=((np.abs(ypp)<rs[i_r]) & ( (np.abs(xpp)<BMAJ_arcsec/1.5) | (np.abs(xpp)<rs[i_r]*hv)))
         
         F[i_r,0]= np.sum( image[mask]*(ps_arcsec**2.0)/Beam_area)
         F[i_r,1]= np.sum( rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
 
         # Correct by number of independent points
-        
-        F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
+        if len(image[mask])*ps_arcsec**2.>Beam_area:
+            F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
+        else:
+            F[i_r,1]=rms
+    print 'Beam area / pixel area',Beam_area/ps_arcsec**2.
+    print 'Beam area = %1.3f arcsec2'%Beam_area
+    print '%1.1f beams within %1.1f arcsec'%(len(image[mask].flatten())*ps_arcsec**2./Beam_area, rs[i_r])        
 
-            
-    # image[mask]=0.0
+
+    # image[mask]=0.0  
     # plt.pcolor(xs, ys, image)
+    # #plt.contour(xs,ys,rdep, levels=rs[::3])
     # plt.axes().set_aspect('equal')
     # plt.show()
     return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI
@@ -724,7 +734,7 @@ def Gauss2d(xi , yi, x0,y0,sigx,sigy,theta):
         return np.exp(- ( a*(xp)**2.0 + b*(yp)**2.0 ) )#/(2.0*np.pi*sigx*sigy)
 
 
-def Convolve_beam(path_image, BMAJ, BMIN, BPA):
+def Convolve_beam(path_image, BMAJ, BMIN, BPA, tag_out=''):
 
     #  -----cargar fit y extraer imagen
 
@@ -802,7 +812,7 @@ def Convolve_beam(path_image, BMAJ, BMIN, BPA):
 
     header1['BUNIT']='Jy/beam'
 
-    path_fits=path_image[:-5]+'_beamconvolved.fits'
+    path_fits=path_image[:-5]+'_beamconvolved'+tag_out+'.fits'
     os.system('rm '+ path_fits)
     pyfits.writeto(path_fits, Fout1, header1, output_verify='fix')
 

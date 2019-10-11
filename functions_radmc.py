@@ -6,6 +6,7 @@ from scipy.ndimage.interpolation import shift
 from astropy.io import fits
 from scipy import interpolate
 import functions_image as fimage
+import general_functions as gf
 ############################################################
 # Module with funtions to use radmc and MCMC routines to fit visibilities by S. Marino
 ###########################################################
@@ -20,7 +21,7 @@ M_earth=5.97219e27    # [g]
 R_sun=6.955e+10       # [cm]
 G=6.67259e-8          # cgs
 sig=5.6704e-5         # cgs
-
+h_p=6.62606885e-27 # cgs (egrs*s)
 cc  = 2.9979245800000e10      # Light speed             [cm/s]
 
 
@@ -471,6 +472,108 @@ def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star
     if save_npy:
         np.savetxt('stellar_spectrum_Jy_1pc.dat', np.transpose(np.array([waves, Flux*1.0e23])))
 
+
+###################################################################
+######################## Interstellar spectrum ########################
+
+# def write_interstellar_spectrum(waves, path_ISRF='/Users/marino/Astronomy/DebrisDiscs/NLTE/ISRF.dat', save_npy=False ):
+#     ### not ready yet. ISRF.dat does not extend beyond UV and thus is incomplete.
+    
+#     Nw=len(waves)
+#     # load file
+#     Inu_ISRF=np.loadtxt(path_ISRF) # in units of nm and photons/s / cm2 / nm
+#     Inu_ISRF[:,0]=Inu_ISRF[:,0]*1.0e-3 # nm to um
+#     Inu_ISRF[:,1]=Inu_ISRF[:,1]*1.0e7 # nm-1 to cm-1
+#     nu=cc/(Inu_ISRF[:,0]*1.0e-4) # Hz
+#     Inu_ISRF[:,1]=Inu_ISRF[:,1] * (h_p*nu) * (cc/nu**2.0) / (4.*np.pi)  # photons.s-1.cm-2.nm-1 to erg / cm2/ sec / Hz / steradian
+    
+
+#     fInu=interpolate.interp1d(Inu_ISRF[:,0], Inu_ISRF[:,1])
+#     mask= (waves>Inu_ISRF[0,0])  &  (waves<Inu_ISRF[-1,0])
+
+#     # plt.plot(Inu_ISRF[:,0], Inu_ISRF[:,1], 'o')
+#     # plt.plot(waves[mask], fInu(waves[mask]))
+#     # plt.xscale('log')
+#     # plt.yscale('log')
+#     # plt.show()
+
+    
+#     path='external_source.inp'
+#     arch_ex=open(path,'w')
+#     arch_ex.write('2 \n')
+#     arch_ex.write(str(Nw)+'\n')
+#     ### wavelengths
+#     for i in xrange(Nw):
+#         arch_ex.write(str(waves[i])+'\n')
+#     ### Inu
+#     for i in xrange(Nw):
+#         if waves[i]>Inu_ISRF[0,0] and waves[i]<Inu_ISRF[-1,0]:
+#             arch_ex.write(str(fInu(waves[i]))+'\n')
+#         else:
+#             arch_ex.write('0.0 \n')
+#     arch_ex.close()
+
+
+def write_interstellar_spectrum(waves, path_ISRF='/Users/marino/Astronomy/DebrisDiscs/NLTE/ISRF.dat', save_npy=False ):
+    ### From Mezger+1982 and Mathis1983
+
+    
+    
+    Nw=len(waves)
+
+
+    flam=np.zeros(Nw)
+    for i in xrange(Nw):
+        if True:#waves[i]<8.0:
+            flam[i]=Flam_ISRF(waves[i])  #/(np.pi*4.)
+    Ftot=np.sum(flam[:-1]*(waves[1:]-waves[:-1]))*1.0e-7 * (1.0e2)**2  # from ergs /s /cm2 to Joules/ s/ m2
+    print 'Ftot = %1.1e'%Ftot
+    # plt.plot(waves, Ilam * waves)
+    # plt.xscale('log')
+    # plt.yscale('log')
+    # plt.show()
+
+    path='external_source.inp'
+    arch_ex=open(path,'w')
+    arch_ex.write('2 \n')
+    arch_ex.write(str(Nw)+'\n')
+    ### wavelengths
+    for i in xrange(Nw):
+        arch_ex.write(str(waves[i])+'\n')
+    ### Inu
+    for i in xrange(Nw):
+        Flam=Flam_ISRF(waves[i])*1.0e4 # from um-1 to cm-1 (cgs)
+        Inu= Flam * ( waves[i]*1.0e-4 )**2.0 /cc #/ (4.*np.pi) # units of erg /cm2 /sec/ Hz/ ster
+
+        
+        arch_ex.write(str(Inu)+'\n')
+    arch_ex.close()
+
+def Flam_ISRF(lam): # from From Mezger+1982 and Mathis1983
+    # returns 4piJlam in erg cm-2 s-1 um-1
+    # lam in um
+
+    W2=1.0e-14
+    W3=1.0e-13#1.65e-13
+    W4=4.0e-13
+    W5=0.0#2.0e-5
+    T2=7500.
+    T3=4000.
+    T4=3000.
+    T5=30.
+    Tcmb=2.725 # CMB
+    u=0.
+    if lam<=0.0912:
+        u= 0.
+    elif lam<=0.110:
+        u= 38.57*lam**(3.4172)
+    elif lam<=0.134:
+        u= 2.045*1.0e-2
+    elif lam<=0.246:
+        u= 7.115e-4*lam**(-1.6678)
+
+    return  u + 4.0*np.pi*( W2* gf.Bbody_lam(lam, T2)*1.0e-4 + W3*gf.Bbody_lam(lam, T3)*1.0e-4 + W4*gf.Bbody_lam(lam, T4)*1.0e-4 + gf.Bbody_lam(lam,Tcmb)*1.0e-4 + W5*gf.Bbody_lam(lam, T5)*1.0e-4) # 1e-4 factor to convert from cm-1 to um-1 the BB function
+    
 #########################################################
 ##### GRID (grid could be a class...future work) #####
 #########################################################
@@ -2309,3 +2412,5 @@ def background_object(Ni, dpix, Flux, offx, offy, Rmaj, Rmin, Rpa):
 
     F=Gauss2d(Xs , Ys, offx, offy, Rmaj, Rmin, -(Rpa+90.)*np.pi/180.)
     return F*Flux/np.sum(F)
+
+

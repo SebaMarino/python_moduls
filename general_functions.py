@@ -8,6 +8,15 @@ au_m=1.496e11 # m
 mp_kg=1.67e-27 # kg
 Mearth_kg=5.972e24 # kg
 year_s= 3.154e7 # s
+c_light=2.99792458e8 # m/s
+c_light_cgs=2.99792458e10 # m/s
+Kb=1.38064852e-23
+h=6.62607004e-34 # mks
+h_cgs=6.62607004e-27 # cgs
+
+G=6.67384e-11 # mks
+M_sun= 1.9891e30 # kg
+
 
 def number_to_text(number):
 
@@ -174,3 +183,26 @@ def Poisson_error(n, S):
 
     lambda_low= n*(1.-1./(9.*n) - S/(3.*np.sqrt(n))+beta*n**gamma )**3. # equation 14
     return lambda_up, lambda_low
+
+def Bbody(lam, T): # function returns Planck function Bnu in Janskys
+    # lam in m
+    # T in K
+    nu=c_light/lam # Hz
+
+    return (2.*h*nu**3.)/(c_light**2.)  * 1./(np.exp(h*nu/(Kb*T))-1.)*1.0e26
+
+def Bbody_lam(lam_um, T): # function returns Planck function Blam in cgs
+    # lam in um
+    # T in K
+    lam_cm=lam_um*1.0e-4 # m
+    nu=c_light/(lam_cm*1.0e-2) # Hz
+
+    return (2.*h_cgs*c_light_cgs**2.)/(lam_cm**5.)  * 1./(np.exp(h*nu/(Kb*T))-1.) # cgs
+
+
+def TempBB(r, Lstar=1.0):
+    return 278.3 * r**(-0.5) * Lstar**0.25
+
+def rBB(T, Lstar=1.0):
+    return (278.3/T)**2.0*Lstar**0.5
+
