@@ -1237,7 +1237,51 @@ def moment_0(path_cube, line='CO32', v0=0.0, dvel=10.0,  rmin=0.0, inc=90.0, M_s
    
         return image, xfedge, yfedge, BMAJ, BMIN, BPA, dv, rms_moment0
         
+def moment_0_shifted(cube, xs, ys, ps_arcsec, BMAJ, vs, v0 , x0, y0, PA, inc, M_star, dpc, Dvel0=3.2):
 
+    Npix=len(cube[0,0,:])
+    Nf=len(vs)
+    dv=abs(vs[1]-vs[0])
+    ### calculate shift matrix
+    shiftm=np.rint(f_shift(Npix, x0, y0, ps_arcsec, PA*np.pi/180., inc*np.pi/180., M_star, dpc, rlim=0.3*BMAJ*dpc)/abs(dv)).astype(int)
+
+    ### calculate moment 0
+    moment0=np.zeros((N1,N1))
+    rmsmap=np.ones((N1,N1)) # rms in Moment0
+
+    Xs, Ys=np.meshgrid(xs, ys, indexing='xy')
+
+    Rs=np.sqrt((Xs-x0)**2.+(Ys-y0)**2.)
+
+    rlim=BMAJ1
+    f1=1.0
+    f2=2.3
+    Dvel1=3.*dv
+    
+    for j in xrange(N1):
+        for i in xrange(N1):
+
+            spectrum_shifted = np.roll(cube[:,j,i], shiftm[j,i], axis=0)
+
+            if Rs[j,i]>=rlim*f2: ## safe to use keplerian mask
+                moment01[j,i]=np.sum(spectrum_shifted[k_min1:k_max1+1], axis=0)*dv1
+                
+            elif Rs[j,i]>=rlim*f1 and Rs[j,i]<rlim*f2:  ## transition region
+
+                Dvelx=Dvel0 +(Rs[j,i] - rlim*f1)*(Dvel1-Dvel0)/(f2*rlim-f1*rlim)
+                #.....
+                k_minx=max(0, int((v0-Dvelx-vs[0])/dv) )
+                k_maxx=min(Nf, int((v0+Dvelx-vs[0])/dv) )
+
+                moment01[j,i]=np.sum(datas1[k_minx:k_maxx+1,j,i], axis=0)*dv1
+                rmsmap1[j,i]=np.sqrt((k_maxx-k_minx)*1.0/( (k_max1-k_min1) ))
+               
+            else: # too close to star 
+                moment01[j,i]=np.sum(datas1[k_min1i:k_max1i+1,j,i], axis=0)*dv1
+                rmsmap1[j,i]=np.sqrt((k_max1i-k_min1i)*1.0/( (k_max1-k_min1) ))
+    
+
+    return moment0, rmsmap
 
 def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, x0, y0, averaged=True):
     
@@ -1406,6 +1450,144 @@ def f_shift(N1, x0, y0, ps_arcsec, PA, inc, M_star, dpc, vlim=10.0, rlim=0.0):
                 shifts[j,i]=0.0
 
     return shifts # km/s
+
+def plot_cube(filename,cube, ps_arcsec, xedge, yedge, vs, v0=0., Dv=10., rms=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, loc_beam='ll', show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, c_levels=[3.0,5.0, 8.0],star=True, xstar=0.0, ystar=0.0, cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=False, dpc=10. ):
+
+
+    plt.style.use('style1')
+    font= {'family':'Times New Roman', 'size': 12}
+    rc('font', **font)
+
+    YMAX=XMAX
+    dv=abs(vs)
+    chan_plots=[]
+    for i in xrange(len(vs)):
+        if vs[i]>=v0-Dv and vs[i]<=v0+Dv:
+            chan_plots.append(i)
+    Nchan=len(chan_plots)
+    Nr=int(np.sqrt(Nchan))+1
+    Nc=int(np.sqrt(Nchan))
+    if Nr*Nc<Nchan: Nc+=1
+    print Nchan, Nr, Nc
+    fig = plt.figure(figsize=(Nc*2,Nr*2)) #(8,6))
+
+    for i in xrange(Nchan):
+        
+        axi=fig.add_subplot(Nr,Nc,i+1)
+
+
+        if not cbar_log:
+            my_cmap = copy.copy(plt.cm.get_cmap(colormap)) # copy the default cmap
+            my_cmap.set_bad(bad_color)
+            pc=axi.pcolormesh(xedge,yedge,cube[chan_plots[i],:,:], vmin=vmin, vmax=vmax,  cmap=my_cmap, rasterized=True)
+  
+            #pc.set_edgecolor('face')
+            # cb= fig.colorbar(pc,orientation='horizontal',label=clabel,format=formatcb, ticks=cbticks, pad=0.12)
+            # cb.ax.minorticks_on()
+        else:
+            my_cmap = copy.copy(plt.cm.get_cmap(colormap)) # copy the default cmap
+            my_cmap.set_bad(bad_color)
+            pc=axi.pcolormesh(xedge,yedge,image, norm=LogNorm(vmin=vmin, vmax=vmax),  cmap=my_cmap, rasterized=True)
+            #pc.set_edgecolor('face')
+            # cb= fig.colorbar(pc,orientation='horizontal',label=clabel, pad=0.12)
+
+        c1=fcolor_black_white(0.5,3)
+        c2=fcolor_black_white(1.0,3)
+        c3=fcolor_black_white(1.5,3)
+
+        if contours:
+            PS=abs(yedge[1]-yedge[0])
+            c1=axi.contour(xedge[:-1]-PS/2.0,yedge[:-1]+PS/2.0, cube[chan_plots[i],:,:]/rms, levels=c_levels,colors=[c1,c2, c3], linewidths=1.0)
+        # cb.add_lines(con2)
+
+        axi.set_xticks(major_ticks)                                                       
+        axi.set_xticks(minor_ticks, minor=True)                                           
+        axi.set_yticks(major_ticks)                                                       
+        axi.set_yticks(minor_ticks, minor=True) 
+
+        for tick in axi.get_xticklines():
+            tick.set_color(tickcolor)
+
+        for minortick in axi.xaxis.get_minorticklines():
+            minortick.set_color(tickcolor)
+
+        for tick in axi.get_yticklines():
+            tick.set_color(tickcolor)
+
+        for minortick in axi.yaxis.get_minorticklines():
+            minortick.set_color(tickcolor)
+
+        axi.spines['bottom'].set_color(tickcolor)
+        axi.spines['top'].set_color(tickcolor)
+        axi.spines['left'].set_color(tickcolor)
+        axi.spines['right'].set_color(tickcolor)
+
+        axi.set_aspect('equal')
+
+        axi.set_xlim(XMAX,-XMAX)
+        axi.set_ylim(-XMAX,XMAX)
+
+        if  i==Nc*(Nr-1):
+            axi.set_xlabel('RA offset ['+xunit+']')
+            axi.set_ylabel('DEC offset ['+xunit+']')
+
+            #---add beam
+            if BMAJ!=0.0 and BMIN!=0.0 and show_beam:
+                if loc_beam=='lr':
+                    xc=-XMAX+2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
+                    yc=-YMAX+2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
+                else:
+                    xc=XMAX-2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
+                    yc=-YMAX+2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
+        
+                width= BMAJ
+                height= BMIN
+                pa=BPA
+                elli=Ellipse((xc,yc),width,height,angle=90.-pa,linewidth=3,fill=True,color='white', alpha=1.0)
+       
+                axi.add_patch(elli)
+
+        else:
+
+            xticks1=axi.xaxis.get_major_ticks()
+            yticks1=axi.yaxis.get_major_ticks()
+              
+            for j in xrange(len(xticks1)):
+                xticks1[j].label1.set_visible(False)
+            for j in xrange(len(yticks1)):
+                yticks1[j].label1.set_visible(False)
+            
+        if star:
+            # add star
+            axi.plot(xstar , ystar, marker='+', color=tickcolor, markersize=3.5, mew=1.0)
+
+        if ruller:
+            x1=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
+            x2=x1+30./dpc
+            yc=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
+            axi.plot([x1,x2], [yc, yc], color='white')
+            axi.text(x2, yc*0.95, '30 au', color='white')
+
+        xtext=-XMAX*0.2
+        ytext=XMAX*0.8
+        axi.text(xtext, ytext,'%1.1f km/s'%(vs[chan_plots[i]]-v0), color='white')
+
+        
+    plt.tight_layout()
+    plt.subplots_adjust(left=0.08, bottom=0.08, right=0.99, top=1.0, wspace=0.01, hspace=0.01)
+    print 'saving...'
+
+    plt.savefig(filename, dpi=500)#,format='png', dpi=500)
+    print 'saved'
+
+    if show:
+        plt.show()
+
+
+
+
+
+
 
 
 ########################################
@@ -1594,141 +1776,6 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
     if show:
         plt.show()
-
-
-def plot_cube(filename,cube, ps_arcsec, xedge, yedge, vs, v0=0., Dv=10., rms=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, loc_beam='ll', show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, c_levels=[3.0,5.0, 8.0],star=True, xstar=0.0, ystar=0.0, cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=False, dpc=10. ):
-
-
-    plt.style.use('style1')
-    font= {'family':'Times New Roman', 'size': 12}
-    rc('font', **font)
-
-    YMAX=XMAX
-    dv=abs(vs)
-    chan_plots=[]
-    for i in xrange(len(vs)):
-        if vs[i]>=v0-Dv and vs[i]<=v0+Dv:
-            chan_plots.append(i)
-    Nchan=len(chan_plots)
-    Nr=int(np.sqrt(Nchan))+1
-    Nc=int(np.sqrt(Nchan))
-    if Nr*Nc<Nchan: Nc+=1
-    print Nchan, Nr, Nc
-    fig = plt.figure(figsize=(Nc*2,Nr*2)) #(8,6))
-
-    for i in xrange(Nchan):
-        
-        axi=fig.add_subplot(Nr,Nc,i+1)
-
-
-        if not cbar_log:
-            my_cmap = copy.copy(plt.cm.get_cmap(colormap)) # copy the default cmap
-            my_cmap.set_bad(bad_color)
-            pc=axi.pcolormesh(xedge,yedge,cube[chan_plots[i],:,:], vmin=vmin, vmax=vmax,  cmap=my_cmap, rasterized=True)
-  
-            #pc.set_edgecolor('face')
-            # cb= fig.colorbar(pc,orientation='horizontal',label=clabel,format=formatcb, ticks=cbticks, pad=0.12)
-            # cb.ax.minorticks_on()
-        else:
-            my_cmap = copy.copy(plt.cm.get_cmap(colormap)) # copy the default cmap
-            my_cmap.set_bad(bad_color)
-            pc=axi.pcolormesh(xedge,yedge,image, norm=LogNorm(vmin=vmin, vmax=vmax),  cmap=my_cmap, rasterized=True)
-            #pc.set_edgecolor('face')
-            # cb= fig.colorbar(pc,orientation='horizontal',label=clabel, pad=0.12)
-
-        c1=fcolor_black_white(0.5,3)
-        c2=fcolor_black_white(1.0,3)
-        c3=fcolor_black_white(1.5,3)
-
-        if contours:
-            PS=abs(yedge[1]-yedge[0])
-            c1=axi.contour(xedge[:-1]-PS/2.0,yedge[:-1]+PS/2.0, cube[chan_plots[i],:,:]/rms, levels=c_levels,colors=[c1,c2, c3], linewidths=1.0)
-        # cb.add_lines(con2)
-
-        axi.set_xticks(major_ticks)                                                       
-        axi.set_xticks(minor_ticks, minor=True)                                           
-        axi.set_yticks(major_ticks)                                                       
-        axi.set_yticks(minor_ticks, minor=True) 
-
-        for tick in axi.get_xticklines():
-            tick.set_color(tickcolor)
-
-        for minortick in axi.xaxis.get_minorticklines():
-            minortick.set_color(tickcolor)
-
-        for tick in axi.get_yticklines():
-            tick.set_color(tickcolor)
-
-        for minortick in axi.yaxis.get_minorticklines():
-            minortick.set_color(tickcolor)
-
-        axi.spines['bottom'].set_color(tickcolor)
-        axi.spines['top'].set_color(tickcolor)
-        axi.spines['left'].set_color(tickcolor)
-        axi.spines['right'].set_color(tickcolor)
-
-        axi.set_aspect('equal')
-
-        axi.set_xlim(XMAX,-XMAX)
-        axi.set_ylim(-XMAX,XMAX)
-
-        if  i==Nc*(Nr-1):
-            axi.set_xlabel('RA offset ['+xunit+']')
-            axi.set_ylabel('DEC offset ['+xunit+']')
-
-            #---add beam
-            if BMAJ!=0.0 and BMIN!=0.0 and show_beam:
-                if loc_beam=='lr':
-                    xc=-XMAX+2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
-                    yc=-YMAX+2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
-                else:
-                    xc=XMAX-2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
-                    yc=-YMAX+2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
-        
-                width= BMAJ
-                height= BMIN
-                pa=BPA
-                elli=Ellipse((xc,yc),width,height,angle=90.-pa,linewidth=3,fill=True,color='white', alpha=1.0)
-       
-                axi.add_patch(elli)
-
-        else:
-
-            xticks1=axi.xaxis.get_major_ticks()
-            yticks1=axi.yaxis.get_major_ticks()
-              
-            for j in xrange(len(xticks1)):
-                xticks1[j].label1.set_visible(False)
-            for j in xrange(len(yticks1)):
-                yticks1[j].label1.set_visible(False)
-            
-        if star:
-            # add star
-            axi.plot(xstar , ystar, marker='+', color=tickcolor, markersize=3.5, mew=1.0)
-
-        if ruller:
-            x1=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
-            x2=x1+30./dpc
-            yc=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
-            axi.plot([x1,x2], [yc, yc], color='white')
-            axi.text(x2, yc*0.95, '30 au', color='white')
-
-        xtext=-XMAX*0.2
-        ytext=XMAX*0.8
-        axi.text(xtext, ytext,'%1.1f km/s'%(vs[chan_plots[i]]-v0), color='white')
-
-        
-    plt.tight_layout()
-    plt.subplots_adjust(left=0.08, bottom=0.08, right=0.99, top=1.0, wspace=0.01, hspace=0.01)
-    print 'saving...'
-
-    plt.savefig(filename, dpi=500)#,format='png', dpi=500)
-    print 'saved'
-
-    if show:
-        plt.show()
-
-
 
 
 
