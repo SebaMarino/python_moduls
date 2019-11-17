@@ -810,7 +810,7 @@ def Convolve_beam(path_image, BMAJ, BMIN, BPA, tag_out=''):
     header1['BMAJ'] = BMAJ
     header1['BPA'] = BPA
 
-    header1['BUNIT']='Jy/beam'
+    header1['BUNIT']='JY/BEAM'
 
     path_fits=path_image[:-5]+'_beamconvolved'+tag_out+'.fits'
     os.system('rm '+ path_fits)
@@ -1002,7 +1002,7 @@ def interpol(Nin,Nout,ps1,ps2,Fin):
         F=Fin
     return F
 
-def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=False): # for images from CASA
+def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=False, output=''): # for images from CASA
 
     ### PS_final in mas
 
@@ -1037,8 +1037,9 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=Fa
         BMAJ=0.0
         BMIN=0.0
         BPA=0.0
+        
 
-    if header1['BUNIT']=='JY/PIXEL':
+    if header1['BUNIT']=='JY/PIXEL' and output=='JY/ARCSEC2':
         data1=data1/(ps_arcsec1**2.0) # Jy/pixel to Jy/arcsec2
     # x1, y1, x1edge, y1edge = xyarray(N1, ps_arcsec1)
 
@@ -1046,10 +1047,18 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=Fa
         ij=np.unravel_index(np.argmax(data1, axis=None), data1.shape)
         print ij
         data1[ij]=0.0
-    
+
+    if ps_final>0.0:
+        psf_arcsec=ps_final/1000.0
+    else:
+        ps_final=ps_mas1
+        psf_arcsec=ps_arcsec1
+    if XMAX<=0.0:
+        XMAX=ps_arcsec1*N1/2.
+        
     Nf=int(XMAX*2.0/(ps_final/1000.0))
-    psf_arcsec=ps_final/1000.0
-    
+        
+        
     xf=np.zeros(Nf+1)
     yf=np.zeros(Nf+1)
     for i in range(Nf+1):
@@ -1057,12 +1066,18 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=Fa
         yf[i]=(i-Nf/2.0)*psf_arcsec 
 
     image=interpol(N1,Nf,ps_mas1,ps_final, data1)
+    
     if path_pbcor!='':
         rmsmap_out=interpol(N1,Nf,ps_mas1,ps_final,rmsmap)
-
-        return image, rmsmap_out, xf, yf, BMAJ, BMIN, BPA
+        if BMAJ>0.0:
+            return image, rmsmap_out, xf, yf, BMAJ, BMIN, BPA
+        else:
+            return image, rmsmap_out, xf, yf      
     else:
-        return image, xf, yf, BMAJ, BMIN, BPA
+        if BMAJ>0.0:
+            return image, xf, yf, BMAJ, BMIN, BPA
+        else:
+            return image, xf, yf   
 
 def fload_fits_image_mira(path_image, ps_final, XMAX): # for images from CASA
 
@@ -1246,39 +1261,45 @@ def moment_0_shifted(cube, xs, ys, ps_arcsec, BMAJ, vs, v0 , x0, y0, PA, inc, M_
     shiftm=np.rint(f_shift(Npix, x0, y0, ps_arcsec, PA*np.pi/180., inc*np.pi/180., M_star, dpc, rlim=0.3*BMAJ*dpc)/abs(dv)).astype(int)
 
     ### calculate moment 0
-    moment0=np.zeros((N1,N1))
-    rmsmap=np.ones((N1,N1)) # rms in Moment0
+    moment0=np.zeros((Npix,Npix))
+    rmsmap=np.ones((Npix,Npix)) # rms in Moment0
 
     Xs, Ys=np.meshgrid(xs, ys, indexing='xy')
 
     Rs=np.sqrt((Xs-x0)**2.+(Ys-y0)**2.)
 
-    rlim=BMAJ1
+    rlim=BMAJ
     f1=1.0
     f2=2.3
     Dvel1=3.*dv
+    k_min1=max(0, int((v0-Dvel1-vs[0])/dv) ) # to use beyond f2*rlim
+    k_max1=min(Nf, int((v0+Dvel1-vs[0])/dv) ) # idem
+
+    k_min0=max(0, int((v0-Dvel0-vs[0])/dv) )
+    k_max0=min(Nf, int((v0+Dvel0-vs[0])/dv) )
+ 
     
-    for j in xrange(N1):
-        for i in xrange(N1):
+    for j in xrange(Npix):
+        for i in xrange(Npix):
 
             spectrum_shifted = np.roll(cube[:,j,i], shiftm[j,i], axis=0)
 
             if Rs[j,i]>=rlim*f2: ## safe to use keplerian mask
-                moment01[j,i]=np.sum(spectrum_shifted[k_min1:k_max1+1], axis=0)*dv1
+                moment0[j,i]=np.sum(spectrum_shifted[k_min1:k_max1+1], axis=0)*dv
                 
             elif Rs[j,i]>=rlim*f1 and Rs[j,i]<rlim*f2:  ## transition region
 
                 Dvelx=Dvel0 +(Rs[j,i] - rlim*f1)*(Dvel1-Dvel0)/(f2*rlim-f1*rlim)
-                #.....
+
                 k_minx=max(0, int((v0-Dvelx-vs[0])/dv) )
                 k_maxx=min(Nf, int((v0+Dvelx-vs[0])/dv) )
 
-                moment01[j,i]=np.sum(datas1[k_minx:k_maxx+1,j,i], axis=0)*dv1
-                rmsmap1[j,i]=np.sqrt((k_maxx-k_minx)*1.0/( (k_max1-k_min1) ))
+                moment0[j,i]=np.sum(spectrum_shifted[k_minx:k_maxx+1], axis=0)*dv
+                rmsmap[j,i]=np.sqrt((k_maxx-k_minx)*1.0/( (k_max1-k_min1) ))
                
             else: # too close to star 
-                moment01[j,i]=np.sum(datas1[k_min1i:k_max1i+1,j,i], axis=0)*dv1
-                rmsmap1[j,i]=np.sqrt((k_max1i-k_min1i)*1.0/( (k_max1-k_min1) ))
+                moment0[j,i]=np.sum(spectrum_shifted[k_min0:k_max0+1], axis=0)*dv
+                rmsmap[j,i]=np.sqrt((k_max0-k_min0)*1.0/( (k_max1-k_min1) ))
     
 
     return moment0, rmsmap
@@ -1740,11 +1761,11 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
     #---add beam
     if BMAJ!=0.0 and BMIN!=0.0 and show_beam:
         if loc_beam=='lr':
-            xc=-XMAX+2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
-            yc=-YMAX+2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
+            xc=-XMAX+1.2*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
+            yc=-YMAX+1.2*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
         else:
-            xc=XMAX-2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
-            yc=-YMAX+2.0*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
+            xc=XMAX-1.2*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
+            yc=-YMAX+1.2*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
         
         width= BMAJ
         height= BMIN
@@ -1776,7 +1797,7 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
     if show:
         plt.show()
-
+        plt.clf()
 
 
 

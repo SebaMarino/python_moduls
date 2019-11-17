@@ -100,7 +100,7 @@ def Sig_dot_p_gauss(rs, hs, r0, sig_g, Mdot, mask_belt):
     Sdot_comets[mask_belt]=Mdot*Sdot_comets[mask_belt]/(2.*np.pi*np.sum(Sdot_comets[mask_belt]*rs[mask_belt]*hs[mask_belt]))
     return Sdot_comets
 
-def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2_yr, mask_belt, diffusion=0):
+def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2_yr, mask_belt, diffusion=0, photodissociation=True):
     
     ###########################################
     ################ viscous evolution
@@ -146,13 +146,13 @@ def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2
     ###########################################
     ############## photodissociation
     ###########################################
-
-    tphCO=fgas.tau_CO2(Sigma_prev[0,:], Sigma_prev[1,:])
-    Sdot_ph=Sigma_prev[0,:]/tphCO #(Snext[0,:]/tphCO)
-    #Sdot_ph_epsilon=Sigma_prev[0,:]*(1.-np.exp(-epsilon/tphCO))   
-    Snext2[0,:]=Snext2[0,:]-epsilon*Sdot_ph
-    Snext2[1,:]=Snext2[1,:]+epsilon*Sdot_ph*muc1co
-    #Snext2[0,Snext2[0,:]<0.0]=0.0
+    if photodissociation:
+        tphCO=fgas.tau_CO2(Sigma_prev[0,:], Sigma_prev[1,:])
+        Sdot_ph=Sigma_prev[0,:]/tphCO #(Snext[0,:]/tphCO)
+        #Sdot_ph_epsilon=Sigma_prev[0,:]*(1.-np.exp(-epsilon/tphCO))   
+        Snext2[0,:]=Snext2[0,:]-epsilon*Sdot_ph
+        Snext2[1,:]=Snext2[1,:]+epsilon*Sdot_ph*muc1co
+        #Snext2[0,Snext2[0,:]<0.0]=0.0
     
     return Snext2
 
@@ -272,7 +272,7 @@ def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Ms
 
 
 def viscous_evolution_fMdot(ts, epsilon, rs, rhalfs, hs, fMdot, par_fMdot, Mdot,  alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1, diffusion=0 ):
-    ### 
+    ### fixed/constant Mdot
     Nt=len(ts)
     if isinstance(dt_skip, int) and dt_skip>0:
         if dt_skip>1:  #  skips dt_skip to make arrays smaller
@@ -390,7 +390,7 @@ def viscous_evolution_adt(tf, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha
 
 
 
-def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1, diffusion=0 ):
+def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1, diffusion=0, photodissociation=True ):
     
     Nt=len(ts)
     if isinstance(dt_skip, int) and dt_skip>0:
@@ -433,7 +433,7 @@ def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots,
         mus[mask_m]=(Sigma_temp[0,mask_m]+Sigma_temp[1,mask_m]*(1.+16./12.))/(Sigma_temp[0,mask_m]/28.+Sigma_temp[1,mask_m]/6.) # Sigma+Oxigen/(N)
         nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 
         nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
-        Sigma_temp=Sigma_next(Sigma_temp, Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdots[i], nus_au2_yr, mask_belt, diffusion=diffusion)
+        Sigma_temp=Sigma_next(Sigma_temp, Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdots[i], nus_au2_yr, mask_belt, diffusion=diffusion, photodissociation=photodissociation)
         if i%dt_skip==0.0 or i==Nt-1:
             Sigma_g[:,:,j]=Sigma_temp*1.
             ts2[j]=ts[i]

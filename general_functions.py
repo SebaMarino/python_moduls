@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as cl
 import colorsys
 from astropy.coordinates import SkyCoord
-from astroquery.gaia import Gaia
+# from astroquery.gaia import Gaia
 from astroquery.simbad import Simbad
 import astropy.units as units
 
@@ -77,6 +77,13 @@ def fcolor_plasma(i,N):
 
     return cmap(x)
 
+def fcolor_x(i,N, colormap='viridis'):
+
+    cmap=plt.get_cmap(colormap)
+
+    x=i*1./(N-1)
+
+    return cmap(x)
 
 def lighten_color(color, amount=0.5):
     # copied from https://stackoverflow.com/questions/37765197/darken-or-lighten-a-color-in-matplotlib
@@ -215,35 +222,35 @@ def rBB(T, Lstar=1.0):
 
 
 
-def Gaia_ids(list_names, radius_arcsec=2.0):
+# def Gaia_ids(list_names, radius_arcsec=2.0):
 
-    customSimbad = Simbad()
-    customSimbad.add_votable_fields( 'pmra', 'pmdec', 'parallax', 'sptype', 'ubv', 'flux(U)')
-    # customSimbad.list_votable_fields()
+#     customSimbad = Simbad()
+#     customSimbad.add_votable_fields( 'pmra', 'pmdec', 'parallax', 'sptype', 'ubv', 'flux(U)')
+#     # customSimbad.list_votable_fields()
  
-    list_gaia_ids=[]
-    for namei in list_names:
+#     list_gaia_ids=[]
+#     for namei in list_names:
 
-        table = customSimbad.query_object(namei)        
-        try:
-            print 'coordinates ok'
-            c = SkyCoord(table['RA'][0],table['DEC'][0], unit=( units.hourangle, units.degree), frame='icrs')
-            print namei
-            print 'RA,DEC = ',c.ra.deg, c.dec.deg
-            # print table['PLX_VALUE'],table['PMRA'], table['PMDEC']
-            job = Gaia.launch_job_async("SELECT * \
-            FROM gaiadr2.gaia_source \
-            WHERE CONTAINS(POINT('ICRS',gaiadr2.gaia_source.ra,gaiadr2.gaia_source.dec), CIRCLE('ICRS',\
-            COORD1(EPOCH_PROP_POS(%1.8f, %1.8f, %1.8f, %1.8f, %1.8f , .6900, 2000,2015.5))," %(c.ra.deg, c.dec.deg,table['PLX_VALUE'], table['PMRA'], table['PMDEC'])+"\
-            COORD2(EPOCH_PROP_POS(%1.8f, %1.8f, %1.8f, %1.8f, %1.8f, .6900,2000,2015.5)), %1.6f))=1;"%(c.ra.deg, c.dec.deg,table['PLX_VALUE'],table['PMRA'], table['PMDEC'], radius_arcsec/3600.0), dump_to_file=False)
+#         table = customSimbad.query_object(namei)        
+#         try:
+#             print 'coordinates ok'
+#             c = SkyCoord(table['RA'][0],table['DEC'][0], unit=( units.hourangle, units.degree), frame='icrs')
+#             print namei
+#             print 'RA,DEC = ',c.ra.deg, c.dec.deg
+#             # print table['PLX_VALUE'],table['PMRA'], table['PMDEC']
+#             job = Gaia.launch_job_async("SELECT * \
+#             FROM gaiadr2.gaia_source \
+#             WHERE CONTAINS(POINT('ICRS',gaiadr2.gaia_source.ra,gaiadr2.gaia_source.dec), CIRCLE('ICRS',\
+#             COORD1(EPOCH_PROP_POS(%1.8f, %1.8f, %1.8f, %1.8f, %1.8f , .6900, 2000,2015.5))," %(c.ra.deg, c.dec.deg,table['PLX_VALUE'], table['PMRA'], table['PMDEC'])+"\
+#             COORD2(EPOCH_PROP_POS(%1.8f, %1.8f, %1.8f, %1.8f, %1.8f, .6900,2000,2015.5)), %1.6f))=1;"%(c.ra.deg, c.dec.deg,table['PLX_VALUE'],table['PMRA'], table['PMDEC'], radius_arcsec/3600.0), dump_to_file=False)
 
-            # 
-            obj=job.get_results()
-            #print obj.keys()
-            print obj['source_id'][0]
-            list_gaia_ids.append(obj['source_id'][0])
-        except:
-            print 'not in gaia, probably'
-            list_gaia_ids.append('')
+#             # 
+#             obj=job.get_results()
+#             #print obj.keys()
+#             print obj['source_id'][0]
+#             list_gaia_ids.append(obj['source_id'][0])
+#         except:
+#             print 'not in gaia, probably'
+#             list_gaia_ids.append('')
 
-    return list_gaia_ids
+#     return list_gaia_ids
