@@ -1764,7 +1764,7 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
     fits.writeto(path_fits, image_in_jypix_float, header, output_verify='fix')
 
 
-def convert_to_fits_alpha(path_image,path_fits, Npixf, dpc , lam0, newlam, mx=0.0, my=0.0, x0=0.0, alpha_dust=3.0, y0=0.0, omega=0.0):
+def convert_to_fits_alpha(path_image,path_fits, Npixf, dpc , lam0, newlam, mx=0.0, my=0.0, x0=0.0, alpha_dust=3.0, y0=0.0, omega=0.0, background_args=[])):
 
     image_in_jypix, nx, ny, nf, lam, pixdeg_x, pixdeg_y = load_image(path_image, dpc)
 
@@ -1862,6 +1862,10 @@ def convert_to_fits_alpha(path_image,path_fits, Npixf, dpc , lam0, newlam, mx=0.
     # PAD IMAGE
     image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, Npixf, Npixf, nx, ny)
 
+    if len(background_args) != 0:
+        for iback in background_args:
+            image_in_jypix_shifted=image_in_jypix_shifted + background_object(*iback)
+    
     image_in_jypix_float=image_in_jypix_shifted.astype(np.float32)
     fits.writeto(path_fits, image_in_jypix_float, header, output_verify='fix')
 
@@ -2053,7 +2057,7 @@ def convert_to_fits_canvas_fields_alpha(path_image,path_fits,path_canvas, dpc, l
     fits.writeto(path_fits, image_in_jypix_float, header, output_verify='fix')
 
 
-def convert_to_fits_canvas_alpha(path_image,path_fits,path_canvas, dpc, lam0, newlam, arcsec=False, mas=False, mx=0.0, my=0.0 , pbm=False, alpha_dust=3.0, omega=0.0, fstar=-1.0):
+def convert_to_fits_canvas_alpha(path_image,path_fits,path_canvas, dpc, lam0, newlam, arcsec=False, mas=False, mx=0.0, my=0.0 , pbm=False, alpha_dust=3.0, omega=0.0, fstar=-1.0, , background_args=[]):
     
     # modifies existing image using a specral index alpha and assuming
     # the star has a spectral index of -2.
@@ -2088,6 +2092,10 @@ def convert_to_fits_canvas_alpha(path_image,path_fits,path_canvas, dpc, lam0, ne
 
     image_in_jypix_shifted=fpad_image(image_in_jypix_shifted, pad_x, pad_y, nx, ny)
 
+    if len(background_args) != 0:
+        for iback in background_args:
+            image_in_jypix_shifted=image_in_jypix_shifted + background_object(*iback)
+    
     ##### multiply by primary beam or not. Only necessary when simulating visibilities in CASA with ft a posteriori
 
     if pbm:
@@ -2133,7 +2141,7 @@ def Simimage(dpc, imagename, wavelength, Npix, dpix, inc, PA, offx=0.0, offy=0.0
     convert_to_fits(pathin, pathout,Npixf, dpc, mx=offx, my=offy, x0=X0, y0=Y0, omega=omega,  fstar=fstar, background_args=background_args)
     os.system('mv '+pathout+' ./images')
 
-def Simimage_alpha(dpc, imagename0, imagename, lam0, newlam, Npix, dpix, offx=0.0, offy=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0, Npixf=-1):
+def Simimage_alpha(dpc, imagename0, imagename, lam0, newlam, Npix, dpix, offx=0.0, offy=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0, Npixf=-1, background_args=[]):
 
     # images: array of names for images produced at wavelengths
     # wavelgnths: wavelengths at which to produce images
@@ -2144,7 +2152,7 @@ def Simimage_alpha(dpc, imagename0, imagename, lam0, newlam, Npix, dpix, offx=0.
     
     pathin ='image_'+imagename0+'_'+tag0+'.out'
     pathout='image_'+imagename+'_'+tag+'.fits'
-    convert_to_fits_alpha(pathin, pathout, Npixf, dpc, lam0, newlam, mx=offx, my=offy, x0=X0, y0=Y0, alpha_dust=alpha_d, omega=omega)
+    convert_to_fits_alpha(pathin, pathout, Npixf, dpc, lam0, newlam, mx=offx, my=offy, x0=X0, y0=Y0, alpha_dust=alpha_d, omega=omega, background_args=background_args)
      #                     path_image,path_fits, Npixf, dpc , lam0, newlam, mx=0.0, my=0.0, x0=0.0, alpha_dust=3.0, y0=0.0, omega=0.0
     os.system('mv '+pathout+' ./images')
 
@@ -2187,7 +2195,7 @@ def Simimage_canvas_fields(dpc, X0, Y0, imagename, wavelength, Npix, dpix, canva
 
 
 
-def Simimage_canvas_alpha(dpc, imagename0, imagename, lam0, newlam, Npix, dpix, canvas, offx=0.0, offy=0.0, pb=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0, fstar=-1.0):
+def Simimage_canvas_alpha(dpc, imagename0, imagename, lam0, newlam, Npix, dpix, canvas, offx=0.0, offy=0.0, pb=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0, fstar=-1.0, background_args=[]):
 
     # images: array of names for images produced at wavelengths
     # wavelgnths: wavelengths at which to produce images
@@ -2197,10 +2205,10 @@ def Simimage_canvas_alpha(dpc, imagename0, imagename, lam0, newlam, Npix, dpix, 
     
     pathin ='image_'+imagename0+'_'+tag0+'.out'
     pathout='image_'+imagename+'_'+tag+'.fits'
-    convert_to_fits_canvas_alpha(pathin, pathout, canvas+'.fits' ,dpc, lam0, newlam, mx=offx, my=offy, pbm=pb, alpha_dust=alpha_d, omega=omega, fstar=fstar)
+    convert_to_fits_canvas_alpha(pathin, pathout, canvas+'.fits' ,dpc, lam0, newlam, mx=offx, my=offy, pbm=pb, alpha_dust=alpha_d, omega=omega, fstar=fstar, background_args=background_args)
     os.system('mv '+pathout+' ./images')
 
-def Simimage_canvas_fields_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix, dpix, canvas, offx=0.0, offy=0.0, pb=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0):
+def Simimage_canvas_fields_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newlam, Npix, dpix, canvas, offx=0.0, offy=0.0, pb=0.0, tag0='',tag='', alpha_d=3.0, omega=0.0, background_args=[]):
 
     # images: array of names for images produced at wavelengths
     # wavelgnths: wavelengths at which to produce images
@@ -2210,13 +2218,13 @@ def Simimage_canvas_fields_alpha(dpc, X0, Y0, imagename0, imagename, lam0, newla
     
     pathin ='image_'+imagename0+'_'+tag0+'.out'
     pathout='image_'+imagename+'_'+tag+'.fits'
-    convert_to_fits_canvas_fields_alpha(pathin, pathout, canvas+'.fits' ,dpc, lam0, newlam, mx=offx, my=offy, pbm=pb, x0=X0, y0=Y0, alpha_dust=alpha_d, omega=omega)
+    convert_to_fits_canvas_fields_alpha(pathin, pathout, canvas+'.fits' ,dpc, lam0, newlam, mx=offx, my=offy, pbm=pb, x0=X0, y0=Y0, alpha_dust=alpha_d, omega=omega, background_args=background_args)
     os.system('mv '+pathout+' ./images')
 
 
 
 
-def Simimages_canvas_fields(dpc, X0, Y0, images, wavelengths, fields, Npix, dpix, canvas, inc, PA, offx=0.0, offy=0.0, pb=0.0, tag='', omega=0.0):
+def Simimages_canvas_fields(dpc, X0, Y0, images, wavelengths, fields, Npix, dpix, canvas, inc, PA, offx=0.0, offy=0.0, pb=0.0, tag='', omega=0.0, background_args=[]):
 
     # X0, Y0, stellar position (center of the mosaic)
 
@@ -2236,7 +2244,7 @@ def Simimages_canvas_fields(dpc, X0, Y0, images, wavelengths, fields, Npix, dpix
 
         for fi in fields:
             pathout='image_'+images[im]+'_'+tag+'_field'+str(fi)+'.fits'
-            convert_to_fits_canvas_fields(pathin, pathout, canvas+str(fi)+'.fits' ,dpc, wavelengths[im], mx=offx, my=offy, pbm=pb, x0=X0, y0=Y0, omega=omega)
+            convert_to_fits_canvas_fields(pathin, pathout, canvas+str(fi)+'.fits' ,dpc, wavelengths[im], mx=offx, my=offy, pbm=pb, x0=X0, y0=Y0, omega=omega, background_args=background_args)
             os.system('mv '+pathout+' ./images')
 
 
@@ -2244,7 +2252,7 @@ def Simimages_canvas_fields(dpc, X0, Y0, images, wavelengths, fields, Npix, dpix
 
 
 
-def Simimages_canvas_fields_alpha(dpc, X0, Y0, image0, image_new, lam0, newlam, fields, Npix, dpix, canvas, offx=0.0, offy=0.0, pb=0.0, tag='', alpha_d=3.0, omega=0.0):
+def Simimages_canvas_fields_alpha(dpc, X0, Y0, image0, image_new, lam0, newlam, fields, Npix, dpix, canvas, offx=0.0, offy=0.0, pb=0.0, tag='', alpha_d=3.0, omega=0.0, background_args=[]):
 
     # images: array of names for images produced at wavelengths
     # wavelgnths: wavelengths at which to produce images
@@ -2256,7 +2264,7 @@ def Simimages_canvas_fields_alpha(dpc, X0, Y0, image0, image_new, lam0, newlam, 
 
     for fi in fields:
         pathout='image_'+image_new+'_'+tag+'_field'+str(fi)+'.fits'
-        convert_to_fits_canvas_fields_alpha(pathin, pathout, canvas+str(fi)+'.fits' ,dpc, lam0, newlam, mx=offx, my=offy, pbm=pb, x0=X0, y0=Y0, alpha_dust=alpha_d, omega=omega)
+        convert_to_fits_canvas_fields_alpha(pathin, pathout, canvas+str(fi)+'.fits' ,dpc, lam0, newlam, mx=offx, my=offy, pbm=pb, x0=X0, y0=Y0, alpha_dust=alpha_d, omega=omega, , background_args=background_args)
         os.system('mv '+pathout+' ./images')
 
 
