@@ -254,3 +254,83 @@ def rBB(T, Lstar=1.0):
 #             list_gaia_ids.append('')
 
 #     return list_gaia_ids
+
+
+###########################################################################
+###################### Submm galaxies #####################################
+###########################################################################
+### From Carniani+2015, ALMA constraints on the faint millimetre source number counts and their contribution to the cosmic infrared background
+
+def dNdS(phistar, Sstar, alpha, S):
+    return phistar*(S/Sstar)**alpha * np.exp(-S/Sstar)/Sstar
+
+def N_gtr_carniani(S, phistar, Sstar, alpha):
+    # integrate dNdS from S=S to inf (100*Sstar) N=1000
+    Nint=100
+    Ss=np.logspace(np.log10(S), np.log10(1000*Sstar), Nint)
+    f=Ss[1]/Ss[0]
+    dSs=Ss*f-Ss
+    return np.sum( dNdS(phistar, Sstar, alpha, Ss)*dSs ) # deg-2
+
+### From Simpson+2015 807, 128, THE SCUBA-2 COSMOLOGY LEGACY SURVEY: ALMA RESOLVES THE BRIGHT-END OF THE SUB-MILLIMETER NUMBER COUNTS
+def N_gtr_simpson(S, N0=390., S0=8.4, alpha=1.9, beta= 10.5):
+    ### the equation does not make much dense dimensionally, but it
+    ### agrees with the left panel in Figure 6 of Simpson+2015.
+    return N0/S0 * ( (S/S0)**alpha + (S/S0)**beta )**(-1.0) # deg-2
+
+
+
+def Integrate_probability_galaxy(rms, fwhm, wav, rmax=0.0, nsigma=3.):
+    #wav in mm
+    #rms in mJy
+    #fwm in arcsec
+    #rmax in arcsec
+    
+    # Simpson+2015
+    if wav>0.85 and wav<0.9:
+        N0=390.
+        S0=8.4
+        alpha=1.9
+        beta=10.5
+        func='Simpson'
+    # Carniani+2015
+    elif wav==1.1:
+        phistar=2.7e3 # deg-2
+        Sstar=2.6     # mJy
+        alpha=-1.81
+        func='Carniani'
+    elif wav==1.3:
+        phistar=1.8e3 # deg-2
+        Sstar=1.7     # mJy
+        alpha=-2.08
+        func='Carniani'
+    else:
+        print 'not a valid wavelength'
+        return -1.0
+
+    
+    sig_PB=fwhm/(2.*np.sqrt(2.*np.log(2.)))
+    # print 'sig_PB=',sig_PB
+    N=10
+    if rmax>0.0:
+        print 'integrate over circle of radius %1.2f arcsec'%rmax
+        redge=np.linspace(0.0, rmax, N+1) # bins over which to integrate
+    else:
+        print 'integrate over full PB'
+        redge=np.linspace(0.0, fwhm, N+1) # bins over which to integrate
+   
+    rmid=(redge[:-1]+redge[1:])/2.
+    P=0.
+    for i in xrange(N):
+
+        rmsi=rms/np.exp( -(rmid[i])**2. / (2.*sig_PB**2.))
+        dA=np.pi*(redge[i+1]**2 - redge[i]**2.)/(3600.0**2.) # deg2
+        if func=='Carniani':
+            Pi=N_gtr_carniani( rmsi*nsigma, phistar, Sstar, alpha)*dA
+        elif func=='Simpson':
+            Pi=N_gtr_simpson( rmsi*nsigma , N0, S0, alpha, beta)*dA
+            
+            # print rmsi, Pi
+        P+=Pi
+
+    return P
