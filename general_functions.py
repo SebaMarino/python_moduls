@@ -5,8 +5,8 @@ import matplotlib.colors as cl
 import colorsys
 from astropy.coordinates import SkyCoord
 # from astroquery.gaia import Gaia
-from astroquery.simbad import Simbad
-import astropy.units as units
+# from astroquery.simbad import Simbad
+# import astropy.units as units
 
 
 

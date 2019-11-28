@@ -216,6 +216,6 @@ def residuals(ms_in, model, ms_out, ms):
     # errImag_m=errImag.reshape(nchan, nrows)
     print 'calculating residuals!'
     visd0['data']=visd-(table_model_reshaped[0]+ table_model_reshaped[1]*1j)
-     
+    print 'saving modified data'
     ms.putdata(visd0) # save modified data
     ms.close()
