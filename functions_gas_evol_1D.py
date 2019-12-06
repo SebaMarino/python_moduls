@@ -215,7 +215,7 @@ def Sigma_next_fMdot(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, fMdot, args_fMdot,
 
 
 
-def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1, diffusion=0 ):
+def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1, diffusion=True, photodissociation=True):
     ### 
     Nt=len(ts)
     if isinstance(dt_skip, int) and dt_skip>0:
@@ -260,7 +260,7 @@ def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Ms
         nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 1.0e10*np.zeros(Nr) #
         nus_au2_yr=nus*year_s/(au_m**2.0) # au2/yr  
 
-        Sigma_temp=Sigma_next(Sigma_temp, Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdot, nus_au2_yr, mask_belt, diffusion=diffusion)
+        Sigma_temp=Sigma_next(Sigma_temp, Nr, rs, rhalfs, hs, epsilon, rbelt, sig_g, Mdot, nus_au2_yr, mask_belt, diffusion=diffusion, photodissociation=photodissociation)
 
         if i%dt_skip==0.0 or i==Nt-1:
             Sigma_g[:,:,j]=Sigma_temp*1.
@@ -390,7 +390,7 @@ def viscous_evolution_adt(tf, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha
 
 
 
-def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1, diffusion=0, photodissociation=True ):
+def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots, alpha, Mstar=1.0, Lstar=1.0, Sigma0=np.array([-1.0]), mu0=12.0, dt_skip=1, diffusion=True, photodissociation=True ):
     
     Nt=len(ts)
     if isinstance(dt_skip, int) and dt_skip>0:

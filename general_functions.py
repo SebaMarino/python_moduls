@@ -264,7 +264,10 @@ def rBB(T, Lstar=1.0):
 def dNdS(phistar, Sstar, alpha, S):
     return phistar*(S/Sstar)**alpha * np.exp(-S/Sstar)/Sstar
 
-def N_gtr_carniani(S, phistar, Sstar, alpha):
+def N_gtr_carniani(S,
+                   phistar=2.7e3, # deg-2
+                   Sstar=2.6,     # mJy
+                   alpha=-1.81):
     # integrate dNdS from S=S to inf (100*Sstar) N=1000
     Nint=100
     Ss=np.logspace(np.log10(S), np.log10(1000*Sstar), Nint)
