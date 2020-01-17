@@ -468,29 +468,32 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, B
 
     PAs=np.arctan2(xv,yv)# -pi to pi
     PAs[PAs<0.0]=PAs[PAs<0.0]+2.*np.pi # from 0 to 2pi, discontinuity in 0.0
-    
+
+    if phi2_rad>=phi1_rad:
+        mask_phis=(PAs>= phi1_rad) & (PAs<=phi2_rad)
+    else: ### goes trough zero
+        mask_phis=(PAs>= phi1_rad) | (PAs<=phi2_rad)
+      
+    # jet=image_pb*1.
+    # jet[mask_phis]=-1.0
+    # plt.pcolor(jet)
+    # plt.show()
     rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
     rmsmap2=(rms/image_pb)**2.0
-    
-    #print rmin
     for i_r in xrange(Nr):
         try:
             mask_r=(rdep<=rs[i_r]) & (rdep>=rmin)
         except:
             mask_r=(rdep<=rs[i_r]) & (rdep>=rmin[i_r])
-        if phi2_rad>=phi1_rad:
-            mask_phis=(PAs>= phi1_rad) & (PAs<=phi2_rad)
-        else: ### goes trough zero
-            mask_phis=(PAs>= phi1_rad) | (PAs<=phi2_rad)
-            
+           
         mask=mask_r & mask_phis
-        F[i_r,0]= np.sum(image[mask]*(ps_arcsec**2.0)/Beam_area)
-        F[i_r,1]= np.sum( rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
+        print len(image[mask]), len(rmsmap2[mask])
+        F[i_r,0]= np.sum(image[mask])*(ps_arcsec**2.0)/Beam_area
+        F[i_r,1]= np.sum(rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
 
         # Correct by number of independent points
 
         if len(image[mask])*ps_arcsec**2.>Beam_area:
-        
             F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
         else:
             F[i_r,1]=rms
