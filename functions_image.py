@@ -471,7 +471,7 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, B
 
     if phi2_rad>=phi1_rad:
         mask_phis=(PAs>= phi1_rad) & (PAs<=phi2_rad)
-    else: ### goes trough zero
+    else: ### goes through zero
         mask_phis=(PAs>= phi1_rad) | (PAs<=phi2_rad)
       
     # jet=image_pb*1.
@@ -487,7 +487,6 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, B
             mask_r=(rdep<=rs[i_r]) & (rdep>=rmin[i_r])
            
         mask=mask_r & mask_phis
-        print len(image[mask]), len(rmsmap2[mask])
         F[i_r,0]= np.sum(image[mask])*(ps_arcsec**2.0)/Beam_area
         F[i_r,1]= np.sum(rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
 
