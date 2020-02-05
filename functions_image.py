@@ -269,7 +269,8 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
             
             Irs1[i_r,i_p] = image[jp1,ip1] 
             Irs2[i_r,i_p] = image_pb[jp1,ip1]
-
+    # plt.pcolormesh(Irs1)
+    # plt.show()
     # if plot:
     #     imagep=image*1.0
     #     for i_p in xrange(Nphi):
@@ -295,7 +296,7 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
         Ir2=Ir2+(rms/Irs2[:,i])**2.0
 
     Ir2=np.sqrt(Ir2/(Nphi))
-
+    # Ir2=np.nanstd(Irs1, axis=1)
     # Calculate number of independent points 
 
 
@@ -1801,7 +1802,27 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
 
 
+def cartesian2polar(outcoords, inputshape, origin, fieldscale=1.): # by S. Perez
+    """Coordinate transform for converting a polar array to Cartesian coordinates. 
+    inputshape is a tuple containing the shape of the polar array. origin is a
+    tuple containing the x and y indices of where the origin should be in the
+    output array."""
 
+    rindex, thetaindex = outcoords
+    x0, y0 = origin
+
+    theta = thetaindex * 2 * np.pi / (inputshape[0]-1)
+    #theta = 2. * np.pi - theta
+    
+    y = rindex*np.cos(theta)/fieldscale
+    x = rindex*np.sin(theta)/fieldscale
+
+    #print "r",rindex,"theta",theta,"x",x,"y",y
+    
+    ix = -x + x0
+    iy = y +  y0
+
+    return (iy,ix)
 
 
 
