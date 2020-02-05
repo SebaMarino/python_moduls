@@ -2270,6 +2270,40 @@ def Simimages_canvas_fields_alpha(dpc, X0, Y0, image0, image_new, lam0, newlam, 
 
 
 
+#### SED
+
+def sed(wmin, wmax, Nw, inc=0.0, PA=0.0, omega=0.0, output_name='sed.dat', dpc=1.0, sizeau=0.): # output in um, Jy
+    
+    Pl=(wmax/wmin)**(1.0/(Nw-1))
+
+    path='camera_wavelength_micron.inp'
+    arch=open(path,'w')
+    arch.write(str(Nw)+'\n')
+    for i in xrange(Nw):
+        arch.write(str(wmin*Pl**(i))+'\n')
+    arch.close()
+    if sizeau>0.0:
+        os.system('radmc3d spectrum loadlambda incl %1.5f phi %1.5f posang %1.5f sizeau %1.5e secondorder'%(inc, omega, (PA-90.0), sizeau))
+    else:
+        os.system('radmc3d spectrum loadlambda incl %1.5f phi %1.5f posang %1.5f secondorder'%(inc, omega, (PA-90.0)))
+        
+    arch=open('spectrum.out','r')
+    arch.readline()
+    Nw=int(arch.readline())
+    SED=np.zeros((Nw,2))
+    arch.readline()
+    for i in xrange(Nw):
+        line=arch.readline()
+        dat=line.split()
+        SED[i,0]=float(dat[0])   # um 
+        SED[i,1]=float(dat[1])*1.0e23/dpc**2. # Jy
+    arch.close()
+
+    
+    np.savetxt(output_name, SED)
+
+
+    
 ################## GAS FITS
 
 

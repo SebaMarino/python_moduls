@@ -395,6 +395,11 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
     # returns numpy array with list of x y de-rotated positions of
     # Npart particles between ti and tf
 
+    # this function places the planet at y=0 x>0, but it does not take
+    # into account the rotating frame when spreading the position of
+    # particles. For example, resonant structure will not be visible.
+
+    
     # FIRST, LOAD SIMULATION PARAMETERS
 
     Ti,Tf,Nt,dT,Nplt, Nsmall=Tdomain(path_sim)
@@ -411,7 +416,7 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
 
     # closest epoch
     itp=int(round((Tp-Ti)/dT))
-
+    print itp
     filei=open(path_sim+'body_1.txt', 'r')
     filei.readline() # header 
 
@@ -511,6 +516,10 @@ def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',',
     # returns numpy array with list of x y de-rotated positions of
     # Npart particles between ti and tf
 
+    # this function places the planet at y=0 x>0, and it does take
+    # into account the rotating frame when spreading the position of
+    # particles. For example, resonant structure WILL be visible.
+
     # FIRST, LOAD SIMULATION PARAMETERS
 
     Ti,Tf,Nt,dT,Nplt, Nsmall=Tdomain(path_sim)
@@ -521,7 +530,7 @@ def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',',
     # SECOND, LOAD ORB ELEMENTS OF PLANET TO DE-ROTATE WITH RESPECT ITS POSITION
 
     # check how many epochs to save (Ntaverage)
-    if Tp<Ti or Tp>Tf:
+    if Tp<Ti or Tp>Tf+0.5*dT:
         print "error, epoch of interest does not overlay with simulation epochs"
         sys.exit()
 
@@ -831,7 +840,7 @@ def Surface_density_r(Particles, amin, amax, gamma, rmax, Nbins, a1=-1.0, a2=-1.
     rs=((Particles[mask,:,1 ]**2.0+Particles[mask,:,2 ]**2.0)**0.5).flatten()
     a0s=Particles[mask,:,4 ].flatten()
     print len(rs)
-    Nr=np.array( np.histogram(rs, bins=Binsr ,weights=a0s**(gamma+1.0), density=True)[0], dtype=float)
+    Nr=np.array( np.histogram(rs, bins=Binsr ,weights=a0s**(gamma), density=True)[0], dtype=float)
 
     Nr[0]=0.0
 
