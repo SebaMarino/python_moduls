@@ -55,7 +55,7 @@ def Chi2_simvisC_bilinear(pathfitsfile, table, offra=0.0, offdec=0.0):
     # print "computing fft"        
     FI=np.fft.fft2(np.fft.ifftshift(data))
     # print "shifting"
-    FIs=np.fft.fftshift(FI)
+    FIs=np.fft.fftshift(FI).astype(np.cdouble)
     # print "done"
     
     ## OFFSET IN IMAGE SPACE TRANSLATES TO PHASE SHIFTS IN VISIBILITY SPACE
@@ -171,7 +171,7 @@ def Model_simvisC_bilinear(pathfitsfile, table, save=False, tag='', offra=0.0, o
     # print "computing fft"        
     FI=np.fft.fft2(np.fft.ifftshift(data))
     # print "shifting"
-    FIs=np.fft.fftshift(FI)
+    FIs=np.fft.fftshift(FI).astype(np.cdouble)
     # print "done"
 
     ## OFFSET IN IMAGE SPACE TRANSLATES TO PHASE SHIFTS IN VISIBILITY SPACE
