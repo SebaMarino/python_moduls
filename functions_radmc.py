@@ -788,6 +788,60 @@ def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *
     
     dust_d.close()
 
+##### create density matrix that is axisymmetric and flared and save it for radmc  
+def save_dens_axisym_flared(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, rc, flaring_index, sigmaf, *args):
+    # args has the arguments that sigmaf needs in the right order
+    Nr=len(R)+1
+    Nth=len(Th)+1
+    Nphi=len(Phi)
+    rho_d=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # density field
+    res_theta=Thedge[-1]-Thedge[-2]
+
+        
+    for ia in xrange(Nspec):
+        M_dust_temp= 0.0 #np.zeros(Nspec) 
+       
+        if len(Th)>1: # more than one cell per emisphere
+
+            for k in xrange(Nth-1):
+                theta=Th[Nth-2-k]
+                for i in xrange(Nr-1):
+                    rho=R[i]*np.cos(theta)
+                    z=R[i]*np.sin(theta)
+                    hi=h*(rho/rc)**flaring_index # aspect ratio
+                    rho_d[ia,k,:,i]=rho_3d_dens(rho, 0.0, z,hi, sigmaf, *args )
+                    rho_d[ia,2*(Nth-1)-1-k,:,i]=rho_d[ia,k,:,i]
+                    M_dust_temp+=2.0*rho_d[ia,k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0
+        elif len(Th)==1:# one cell
+            theta=Th[0]
+            for i in xrange(Nr-1):
+
+                rho=R[i]*np.cos(theta)
+                rho_d[ia,0,:,i]=sigmaf(rho, 0.0, *args)/(res_theta*rho) # rho_3d_dens(rho, 0.0, 0.0, hs, sigmaf, *args )
+                rho_d[ia,1,:,i]=rho_d[ia,0,:,i]
+                M_dust_temp+=2.0*rho_d[ia,0,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(res_theta)*R[i]*au**3.0
+
+        rho_d[ia,:,:,:]=rho_d[ia,:,:,:]*Ms[ia]/M_dust_temp
+        
+        
+    # Save 
+    path='dust_density.inp'
+    dust_d=open(path,'w')
+    
+    dust_d.write('1 \n') # iformat
+    # if south_emisphere:
+    #     print 'saving south emisphere density'
+    dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells
+    dust_d.write(str(Nspec)+' \n') # n species
+
+    for ai in xrange(Nspec):
+        for j in range(Nphi):
+            for k in range(2*(Nth-1)):
+                for i in range(Nr-1):
+                    dust_d.write(str(rho_d[ai,k,j,i])+' \n')
+    
+    dust_d.close()
+    
 ##### create density matrix that is axisymmetric and save it for radmc 
 def save_dens_axisym_mirror(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *args):
     # args has the arguments that sigmaf needs in the right order
