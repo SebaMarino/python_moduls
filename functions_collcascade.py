@@ -84,7 +84,8 @@ def SizeDist(Mstar=1.0,
     rmid=r0*au # m
     Mbelt=Mbeltem*Mearth # kg
     print rmid/au, dr, I
-    Vol=2.0*np.pi*rmid*dr*au*I*rmid # [m3]
+    Vol=4.0*np.pi*rmid*dr*au*I*rmid # [m3]
+    # Vol=2.0*np.pi*rmid*dr*au*I*rmid # [m3]
     print "Vol [au3] = ", Vol/au**3.0
     vk=(G*Mstar/rmid)**0.5 # m/s
     vrel=vk*(1.25*e**2.0+I**2.0)**(0.5) # m/s
@@ -317,7 +318,7 @@ def SizeDist_dmax(Mstar=1.0,
     rmid=r0*au # m
     Mbelt=Mbeltem*Mearth # kg
     print rmid/au, dr, I
-    Vol=2.0*np.pi*rmid*dr*au*I*rmid # [m3]
+    Vol=4.0*np.pi*rmid*dr*au*I*rmid # [m3]
     print "Vol [au3] = ", Vol/au**3.0
     vk=(G*Mstar/rmid)**0.5 # m/s
     vrel=vk*(1.25*e**2.0+I**2.0)**(0.5) # m/s
@@ -577,7 +578,7 @@ def SizeDist_dmax_gas(Mstar=1.0,
     rmid=r0*au # m
     Mbelt=Mbeltem*Mearth # kg
     print rmid/au, dr, I
-    Vol=2.0*np.pi*rmid*dr*au*I*rmid # [m3]
+    Vol=4.0*np.pi*rmid*dr*au*I*rmid # [m3]
     print "Vol [au3] = ", Vol/au**3.0
     vk=(G*Mstar/rmid)**0.5 # m/s
     vrel=vk*(1.25*e**2.0+I**2.0)**(0.5) # m/s
