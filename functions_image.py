@@ -837,7 +837,6 @@ def Convolve_beam_cube(path_image, BMAJ, BMIN, BPA):
 
     N=len(data1[0,0,0,:])
     Nf=len(data1[0,:,0,0])
-    
     ps1= ps_mas # pixel size input in mas
     ps2= ps1 # pixel size output in mas
 

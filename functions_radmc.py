@@ -719,9 +719,9 @@ def grains_size_grid(amin, amax, Nspec, Mdust_tot, Sizedist_exp): ## define grai
     As=(Asedge[:-1]+Asedge[1:])/2.0
 
     Ms=np.zeros(Nspec) # dust mass in each bin
-    Ms[:] = np.abs(abs(Asedge[1:]**(Sizedist_exp+3.0+1.0)-Asedge[:-1]**(Sizedist_exp+3.0+1.0)))
-    
-    if Mdust_tot>0.0: 
+    print Mdust_tot
+    if Mdust_tot>0.0:
+        Ms[:] = np.abs(abs(Asedge[1:]**(Sizedist_exp+3.0+1.0)-Asedge[:-1]**(Sizedist_exp+3.0+1.0)))
         Ms=Ms*Mdust_tot/np.sum(Ms) # normalise to set total dust mass = M_dust
     return Asedge, As, Ms
 
@@ -1720,10 +1720,11 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
 
         if continuum_subtraction:
          
-            m=(image_in_jypix_shifted[0,-1,:,:]- image_in_jypix_shifted[0,0,:,:])/(lam[nf-1]-lam[0])
+            m=(image_in_jypix_shifted[0,-1,:,:]- image_in_jypix_shifted[0,0,:,:])/(lam[-1]-lam[0])
+            I0=image_in_jypix_shifted[0,0,:,:]*1.
             for k in xrange(nf):
-                Cont=image_in_jypix_shifted[0,0,:,:]+(lam[k]-lam[0])*m
-                image_in_jypix_shifted[0,:,:,:]= image_in_jypix_shifted[0,:,:,:] - Cont 
+                Cont=I0+(lam[k]-lam[0])*m
+                image_in_jypix_shifted[0,k,:,:]= image_in_jypix_shifted[0,k,:,:] - Cont 
         flux = np.sum(image_in_jypix_shifted[0,:,:,:])*delta_velocity
         print "flux [Jy km/s] = ", flux
   
@@ -2364,7 +2365,7 @@ def sed(wmin, wmax, Nw, inc=0.0, PA=0.0, omega=0.0, output_name='sed.dat', dpc=1
 ## ...pending
 
 
-def Simimage_gas(dpc, X0, Y0, imagename, mol, line, vmax, Nnu, Npix, dpix, inc, PA, offx=0.0, offy=0.0, tag='', omega=0.0, Npixf=-1, fstar=-1.0, vel=False, continuum_subtraction=False):
+def Simimage_gas(dpc,  imagename, mol, line, vmax, Nnu, Npix, dpix, inc, PA, offx=0.0, offy=0.0, X0=0., Y0=0., tag='', omega=0.0, Npixf=-1, fstar=-1.0, vel=False, continuum_subtraction=False):
 
     # X0, Y0, stellar position (e.g. useful if using a mosaic)
 
@@ -2510,3 +2511,103 @@ def background_object(Ni, dpix, Flux, offx, offy, Rmaj, Rmin, Rpa):
     return F*Flux/np.sum(F)
 
 
+
+
+def plot_field(field='temp', ispec=1, rmax=100., rmin=0., Tcontours=[20., 50.], savefig=False):
+
+    if field[:4]=='temp':
+        path_field='dust_temperature.dat'
+
+    elif field[:4]=='dens':
+        path_field='dust_density.inp'
+
+
+
+    #############------------READING GRID
+
+    gridfile='amr_grid.inp'
+    arch=open(gridfile,'r')
+    arch.readline(5)
+    arch.readline()
+    arch.readline()
+    arch.readline()
+    arch.readline()
+    line=arch.readline()
+    dat=line.split()
+    
+    Nr=int(dat[0])
+    Nth=int(dat[1])
+    Nphi=int(dat[2])
+
+
+    Redge=np.fromstring(arch.readline(),dtype=float, sep=' ')/1.496e13
+    Thedge=np.fromstring(arch.readline(),dtype=float, sep=' ')
+    Phiedge=np.fromstring(arch.readline(),dtype=float, sep=' ')
+
+
+
+    dR=Redge[1:]-Redge[:-1]
+    R=Redge[:-1]+dR/2.0
+
+    dTh=Thedge[1:]-Thedge[:-1]
+    Th=Thedge[:-1]+dTh/2.0
+
+    dPhi=Phiedge[1:]-Phiedge[:-1]
+    Phi=Phiedge[:-1]+dPhi/2.0
+
+    
+    arch.close()
+
+    #############------------READING GRID
+
+
+    F=np.zeros((Nphi,Nth, Nr))
+
+    arch=open(path_field,'r')
+
+    arch.readline()
+    arch.readline()
+    arch.readline()
+
+    for o in xrange(ispec-1):
+        for i in xrange(Nphi*Nth*Nr):
+            arch.readline()
+
+    for j in xrange(Nphi):
+        for k in xrange(Nth):
+            for i in xrange(Nr): 
+                F[j,k,i]=float(arch.readline())
+
+    imax=Nr
+    for i in xrange(Nr+1):
+        if Redge[i]>rmax: 
+            imax=i
+            break
+    fmax=1000.0
+    for i in xrange(Nr+1):
+        if Redge[i]>rmin: 
+            fmax=F[0,Nth/2,i]
+            break
+    print fmax
+    rhoedge, phiedge = np.meshgrid( Redge[:imax], Phiedge)
+    redge, thetaedge = np.meshgrid( Redge[:imax], Thedge)
+
+    rho, phi = np.meshgrid( R[:imax], Phi)
+    r, theta = np.meshgrid( R[:imax], Th)
+
+
+    fig=plt.figure(figsize=(18,9))
+    ax1=fig.add_subplot(121, polar=True)
+    im1=ax1.pcolormesh(phiedge,rhoedge, F[:,Nth/2,:imax], vmin=np.min( F[:,Nth/2,:imax]), vmax=fmax, rasterized=True)
+    plt.contour(phi,rho,F[:,Nth/2,:imax],levels=Tcontours, colors=['grey'])
+    plt.colorbar(im1)#, cax=ax1)
+    
+    ax2=fig.add_subplot(122, polar=True)
+    im2=ax2.pcolormesh(thetaedge,redge, np.mean(F[:,:,:imax],axis=0), vmin=np.min(F[:,:,:imax]), vmax=fmax, rasterized=True)
+    plt.contour(theta,r,np.mean(F[:,:,:imax],axis=0),levels=Tcontours, colors=['grey'])
+
+    ax2.set_theta_offset(-np.pi/2.0)
+    plt.colorbar(im2)#, cax=ax2)
+    if savefig:
+        plt.savefig('field_'+field+'.pdf')
+    plt.show()
