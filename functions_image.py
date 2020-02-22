@@ -1191,15 +1191,14 @@ def fload_fits_cube(path_cube, line='CO32'): # for images from CASA
         BPA=float(header1['BPA']) # deg 
         print "beam = %1.2f x %1.2f" %(BMAJ, BMIN)
     except:
-        header = fits.getheader(path_cube)
+        header = pyfits.getheader(path_cube)
         if header.get('CASAMBM', False):
-            beam = fits.open(path_cube)[1].data
+            beam = pyfits.open(path_cube)[1].data
             beam = np.median([b[:3] for b in beam.view()], axis=0)
             BMAJ=beam[0]
             BMIN=beam[1]
             BPA= beam[2]
-
-            print beam
+            print("beam = %1.2f x %1.2f" %(BMAJ, BMIN))
 
     ########### SPATIAL GRID
 
@@ -1254,13 +1253,13 @@ def moment_0(path_cube, line='CO32', v0=0.0, dvel=10.0,  rmin=0.0, inc=90.0, M_s
    
         return image, xfedge, yfedge, BMAJ, BMIN, BPA, dv, rms_moment0
         
-def moment_0_shifted(cube, xs, ys, ps_arcsec, BMAJ, vs, v0 , x0, y0, PA, inc, M_star, dpc, Dvel0=3.2):
+def moment_0_shifted(cube, xs, ys, ps_arcsec, BMAJ, vs, v0 , x0, y0, PA, inc, M_star, dpc, Dvel0=3.2, f1=1.0, f2=2.3):
 
     Npix=len(cube[0,0,:])
     Nf=len(vs)
     dv=abs(vs[1]-vs[0])
     ### calculate shift matrix
-    shiftm=np.rint(f_shift(Npix, x0, y0, ps_arcsec, PA*np.pi/180., inc*np.pi/180., M_star, dpc, rlim=0.3*BMAJ*dpc)/abs(dv)).astype(int)
+    shiftm=np.rint(f_shift(Npix, x0, y0, ps_arcsec, PA*np.pi/180., inc*np.pi/180., M_star, dpc, rlim=0.5*BMAJ*dpc)/abs(dv)).astype(int)
 
     ### calculate moment 0
     moment0=np.zeros((Npix,Npix))
@@ -1271,9 +1270,7 @@ def moment_0_shifted(cube, xs, ys, ps_arcsec, BMAJ, vs, v0 , x0, y0, PA, inc, M_
     Rs=np.sqrt((Xs-x0)**2.+(Ys-y0)**2.)
 
     rlim=BMAJ
-    f1=1.0
-    f2=2.3
-    Dvel1=3.*dv
+    Dvel1=3.*dv # 6 channels wide
     k_min1=max(0, int((v0-Dvel1-vs[0])/dv) ) # to use beyond f2*rlim
     k_max1=min(Nf, int((v0+Dvel1-vs[0])/dv) ) # idem
 
