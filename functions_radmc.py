@@ -191,13 +191,15 @@ def opac_arg(amin, amax, density, N, Inte, lnk_file, Type, exp=3.5):
 
 
     path="./"
+    if not os.path.exists('./Tempkappa'):
+        os.makedirs('./Tempkappa')
     pathout='Tempkappa/dustkappa_'+Type+'.inp'
 
 
     # ---------------------- MAIN 
     os.system('rm '+path+'Tempkappa/*')
 
-    Pa=(amax/amin)**(1.0/(N-1.0))
+    Pa=(amax/amin)**(1.0/(N-1))
 
     A=np.zeros(N)
     A[0]=amin
@@ -206,7 +208,7 @@ def opac_arg(amin, amax, density, N, Inte, lnk_file, Type, exp=3.5):
     for i in range(N):
         os.system('rm '+path+'param.inp')
         A[i]=amin*(Pa**(i))
-        acm=A[i]*10.0**(-4.0)
+        acm=A[i]*1.0e-4
         # print "a = %1.2e [um]"  %A[i]
         file_inp=open(path+'param.inp','w')
         file_inp.write(lnk_file+'\n')
@@ -237,8 +239,8 @@ def opac_arg(amin, amax, density, N, Inte, lnk_file, Type, exp=3.5):
         Ws_number=np.zeros(N) # wights by abundances
 
         for i in xrange(N):
-            Ws_mass[i]=(A[i]**(-exp))*(A[i]**(3.0))*A[i]  # w(a) propto n(a)*m(a)*da and da propto a
-            Ws_number[i]=A[i]**(-exp)*A[i]
+            Ws_mass[i]=A[i]**(-exp+4.)  # w(a) propto n(a)*m(a)*da and da propto a
+            Ws_number[i]=A[i]**(-exp+1.)
 
         W_mass=Ws_mass/np.sum(Ws_mass)
         W_number=Ws_number/np.sum(Ws_number)
