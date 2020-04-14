@@ -1791,7 +1791,7 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
             #    third axis as frequency
             header['CTYPE3'] = 'VELOCITY'
             header['CUNIT3'] = 'km/s'
-            header['CRPIX3'] = int((nf+1.)/2.))
+            header['CRPIX3'] = int((nf+1.)/2.)
             header['CRVAL3'] = 0.0
             # Calculate the frequency step, assuming equal steps between all:
             header['CDELT3'] = delta_velocity
