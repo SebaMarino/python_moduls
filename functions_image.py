@@ -1736,13 +1736,19 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
         #pc.set_edgecolor('face')
         cb= fig.colorbar(pc,orientation='horizontal',label=clabel, pad=0.12)
 
-    c1=fcolor_black_white(0.5,3)
+    c1=fcolor_black_white(1.0,3)
     c2=fcolor_black_white(1.0,3)
-    c3=fcolor_black_white(1.5,3)
+    c3=fcolor_black_white(1.0,3)
+    # c1=fcolor_black_white(0.5,3)
+    # c2=fcolor_black_white(1.0,3)
+    # c3=fcolor_black_white(1.5,3)
 
     if contours:
         PS=abs(yedge[1]-yedge[0])
-        c1=plt.contour(xedge[:-1]-PS/2.0,yedge[:-1]+PS/2.0, image/rmsmap, levels=c_levels,colors=[c1,c2, c3], linewidths=1.0)
+        if rmsmap!=0.0:
+            c1=plt.contour(xedge[:-1]-PS/2.0,yedge[:-1]+PS/2.0, image/rmsmap, levels=c_levels,colors=[c1,c2, c3], linewidths=1.0)
+        else:
+            c1=plt.contour(xedge[:-1]-PS/2.0,yedge[:-1]+PS/2.0, image/rms, levels=c_levels,colors=[c1,c2, c3], linewidths=1.0)
         # cb.add_lines(con2)
 
     ax1.set_xticks(major_ticks)                                                       

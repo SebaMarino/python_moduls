@@ -5,7 +5,7 @@ import matplotlib.colors as cl
 import colorsys
 from astropy.coordinates import SkyCoord
 # from astroquery.gaia import Gaia
-# from astroquery.simbad import Simbad
+from astroquery.simbad import Simbad
 # import astropy.units as units
 
 
@@ -101,7 +101,6 @@ def lighten_color(color, amount=0.5):
     except:
         c = color
     c = colorsys.rgb_to_hls(*cl.to_rgb(c))
-    print c
     return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
 
 def get_last2d(data):
@@ -191,7 +190,7 @@ def Poisson_error(n, S):
         gamma=-1.88
 
     else: 
-        print "S different from 1,2 or 3. Error"
+        print( "S different from 1,2 or 3. Error")
         return -1.0
 
     lambda_low= n*(1.-1./(9.*n) - S/(3.*np.sqrt(n))+beta*n**gamma )**3. # equation 14
@@ -220,7 +219,14 @@ def rBB(T, Lstar=1.0):
     return (278.3/T)**2.0*Lstar**0.5
 
 
+def get_simbad(name, par='sptype'):
+    customSimbad = Simbad()
+    # customSimbad.list_votable_fields()
 
+    # if len(par)>0:
+    customSimbad.add_votable_fields(par)
+    table = customSimbad.query_object(name)        
+    return table
 
 # def Gaia_ids(list_names, radius_arcsec=2.0):
 
@@ -308,7 +314,7 @@ def Integrate_probability_galaxy(rms, fwhm, wav, rmax=0.0, nsigma=3.):
         alpha=-2.08
         func='Carniani'
     else:
-        print 'not a valid wavelength'
+        print('not a valid wavelength')
         return -1.0
 
     
@@ -316,10 +322,10 @@ def Integrate_probability_galaxy(rms, fwhm, wav, rmax=0.0, nsigma=3.):
     # print 'sig_PB=',sig_PB
     N=10
     if rmax>0.0:
-        print 'integrate over circle of radius %1.2f arcsec'%rmax
+        print( 'integrate over circle of radius %1.2f arcsec'%rmax)
         redge=np.linspace(0.0, rmax, N+1) # bins over which to integrate
     else:
-        print 'integrate over full PB'
+        print( 'integrate over full PB')
         redge=np.linspace(0.0, fwhm, N+1) # bins over which to integrate
    
     rmid=(redge[:-1]+redge[1:])/2.
