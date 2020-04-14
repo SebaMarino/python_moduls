@@ -1253,12 +1253,15 @@ def moment_0(path_cube, line='CO32', v0=0.0, dvel=10.0,  rmin=0.0, inc=90.0, M_s
    
         return image, xfedge, yfedge, BMAJ, BMIN, BPA, dv, rms_moment0
         
-def moment_0_shifted(cube, xs, ys, ps_arcsec, BMAJ, vs, v0 , x0, y0, PA, inc, M_star, dpc, Dvel0=3.2, f1=1.0, f2=2.3, sign=1.0):
+def moment_0_shifted(cube, xs, ys, ps_arcsec, BMAJ, vs, v0 , x0, y0, PA, inc, M_star, dpc, Dvel0=3.2, f1=1.0, f2=2.3, sign=1.0, width=3.):
     Npix=len(cube[0,0,:])
     Nf=len(vs)
     dv=vs[1]-vs[0]
     ### calculate shift matrix
     shiftm=int(np.sign(sign))*np.rint(f_shift(Npix, x0, y0, ps_arcsec, PA*np.pi/180., inc*np.pi/180., M_star, dpc, rlim=0.5*BMAJ*dpc)/abs(dv)).astype(int)
+    # plt.pcolormesh(shiftm, vmin=-50, vmax=50)
+    # plt.colorbar()
+    # plt.show()
     ### calculate moment 0
     moment0=np.zeros((Npix,Npix))
     rmsmap=np.ones((Npix,Npix)) # rms in Moment0
@@ -1268,9 +1271,8 @@ def moment_0_shifted(cube, xs, ys, ps_arcsec, BMAJ, vs, v0 , x0, y0, PA, inc, M_
     Rs=np.sqrt((Xs-x0)**2.+(Ys-y0)**2.)
 
     rlim=BMAJ
-    Dvel1=3.*np.abs(dv) # 6 channels wide
+    Dvel1=width*np.abs(dv) # 6 channels wide
     Dvel0=np.abs(Dvel0) # make sure it is possitive
-
     if dv>0.0:
         k_min1=max(0, int((v0-Dvel1-vs[0])/dv) ) # to use beyond f2*rlim
         k_max1=min(Nf, int((v0+Dvel1-vs[0])/dv) ) # idem
@@ -1283,7 +1285,6 @@ def moment_0_shifted(cube, xs, ys, ps_arcsec, BMAJ, vs, v0 , x0, y0, PA, inc, M_
 
         k_min0=max(0, int((v0+Dvel0-vs[0])/dv) )
         k_max0=min(Nf, int((v0-Dvel0-vs[0])/dv) )
-        
         
     print k_min0, k_max0
     
