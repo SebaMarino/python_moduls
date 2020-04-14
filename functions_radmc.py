@@ -464,7 +464,7 @@ def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star
         for i in xrange(Nw):
             arch_star.write(str(Flux[i])+'\n')
     else:
-            arch_star.write(str(T_star)+'\n')
+        arch_star.write(str(T_star)+'\n')
     ### planet
     if plt:
         arch_star.write(str(-T_plt)+'\n')
