@@ -100,3 +100,22 @@ def planck(wav, T):  # Inu
     b = h*nu/(k*T)
     intensity = a/ (np.exp(b) - 1.0)
     return intensity
+
+
+
+
+
+def frac_CO_CO2_expected(RCO, RCO2, f_ice=0.5):
+    # R are the abundances of x molecule vs water
+    # returns fractional mass of CO+CO2
+    mco=28.
+    mco2=44.
+    mh20=18.
+    return f_ice*(RCO*mco + RCO2*mco)/(mh20 + RCO*mco + RCO2*mco2) 
+
+
+
+def frac_CO_CO2_mdot(R, width, fir, Lstar, Mstar,  MCO, tph=120.):
+    # MCO in Mearth
+
+    return 1./ ( 1.+  0.0012*R**1.5 * width**(-1.) *fir**2 *Lstar* Mstar**(-0.5)*tph * MCO**(-1.)  )

@@ -1365,15 +1365,18 @@ def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, 
     # plt.xlim(10.0,-10.0)
     # plt.ylim(-10.0,10.0)
     # plt.show()
+    # print('area = %1.1e arcsec2'%(Npix*ps_arcsec**2.0))
     Delta=(ps_arcsec**2.0)*abs(dv) # constant to obtain total flux in Jy km/s
     Rms=np.std(Rmss)
-
     if averaged:
-        factor=1.15 # typically for 0.8 km/s wide channels that result from averaging 0.4km/2 channels
-        # https://safe.nrao.edu/wiki/pub/Main/ALMAWindowFunctions/Note_on_Spectral_Response.pdf
+        factor=1.6 # typically for 0.8 km/s wide channels that result from averaging 0.4km/2 channels
+        ##### https://help.almascience.org/index.php?/Knowledgebase/Article/View/29
     else:
-        factor=2.0 #  for 0.4 km/s wide channels without averaging
-    dF=Rms*np.sqrt(Nfr*factor)*Delta
+        factor=2.667 #  for 0.4 km/s wide channels without averaging
+    dF=Rms*np.sqrt(Nfr*factor)*Delta # derived from:
+    # rms * sqrt(Nfr) * X * dv = rms * (dv*factor) * sqrt(Nfr/factor) (true number of independent measurements)
+    # or  as dF= rms/sqrt(Nfr/factor) * Nfr * dv 
+    
     # print Nfr, Delta, factor
     if dF==0.0:
         return 1.0e-6, 1.0 
