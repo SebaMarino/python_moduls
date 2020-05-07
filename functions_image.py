@@ -78,8 +78,15 @@ def arc_length(a,b,phi1, phi2):
     # works with dy/dx
     Nint=1000000
 
+    # translates phi1 and phi2 to angles between 0 and 2pi
     phi1=simple_phi(phi1) 
     phi2=simple_phi(phi2)
+
+    if phi2==phi1: # catches error when phi1 and phi2 are the same if one wants to integrate over whole circumpherence
+        phi1=0.0
+        phi2=2.*np.pi
+
+    
     # Figures out the right ranges of xs' to integrate. Does phi=0.0 pr phi=180 is contained in range?
     phis=separate_intervals(phi1, phi2)
     
@@ -109,13 +116,23 @@ def arc_length(a,b,phi1, phi2):
         
     return Arc_length, phis
 
-def arc_length2(a,b,phi1, phi2):
+def arc_length2(a,b,phi1, phi2,  Nint=1000000):
+    # a is semi-major axis (=1)
+    # b is the semi-minor axis (=1/aspect_ratio)
+    # returns arc length from phi1 to phi2 which are defined as 0 at the disc PA
+    print(phi1, phi2)
     # works with delta y / delta x
-    Nint=1000000
+   
 
-    phi1=simple_phi(phi1) 
+    # translates phi1 and phi2 to angles between 0 and 2pi
+    phi1=simple_phi(phi1)
     phi2=simple_phi(phi2)
-    # Figure out the right ranges of xs' to integrate. Does phi=0.0 pr phi=180 is contained in range?
+
+    if phi2==phi1: # catches error when phi1 and phi2 are the same if one wants to integrate over whole circumpherence
+        phi1=0.0
+        phi2=2.*np.pi
+
+    # Figure out the right ranges of xs' to integrate. Is phi=0.0 or phi=180 contained in range?
     phis=separate_intervals(phi1, phi2)
     
     Nph=len(phis)
@@ -305,7 +322,8 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
     if arc=='simple_elipse':
         arclength=(Nphi-1)*dphi* np.sqrt(  (1.0 + (1.0/chi)**2.0 )/2.0 ) # normalice 
     else:
-        arclength, phiint= arc_length2(1.0,1.0/chi, phis_rad[0], phis_rad[-1])
+        print phis_rad[0], phis_rad[-1]
+        arclength, phiint= arc_length2(1.0,1.0/chi, phis_rad[0]-PA_rad, phis_rad[-1]-PA_rad)
 
     print 'arc length = [deg] ', arclength*180.0/np.pi
     Nindeps_1=rs*arclength/BMAJ_arcsec
@@ -1583,7 +1601,7 @@ def plot_cube(filename,cube, ps_arcsec, xedge, yedge, vs, v0=0., Dv=10., rms=0.0
                 width= BMAJ
                 height= BMIN
                 pa=BPA
-                elli=Ellipse((xc,yc),width,height,angle=90.-pa,linewidth=3,fill=True,color='white', alpha=1.0)
+                elli=Ellipse((xc,yc),width,height,angle=90.-pa,linewidth=0,fill=True,color='white', alpha=1.0)
        
                 axi.add_patch(elli)
 
@@ -1709,7 +1727,7 @@ def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
              
     return Rs_edge, Rs, np.array([Real_mean, Real_std, Real_error]), np.array([Imag_mean, Imag_std, Imag_error]), np.array([Amp_mean, Amp_std, Amp_error])
 
-def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, YMAX=0.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, loc_beam='ll', show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, c_levels=[3.0,5.0, 8.0], star=True, xstar=0.0, ystar=0.0, cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=False, dpc=10.):
+def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, YMAX=0.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, loc_beam='ll', show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, c_levels=[3.0,5.0, 8.0], star=True, xstar=0.0, ystar=0.0, starcolor='white', cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=False, dpc=10., planet=False, xplt=0.0, yplt=0.0, pltcolor='white'):
 
 
     plt.style.use('style1')
@@ -1749,7 +1767,7 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
     if contours:
         PS=abs(yedge[1]-yedge[0])
-        if rmsmap!=0.0:
+        if type(rmsmap) is np.ndarray:
             c1=plt.contour(xedge[:-1]-PS/2.0,yedge[:-1]+PS/2.0, image/rmsmap, levels=c_levels,colors=[c1,c2, c3], linewidths=1.0)
         else:
             c1=plt.contour(xedge[:-1]-PS/2.0,yedge[:-1]+PS/2.0, image/rms, levels=c_levels,colors=[c1,c2, c3], linewidths=1.0)
@@ -1786,11 +1804,11 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
     #---add beam
     if BMAJ!=0.0 and BMIN!=0.0 and show_beam:
         if loc_beam=='lr':
-            xc=-XMAX+1.2*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
-            yc=-YMAX+1.2*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
+            xc=-XMAX+1.5*BMAJ/2.#abs(minor_ticks[1]-minor_ticks[0])
+            yc=-YMAX+1.5*BMAJ/2.#abs(minor_ticks[1]-minor_ticks[0])
         else:
-            xc=XMAX-1.2*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
-            yc=-YMAX+1.2*BMAJ#abs(minor_ticks[1]-minor_ticks[0])
+            xc=XMAX-1.5*BMAJ/2.#abs(minor_ticks[1]-minor_ticks[0])
+            yc=-YMAX+1.5*BMAJ/2.#abs(minor_ticks[1]-minor_ticks[0])
         
         width= BMAJ
         height= BMIN
@@ -1804,7 +1822,10 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
     if star:
         # add star
-        ax1.plot(xstar , ystar, marker='+', color=tickcolor, markersize=3.5, mew=1.0)
+        ax1.plot(xstar , ystar, marker='+', color=starcolor, markersize=3.5, mew=1.0)
+    if planet:
+        # add planet
+        ax1.plot(xplt , yplt, marker='x', color=pltcolor, markersize=3.5, mew=1.0)
 
     if ruller:
         x1=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
