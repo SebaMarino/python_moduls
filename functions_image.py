@@ -119,9 +119,9 @@ def arc_length(a,b,phi1, phi2):
 def arc_length2(a,b,phi1, phi2,  Nint=1000000):
     # a is semi-major axis (=1)
     # b is the semi-minor axis (=1/aspect_ratio)
-    # returns arc length from phi1 to phi2 which are defined as 0 at the disc PA
-    print(phi1, phi2)
-    # works with delta y / delta x
+    # returns arc length from phi1 to phi2 which are defined as 0 at the disc PA and grow anticlockwise in the sky
+
+    # works with delta y / delta x instead of dy/dx
    
 
     # translates phi1 and phi2 to angles between 0 and 2pi
@@ -322,7 +322,6 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
     if arc=='simple_elipse':
         arclength=(Nphi-1)*dphi* np.sqrt(  (1.0 + (1.0/chi)**2.0 )/2.0 ) # normalice 
     else:
-        print phis_rad[0], phis_rad[-1]
         arclength, phiint= arc_length2(1.0,1.0/chi, phis_rad[0]-PA_rad, phis_rad[-1]-PA_rad)
 
     print 'arc length = [deg] ', arclength*180.0/np.pi
