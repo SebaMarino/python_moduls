@@ -16,7 +16,7 @@ def M_to_f(M,e):
 
     # Newton's to find solution to E-e*sin(E)=M
     E=M
-    for ip in xrange(10):
+    for ip in range(10):
         E= E - (E-e*np.sin(E)-M) / (1-e*np.cos(E))
 
     # derive f from E
@@ -32,7 +32,7 @@ def M_to_f_array(M,e):
 
     # Newton's to find solution to E-e*sin(E)=M
     E=M
-    for ip in xrange(10):
+    for ip in range(10):
         E= E - (E-e*np.sin(E)-M) / (1-e*np.cos(E))
 
     # derive f from E
@@ -72,7 +72,7 @@ def draw_random_r(a,e, Nr):
     Ms=np.random.uniform(0.0,2.0*ma.pi,Nr)
     Rs=np.zeros(Nr)
     fs=np.zeros(Nr)
-    for ir in xrange(Nr):
+    for ir in range(Nr):
         Rs[ir],fs[ir]=M_to_r(Ms[ir],a,e)
     return Rs
 
@@ -84,7 +84,7 @@ def draw_random_rf(a,e, Nr):
     Ms=np.random.uniform(0.0,2.0*ma.pi,Nr)
     Rs=np.zeros(Nr)
     fs=np.zeros(Nr)
-    for ir in xrange(Nr):
+    for ir in range(Nr):
         Rs[ir],fs[ir]=M_to_r(Ms[ir],a,e)
     return Rs, fs
 
@@ -98,7 +98,7 @@ def draw_r(a,e, Nr):
 
     Rs=np.zeros(Nr)
     fs=np.zeros(Nr)
-    for ir in xrange(Nr):
+    for ir in range(Nr):
         Rs[ir],fs[ir]=M_to_r(Ms[ir],a,e)
        
     return Rs
@@ -112,7 +112,7 @@ def draw_random_projectedrf(a,e,inc,omega, Nr):
     Ms=np.random.uniform(0.0,2.0*ma.pi,Nr)
     Rs=np.zeros(Nr)
     fs=np.zeros(Nr)
-    for ir in xrange(Nr):
+    for ir in range(Nr):
         R1,fs[ir]=M_to_r(Ms[ir],a,e)
         Rs[ir]=R1*( np.cos(omega+fs[ir])**2.0 + np.sin(omega+fs[ir])**2.0*np.cos(inc)**2.0 )**0.5
     return Rs
@@ -127,7 +127,7 @@ def draw_random_projectedrfz(a,e,inc,omega, Nr):
     Rs=np.zeros(Nr)
     Zs=np.zeros(Nr)
     fs=np.zeros(Nr)
-    for i in xrange(Nr):
+    for i in range(Nr):
         R1,fs[i]=M_to_r(Ms[i],a,e)
         Rs[i]=R1*( np.cos(omega+fs[i])**2.0+np.sin(omega+fs[i])**2.0*np.cos(inc)**2.0 )**0.5
         Zs[i]=R1*(np.sin(omega+fs[i])*np.sin(inc))
@@ -166,7 +166,7 @@ def draw_random_xyz_fromorb(a,e,inc, Omega, pomega, M=0.0, NM=0):
         ys=np.zeros(NM)
         zs=np.zeros(NM)
 
-        for im in xrange(NM):
+        for im in range(NM):
             xs[im], ys[im], zs[im]=cartesian_from_orbelement(a,e,inc, Omega, pomega, Ms[im])
 
         return xs, ys, zs
@@ -181,17 +181,17 @@ def draw_random_xyz_fromorb_dist_a(aps,e,inc, Omega, pomega, NM=0, random=True):
     ys=np.zeros(Nt)
     zs=np.zeros(Nt)
 
-    for ia in xrange(Na):
+    for ia in range(Na):
         if random: Ms=np.random.uniform(0.0,2.0*np.pi,NM)
         else: Ms=np.linspace(0.0,2.0*np.pi,NM+1)[:-1]
-        # for im in xrange(NM):
+        # for im in range(NM):
         #     xs[ia*NM+im], ys[ia*NM+im], zs[ia*NM+im]=cartesian_from_orbelement(aps[ia],e,inc, Omega, pomega, Ms[im])
         xs[ia*NM:(ia+1)*NM], ys[ia*NM:(ia+1)*NM], zs[ia*NM:(ia+1)*NM]=cartesian_from_orbelement(aps[ia],e,inc, Omega, pomega, Ms)
 
     return xs, ys, zs
 
 
-def draw_random_xyz_fromorb_dist_orbital_elemts(aps,e,inc, Omega, pomega, NM=0, random=True):
+def draw_random_xyz_fromorb_dist_orbital_elemts(aps,e,inc, Omega, pomega, NM=1, random=True):
 
     Na=aps.size
 
@@ -201,10 +201,10 @@ def draw_random_xyz_fromorb_dist_orbital_elemts(aps,e,inc, Omega, pomega, NM=0, 
     ys=np.zeros(Nt)
     zs=np.zeros(Nt)
 
-    for ia in xrange(Na):
+    for ia in range(Na):
         if random: Ms=np.random.uniform(0.0,2.0*np.pi,NM)
         else: Ms=np.linspace(0.0,2.0*np.pi,NM+1)[:-1]
-        # for im in xrange(NM):
+        # for im in range(NM):
         #     xs[ia*NM+im], ys[ia*NM+im], zs[ia*NM+im]=cartesian_from_orbelement(aps[ia],e,inc, Omega, pomega, Ms[im])
         xs[ia*NM:(ia+1)*NM], ys[ia*NM:(ia+1)*NM], zs[ia*NM:(ia+1)*NM]=cartesian_from_orbelement(aps[ia],e[ia],inc[ia], Omega[ia], pomega[ia], Ms)
 
@@ -280,7 +280,7 @@ def Tdomain(path_sim):  # for REBOUND
 
 
 def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
-    print "loading particles from "+path_sim
+    print("loading particles from "+path_sim)
     # returns numpy array with list of x y de-rotated positions of
     # Npart particles between ti and tf
 
@@ -289,7 +289,7 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
     Ti,Tf,Nt,dT,Nplt, Nsmall=Tdomain(path_sim)
 
     if Npart>Nsmall: 
-        print "error, Npart> simulated particles"
+        print("error, Npart> simulated particles")
         sys.exit()
     # SECOND, LOAD ORB ELEMENTS OF PLANET TO DE-ROTATE WITH RESPECT ITS POSITION
 
@@ -301,11 +301,11 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
     elif Tp>Tf and Tp-dTaverage<Tf and dTaverage<=Tp:
         Ntaverage=int((Tf-(Tp-dTaverage))/dT) +1
     else: 
-        print "error, epoch of interest does not overlay with simulation epochs"
+        print("error, epoch of interest does not overlay with simulation epochs")
         sys.exit()
 
     Ni=int((Tp-dTaverage)/dT) # line where to start loading
-    print Ni, Ntaverage
+    print( Ni, Ntaverage)
     # Orb_par_planet=np.zeros((Ntaverage, 8))
     Alphas=np.zeros(Ntaverage)
 
@@ -313,9 +313,9 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
 
     filei.readline() # header
 
-    for i2 in xrange(Ni):
+    for i2 in range(Ni):
         filei.readline()
-    for i2 in xrange(Ntaverage):
+    for i2 in range(Ntaverage):
 
         dat=filei.readline().split(delimiter)
         ti =float(dat[0])
@@ -342,7 +342,7 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
     # Third, LOAD ORB ELEMENTS OF PARTICLES AND DE-ROTATE THEIR X AND Y
 
     Particles=np.zeros((Npart, Ntaverage, 9)) # t, x, y,z, a_0, a, e, i
-    for i1 in xrange(Npart):
+    for i1 in range(Npart):
         #print i1, Npart
         filei=open(path_sim+'body_'+str(i1+Nplt+1)+'.txt', 'r')
 
@@ -351,9 +351,9 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
 
         filei.seek(0)
         filei.readline() # header
-        for i2 in xrange(Ni):
+        for i2 in range(Ni):
             filei.readline()
-        for i2 in xrange(Ntaverage):
+        for i2 in range(Ntaverage):
             dat=filei.readline().split(delimiter)
             if len(dat)>1: # when running REBOUND with massive particles, if they are lost then their orbitals elements are not save anymore and the file is shorter.
                 ti =float(dat[0])
@@ -391,7 +391,7 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
 
 
 def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
-    print "loading particles from "+path_sim
+    print("loading particles from "+path_sim)
     # returns numpy array with list of x y de-rotated positions of
     # Npart particles between ti and tf
 
@@ -405,22 +405,22 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
     Ti,Tf,Nt,dT,Nplt, Nsmall=Tdomain(path_sim)
 
     if Npart>Nsmall: 
-        print "error, Npart> simulated particles"
+        print("error, Npart> simulated particles")
         sys.exit()
     # SECOND, LOAD ORB ELEMENTS OF PLANET TO DE-ROTATE WITH RESPECT ITS POSITION
 
     # check how many epochs to save (Ntaverage)
     if Tp<Ti or Tp>Tf+0.5*dT:
-        print "error, epoch of interest does not overlay with simulation epochs"
+        print("error, epoch of interest does not overlay with simulation epochs")
         sys.exit()
 
     # closest epoch
     itp=int(round((Tp-Ti)/dT))
-    print itp
+    print(itp)
     filei=open(path_sim+'body_1.txt', 'r')
     filei.readline() # header 
 
-    for i2 in xrange(itp):
+    for i2 in range(itp):
         filei.readline()
     dat=filei.readline().split(delimiter)
     ti =float(dat[0])
@@ -441,7 +441,7 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
 
     Particles=np.zeros((Npart, Nspread, 8)) # t, x, y,z, a_0, a, e, i
     
-    for i1 in xrange(Npart):
+    for i1 in range(Npart):
         filei=open(path_sim+'body_'+str(i1+2)+'.txt', 'r')
 
         filei.readline()
@@ -450,9 +450,9 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
         filei.seek(0)
         filei.readline() # header
 
-        for i2 in xrange(itp):
+        for i2 in range(itp):
             filei.readline()
-        # for i2 in xrange(Ntaverage):
+        # for i2 in range(Ntaverage):
 
         dat=filei.readline().split(delimiter)
         # print dat, i1+2
@@ -465,7 +465,7 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
             pomegai =float(dat[5])*np.pi/180.0
             Mi =float(dat[6])*np.pi/180.0
         else:
-            print i1+2
+            print(i1+2)
             ti =Tp
             ai =0.0 # float(dat[1])
             ei = 0.0 #float(dat[2])
@@ -492,7 +492,7 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
         elif Nspread>1:
             Mis=np.random.uniform(0.0, 2.0*np.pi, Nspread)
             
-            # for i3 in xrange(Nspread):
+            # for i3 in range(Nspread):
             x,y,z=cartesian_from_orbelement_rotating_frame(ai,ei,inci, Omegai, pomegai, Mis, alphai)
             Particles[i1, :, 0]= ti
             Particles[i1, :, 1]= x
@@ -512,7 +512,7 @@ def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
 
 
 def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',', Mstar=1.0 ):
-    print "loading particles from "+path_sim
+    print("loading particles from "+path_sim)
     # returns numpy array with list of x y de-rotated positions of
     # Npart particles between ti and tf
 
@@ -525,13 +525,13 @@ def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',',
     Ti,Tf,Nt,dT,Nplt, Nsmall=Tdomain(path_sim)
 
     if Npart>Nsmall: 
-        print "error, Npart> simulated particles"
+        print("error, Npart> simulated particles")
         sys.exit()
     # SECOND, LOAD ORB ELEMENTS OF PLANET TO DE-ROTATE WITH RESPECT ITS POSITION
 
     # check how many epochs to save (Ntaverage)
     if Tp<Ti or Tp>Tf+0.5*dT:
-        print "error, epoch of interest does not overlay with simulation epochs"
+        print("error, epoch of interest does not overlay with simulation epochs")
         sys.exit()
 
     # closest epoch
@@ -540,7 +540,7 @@ def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',',
     filei=open(path_sim+'body_1.txt', 'r')
     filei.readline() # header 
 
-    for i2 in xrange(itp):
+    for i2 in range(itp):
         filei.readline()
     dat=filei.readline().split(delimiter)
     tp =float(dat[0])
@@ -562,7 +562,7 @@ def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',',
 
     Particles=np.zeros((Npart, Nspread, 8)) # t, x, y,z, a_0, a, e, i
     
-    for i1 in xrange(Npart):
+    for i1 in range(Npart):
         filei=open(path_sim+'body_'+str(i1+2)+'.txt', 'r')
 
         filei.readline()
@@ -571,9 +571,9 @@ def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',',
         filei.seek(0)
         filei.readline() # header
 
-        for i2 in xrange(itp):
+        for i2 in range(itp):
             filei.readline()
-        # for i2 in xrange(Ntaverage):
+        # for i2 in range(Ntaverage):
 
         dat=filei.readline().split(delimiter)
         # print dat, i1+2
@@ -586,7 +586,7 @@ def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',',
             pomegai =float(dat[5])*np.pi/180.0
             Mi =float(dat[6])*np.pi/180.0
         else:
-            print i1+2
+            print(i1+2)
             ti =Tp
             ai =0.0 # float(dat[1])
             ei = 0.0 #float(dat[2])
@@ -621,7 +621,7 @@ def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',',
             Mis=Mrand+Mi
             Mps=Mrand*(nplt/ni)+Mp
             
-            #for i3 in xrange(Nspread):
+            #for i3 in range(Nspread):
             alphas=pomegap+M_to_f(Mps,ep)
 
             x,y,z=cartesian_from_orbelement_rotating_frame(ai,ei,inci, Omegai, pomegai, Mis, alphas)
@@ -645,7 +645,7 @@ def load_planets(path_sim,  rot_frame=True, delimiter=','):
 
     Particles=np.zeros((Nplt,NT,  9)) # t, x, y,z, a_0, a, e, i, M
     Alphas=np.zeros(NT)
-    for i1 in xrange(Nplt):
+    for i1 in range(Nplt):
 
         filei=open(path_sim+'body_'+str(i1+1)+'.txt', 'r')
         filei.readline()
@@ -654,7 +654,7 @@ def load_planets(path_sim,  rot_frame=True, delimiter=','):
         filei.seek(0)
         filei.readline() # header
 
-        for i2 in xrange(NT):
+        for i2 in range(NT):
 
             dat=filei.readline().split(delimiter)
             if len(dat)>1:
@@ -700,15 +700,15 @@ def load_planets(path_sim,  rot_frame=True, delimiter=','):
 
 
 def load_particles_spread_x(path_sim, Nspread, delimiter=',' ): # function to load and spread particles from simulation with output: a_initial, a_final, e, pomega, i, Omega, f
-    print "loading particles from "+path_sim
+    print("loading particles from "+path_sim)
    
     # LOAD ORB ELEMENTS OF PARTICLES AND DE-ROTATE THEIR X AND Y
     particles0=np.loadtxt(path_sim, delimiter=delimiter)
     Npart=np.shape(particles0)[0]
-    print 'N particles = ',Npart
+    print('N particles = ',Npart)
     Particles=np.zeros((Npart, Nspread, 8)) # t, x, y,z, a_0, a, e, i
     
-    for i1 in xrange(Npart):
+    for i1 in range(Npart):
        
         a0i= particles0[i1,0]
         ai = particles0[i1,1]
@@ -733,7 +733,7 @@ def load_particles_spread_x(path_sim, Nspread, delimiter=',' ): # function to lo
         elif Nspread>1:
             Mis=np.random.uniform(0.0, 2.0*np.pi, Nspread)
             
-            # for i3 in xrange(Nspread):
+            # for i3 in range(Nspread):
             x,y,z=cartesian_from_orbelement(ai,ei,inci, Omegai, pomegai, Mis[:])
             Particles[i1, :, 1]= x
             Particles[i1, :, 2]= y
@@ -774,7 +774,7 @@ def Surface_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nb
 
     Nxy=np.array( np.histogram2d(ys, xs, bins=[Binsx,Binsx], weights=a0s**(gamma+1.0))[0], dtype=float)
 
-    Nxy[Nbinsx/2,Nbinsx/2]=0.0
+    Nxy[int(Nbinsx/2),int(Nbinsx/2)]=0.0
 
     # Nxy=np.array(np.histogram2d(Particles[mask,:,2 ],Particles[mask,:,3], bins=[Binsx,Binsx], weights=Particles[mask,:,4 ]**(gamma+1.0))[0], dtype=float)
     # print 'hey'
@@ -799,7 +799,7 @@ def Volume_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nbi
     elif a2>a1 and a1>amin and a2<amax: 
         mask= ((Particles[:,0,4]>amin) & (Particles[:,0,4]<a1)) |  ((Particles[:,0,4]<amax) & (Particles[:,0,4]>a2) )
     else:
-        print 'error when masking particles'
+        print('error when masking particles')
 
     Zmax=dxs[0]*(Nbinsz/2.0) 
     Binsz=np.linspace(-Zmax, Zmax, Nbinsz+1)
@@ -810,7 +810,7 @@ def Volume_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nbi
 
     Nxyz=np.array( np.histogramdd( (zs, ys, xs), bins=(Binsz,Binsx,Binsx), weights=a0s**(gamma+1.0))[0], dtype=float)
 
-    Nxyz[:,Nbinsx/2,Nbinsx/2]=0.0
+    Nxyz[:,int(Nbinsx/2),int(Nbinsx/2)]=0.0
 
     # Nxy=np.array(np.histogram2d(Particles[mask,:,2 ],Particles[mask,:,3], bins=[Binsx,Binsx], weights=Particles[mask,:,4 ]**(gamma+1.0))[0], dtype=float)
     # print 'hey'
@@ -835,11 +835,11 @@ def Surface_density_r(Particles, amin, amax, gamma, rmax, Nbins, a1=-1.0, a2=-1.
     elif a2>a1 and a1>amin and a2<amax: 
         mask= ((Particles[:,0,4]>amin) & (Particles[:,0,4]<a1)) |  ((Particles[:,0,4]<amax) & (Particles[:,0,4]>a2) )
     else:
-        print 'error when masking particles'
+        print('error when masking particles')
 
     rs=((Particles[mask,:,1 ]**2.0+Particles[mask,:,2 ]**2.0)**0.5).flatten()
     a0s=Particles[mask,:,4 ].flatten()
-    print len(rs)
+    print(len(rs))
     Nr=np.array( np.histogram(rs, bins=Binsr ,weights=a0s**(gamma), density=True)[0], dtype=float)
 
     Nr[0]=0.0
@@ -868,7 +868,7 @@ def orbit_resonance_rotframe(aplt,  ecc, inc, p, q,
 
     alphas=np.zeros(Np)
 
-    for i in xrange(Np):
+    for i in range(Np):
         #xi,yi,zi=cartesian_from_orbelement(aplt,eplt,iplt, Omegaplt, pomegaplt, Mplt[i])
 
         fi=M_to_f(Maplt[i], eplt)
@@ -880,16 +880,16 @@ def orbit_resonance_rotframe(aplt,  ecc, inc, p, q,
     elif res=='internal':
         a=aplt*(float(p)/float(p+q))**(2./3.)
     else:
-        print 'error, no internal nor exernal resonance'
+        print('error, no internal nor exernal resonance')
         sys.exit()
     Tp=np.sqrt(a**3.0/Mstar) # yr
-    print Tp, Tplt
+    print( Tp, Tplt)
     Map=(ts/Tp)*2.*np.pi
 
     xs=np.zeros(Np)
     ys=np.zeros(Np)
     
-    for i in xrange(Np):
+    for i in range(Np):
         xs[i],ys[i],zi=cartesian_from_orbelement_rotating_frame(a,ecc,0.0, Omegap, pomegap, Map[i], alphas[i])
 
 

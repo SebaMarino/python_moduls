@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.interpolate import interp1d
+from scipy import interpolate
 #### functions to simulate 0D evolution of CO and C in debris discs
 
 # constants
@@ -19,11 +19,16 @@ G = 6.67408e-11 # mks
 kb = 1.38064852e-23 #mks
 year_s = 3.154e7
 
-# factor 2 as average column density is ~half of the total one
-sigma_C1c=2*(1./sigma_c1)*m_c1/Mearth*au_cm**2.0 # mearth/au2
-sigma_COc=2*(1./sigma_co)*m_co/Mearth*au_cm**2.0 # mearth/au2
+# factor 2 no longer necessary as now it is done with photon counting
+sigma_C1c=(1./sigma_c1)*m_c1/Mearth*au_cm**2.0 # mearth/au2
+sigma_COc=(1./sigma_co)*m_co/Mearth*au_cm**2.0 # mearth/au2
+# # factor 2 as average column density is ~half of the total one
+# sigma_C1c=2*(1./sigma_c1)*m_c1/Mearth*au_cm**2.0 # mearth/au2
+# sigma_COc=2*(1./sigma_co)*m_co/Mearth*au_cm**2.0 # mearth/au2
 
-print sigma_C1c, sigma_COc
+
+
+# print sigma_C1c, sigma_COc
 ## functions
 
 ####### CO PHOTODISSOCIATION
@@ -31,8 +36,33 @@ print sigma_C1c, sigma_COc
 
 kCOs=[1.0, 0.9405, 0.7046, 0.4015, 0.09964, 0.01567, 0.003162, 0.0004839]
 NCOs=[1.0, 1.e13, 1.e14, 1.e15, 1.e16, 1.e17, 1.e18, 1.e19]
-logfkCO = interp1d(np.log10(NCOs), np.log10(kCOs))
+logfkCO = interpolate.interp1d(np.log10(NCOs), np.log10(kCOs))
 slope=np.log(kCOs[-1]/kCOs[-2])/np.log(NCOs[-1]/NCOs[-2])
+
+
+### CO PHOTODISSOCIATION PHOTON COUNTING
+
+try:
+    SCO_grid=np.loadtxt('./Sigma_CO_Mearth_au2.txt')
+    SC1_grid=np.loadtxt('./Sigma_C1_Mearth_au2.txt')
+    tauCO_grid=np.loadtxt('./tau_CO_yr.txt')
+    log10tau_interp=interpolate.RectBivariateSpline( np.log10(SC1_grid),np.log10(SCO_grid), np.log10(tauCO_grid)) # x and y must be swaped, i.e. (y,x) https://github.com/scipy/scipy/issues/3164
+    
+    # log10tau_interp=interpolate.interp2d(np.log10(SCO_grid), np.log10(SC1_grid), np.log10(tauCO_grid))
+
+    
+    # N=200
+    # NCOs2=np.logspace(1, 30, N) # cm-2
+    # NCs2=np.logspace(5, 30, N)  # cm-2
+
+    # Sigma_CO2=NCOs2*m_co/Mearth*au_cm**2.
+    # Sigma_C12=NCs2*m_c1/Mearth*au_cm**2.
+    # tau2D2=10**(log10tau_interp(np.log10(Sigma_CO2),np.log10(Sigma_C12)))
+    # print tau2D2
+
+except:
+    print('Interpolaiton of CO photodissociation from photon counting did not work')
+
 
 
 def index_time(ts, ti):
@@ -92,6 +122,15 @@ def tau_CO2(Sigma_CO, Sigma_C1):
     NCO=Sigma_CO/2.*Mearth/m_co/au_cm**2.0
     
     return 120.0 * np.exp( sigma_c1*NC1)/ selfshielding_CO(NCO) # yr
+
+
+def tau_CO3(Sigma_CO, Sigma_C1): # interpolate calculations based on photon counting
+
+    tau=np.ones(Sigma_CO.shape[0])*130.
+    mask=(Sigma_CO>1.0e-100) & (Sigma_C1>1.0e-100) # if not we get error in interpolation function and we get NaNs
+    if Sigma_CO[mask].shape[0]>0:
+        tau[mask]=10**(log10tau_interp(np.log10(Sigma_C1[mask]),np.log10(Sigma_CO[mask]), grid=False)) # yr, it must be called with C1 first because of column and raws definition. Tested with jupyter notebook and also here https://github.com/scipy/scipy/issues/3164
+    return tau # yr
 
     
 def tau_vis(r, dr, alpha, cs, Mstar):

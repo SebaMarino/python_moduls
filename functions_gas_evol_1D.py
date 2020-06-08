@@ -147,7 +147,7 @@ def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2
     ############## photodissociation
     ###########################################
     if photodissociation:
-        tphCO=fgas.tau_CO2(Sigma_prev[0,:], Sigma_prev[1,:])
+        tphCO=fgas.tau_CO3(Sigma_prev[0,:], Sigma_prev[1,:])
         Sdot_ph=Sigma_prev[0,:]/tphCO #(Snext[0,:]/tphCO)
         #Sdot_ph_epsilon=Sigma_prev[0,:]*(1.-np.exp(-epsilon/tphCO))   
         Snext2[0,:]=Snext2[0,:]-epsilon*Sdot_ph
@@ -204,7 +204,7 @@ def Sigma_next_fMdot(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, fMdot, args_fMdot,
     ############## photodissociation
     ###########################################
 
-    tphCO=fgas.tau_CO2(Sigma_prev[0,:], Sigma_prev[1,:])
+    tphCO=fgas.tau_CO3(Sigma_prev[0,:], Sigma_prev[1,:])
     Sdot_ph=Sigma_prev[0,:]/tphCO #(Snext[0,:]/tphCO)
     #Sdot_ph_epsilon=Sigma_prev[0,:]*(1.-np.exp(-epsilon/tphCO))   
     Snext2[0,:]=Snext2[0,:]-epsilon*Sdot_ph
