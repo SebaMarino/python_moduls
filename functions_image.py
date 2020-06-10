@@ -1726,7 +1726,7 @@ def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
              
     return Rs_edge, Rs, np.array([Real_mean, Real_std, Real_error]), np.array([Imag_mean, Imag_std, Imag_error]), np.array([Amp_mean, Amp_std, Amp_error])
 
-def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, YMAX=0.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, loc_beam='ll', show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, c_levels=[3.0,5.0, 8.0], star=True, xstar=0.0, ystar=0.0, starcolor='white', cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=False, dpc=10., planet=False, xplt=0.0, yplt=0.0, pltcolor='white'):
+def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, YMAX=0.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, loc_beam='ll', show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, c_levels=[3.0,5.0, 8.0], star=True, xstar=0.0, ystar=0.0, starcolor='white', cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=False, dpc=10., planet=False, xplt=0.0, yplt=0.0, pltcolor='white', title=''):
 
 
     plt.style.use('style1')
@@ -1828,10 +1828,15 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
     if ruller:
         x1=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
-        x2=x1+30./dpc
+        x2=x1+100./dpc
         yc=-XMAX+2.0*abs(minor_ticks[1]-minor_ticks[0])
         plt.plot([x1,x2], [yc, yc], color='white')
-        plt.text(x2, yc*0.95, '30 au', color='white')
+        plt.text(x2, yc*0.95, '100 au', color='white')
+
+    if title!='':
+        xc=XMAX-1.0*abs(minor_ticks[1]-minor_ticks[0])
+        yc=XMAX-2.0*abs(minor_ticks[1]-minor_ticks[0])
+        plt.text(xc, yc, title, color='white')
         
     plt.tight_layout()
     plt.subplots_adjust(left=0.17, bottom=0.01, right=0.97, top=1.0)
