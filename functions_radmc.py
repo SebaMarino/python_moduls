@@ -582,11 +582,11 @@ def Flam_ISRF(lam): # from From Mezger+1982 and Mathis1983
 
 def define_grid_sph(Nr, Nth, Nphi, Rmax, Rmin, Thmax, Thmin, logr=False, logtheta=False, save=True, axisym=0, south_emisphere=1):
 
-    Redge=np.zeros(Nr) #from Rmin to Rmax
-    R=np.zeros(Nr-1)
-
+    
     ### R
     if logr: # log sampling
+        Redge=np.zeros(Nr) #from Rmin to Rmax
+        R=np.zeros(Nr-1)
         Redge[0]=Rmin
         Px_r=(Rmax/Rmin)**(1.0/(Nr-1))
         for i in xrange(1,Nr):
@@ -597,7 +597,6 @@ def define_grid_sph(Nr, Nth, Nphi, Rmax, Rmin, Thmax, Thmin, logr=False, logthet
         Redge=np.linspace(Rmin,Rmax,Nr)
         dR=Redge[1]-Redge[0]
         R=Redge[1:]-dR/2.0
-
     ### Theta
     if logtheta and Nth>2: # log sampling
         

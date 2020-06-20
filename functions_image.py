@@ -68,6 +68,9 @@ def separate_intervals(phi1, phi2):
     # Figure out the right ranges of xs' to integrate. Does phi=0.0 pr phi=180 is contained in range?
     phis=[phi1]
     if phi1>phi2: # passes through zero
+        # we need to figure out if passes through 180 first
+        if phi1<np.pi:
+            phis.append(np.pi)
         phis.append(0.0)
     if phi2>np.pi and phis[-1]<np.pi:
         phis.append(np.pi)
@@ -127,7 +130,7 @@ def arc_length2(a,b,phi1, phi2,  Nint=1000000):
     # translates phi1 and phi2 to angles between 0 and 2pi
     phi1=simple_phi(phi1)
     phi2=simple_phi(phi2)
-
+    #print(phi1,phi2)
     if phi2==phi1: # catches error when phi1 and phi2 are the same if one wants to integrate over whole circumpherence
         phi1=0.0
         phi2=2.*np.pi
