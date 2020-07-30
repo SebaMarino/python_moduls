@@ -601,7 +601,7 @@ def define_grid_sph(Nr, Nth, Nphi, Rmax, Rmin, Thmax, Thmin, logr=False, logthet
     if logtheta and Nth>2: # log sampling
         
         Pth=(Thmax/Thmin)**(1.0/(Nth-2)) 
-        Thedge=np.zeros(Nth) #from Rmin to Rmax
+        Thedge=np.zeros(Nth) 
         Th=np.zeros(Nth-1)
         Thedge[0]=0.0
         Thedge[1]=Thmin
@@ -752,7 +752,7 @@ def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *
         if len(Th)>1: # more than one cell per emisphere
 
             for k in xrange(Nth-1):
-                theta=Th[Nth-2-k]
+                theta=Th[Nth-2-k] # we want to sample theta going from Northpole towards the equator. Th and theta represent angle from the equator.
                 for i in xrange(Nr-1):
                     rho=R[i]*np.cos(theta)
                     z=R[i]*np.sin(theta)
@@ -789,6 +789,73 @@ def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *
     
     dust_d.close()
 
+##### create density matrix using purely vector operations and save it for radmc 
+def save_dens_vectors(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *args):
+    # args has the arguments that sigmaf needs in the right order
+    Nr=len(R)+1
+    Nth=len(Th)+1
+    Nphi=len(Phi)
+    rho_d=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # density field
+    res_theta=Thedge[1]-Thedge[0]
+
+
+    # Thm, Phim, Rm=np.meshgrid(Th, Phi, R)
+    thetam, Phim, Rm=np.meshgrid(Th[::-1], Phi, R) # so it goes from Northpole to equator. theta is still the angle from the equator. 
+
+    dThm, dPhim, dRm = np.meshgrid(Thedge[1:]-Thedge[:-1], Phiedge[1:]-Phiedge[:-1], Redge[1:]-Redge[:-1])
+
+    rho=Rm*np.cos(thetam) 
+    z=Rm*np.sin(thetam)
+    # zm, phim, rhom=np.meshgrid(z, Phi, rho)
+
+    for ia in xrange(Nspec):
+        M_dust_temp= 0.0 #np.zeros(Nspec) 
+        
+        # nother emisphere
+        if len(Th)>1: # more than one cell per emisphere
+            rho_d[ia,:Nth-1,:,:]=rho_3d_dens(rho, Phim, z, h, sigmaf, *args )
+            # now south emisphere is copy of nother emisphere
+            rho_d[ia,Nth-1:,:,:]=rho_d[ia,-Nth::-1,:,:]
+
+            ### the above works because this is how step and slicing work https://stackoverflow.com/questions/509211/understanding-slice-notation
+            # a[::-1]    # all items in the array, reversed
+            # a[1::-1]   # the first two items, reversed
+            # a[:-3:-1]  # the last two items, reversed
+            # a[-3::-1]  # everything except the last two items, reversed
+            
+            M_dust_temp=2.0*np.sum(2.0*rho_d[ia,:Nth-1,:,:]*dPhim*rhom*dRm*dThm[::-1]*Rm)*au**3.0
+
+        elif len(Th)==1:# one cell
+            # theta=Th[0]
+            # rho=R[i]*np.cos(theta)
+
+            rho_d[ia,:1,:,:]=sigmaf(rho, Phim, *args)/(res_theta*rho) # rho_3d_dens(rho, 0.0, 0.0, hs, sigmaf, *args )
+            rho_d[ia,1,:,:]=rho_d[ia,0,:,:]
+
+            M_dust_temp=2.0*np.sum(rho_d[ia,0,:,:]*dPhim*rho*dRm*res_theta*Rm)*au**3.0
+
+        rho_d[ia,:,:,:]=rho_d[ia,:,:,:]*Ms[ia]/M_dust_temp
+        
+        
+    # Save 
+    path='dust_density.inp'
+    dust_d=open(path,'w')
+    
+    dust_d.write('1 \n') # iformat
+    # if south_emisphere:
+    #     print 'saving south emisphere density'
+    dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells
+    dust_d.write(str(Nspec)+' \n') # n species
+
+    for ai in xrange(Nspec):
+        for j in range(Nphi):
+            for k in range(2*(Nth-1)):
+                for i in range(Nr-1):
+                    dust_d.write(str(rho_d[ai,k,j,i])+' \n')
+    
+    dust_d.close()
+
+    
 ##### create density matrix that is axisymmetric and flared and save it for radmc  
 def save_dens_axisym_flared(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, rc, flaring_index, sigmaf, *args):
     # args has the arguments that sigmaf needs in the right order
