@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import sys, os
 ###### Functions that could be helpful when working on planetary
 ###### system dynamics. Written by Sebastian Marino with
-###### the collaboration of Tim Pearce. 
+###### initial input from Tim Pearce. 
 
 def M_to_f(M,e):
 
@@ -12,7 +12,7 @@ def M_to_f(M,e):
 
     
     if M>=2.0*np.pi:
-        M=M-ma.floor(M/(2.0*np.pi))*2.0*ma.pi
+        M=M-np.floor(M/(2.0*np.pi))*2.0*np.pi
 
     # Newton's to find solution to E-e*sin(E)=M
     E=M
@@ -20,7 +20,7 @@ def M_to_f(M,e):
         E= E - (E-e*np.sin(E)-M) / (1-e*np.cos(E))
 
     # derive f from E
-    f = 2.0 * ma.atan2( (1+e)**0.5 * ma.sin(E/2.0), (1-e)**0.5 * ma.cos(E/2.0)) 
+    f = 2.0 * np.arctan2( (1+e)**0.5 * np.sin(E/2.0), (1-e)**0.5 * np.cos(E/2.0)) 
 
     return f
 
@@ -54,6 +54,31 @@ def M_to_r(M, a, e ):
     # eccentricity e into radius r in AU
     
     # get true anomaly f
+    if hasattr(e,"__len__"): # many orbits
+        mask_e=e<1.0
+        r=np.zeros(len(e))
+        f=np.zeros(len(e))
+        if hasattr(M,"__len__"): # many mean anomalies
+            f[mask_e] = M_to_f_array(M[mask_e],e[mask_e])
+            r[mask_e] = a[mask_e]*(1.0-e[mask_e]**2.0)/(1.0+e[mask_e]*np.cos(f[mask_e])) 
+        else: # one mean anomaly
+            f[mask_e] = M_to_f(M,e[mask_e])
+            r[mask_e] = a[mask_e]*(1.0-e[mask_e]**2.0)/(1.0+e[mask_e]*np.cos(f[mask_e])) 
+        return r,f
+    else: # one orbit
+        if e<1.0:
+            if hasattr(M,"__len__"): # many mean anomalies
+                f = M_to_f_array(M,e)
+                r = a*(1.0-e**2.0)/(1.0+e*np.cos(f)) 
+            else: # one mean anomaly
+                f = M_to_f(M,e)
+                r = a*(1.0-e**2.0)/(1.0+e*np.cos(f)) 
+
+            return r, f
+        
+        return 0.0, 0.0
+
+    
     if e<1.0:
         if hasattr(M,"__len__"):
             f = M_to_f_array(M,e)
@@ -64,6 +89,7 @@ def M_to_r(M, a, e ):
         return r,f
     else:
         return 0.0, 0.0
+    
 def draw_random_r(a,e, Nr):
 
     # Draw a sample of Nr radius based on M uniform random sample of
@@ -191,24 +217,33 @@ def draw_random_xyz_fromorb_dist_a(aps,e,inc, Omega, pomega, NM=0, random=True):
     return xs, ys, zs
 
 
-def draw_random_xyz_fromorb_dist_orbital_elemts(aps,e,inc, Omega, pomega, NM=1, random=True):
+def draw_random_xyz_fromorb_dist_orbital_elemts(aps,e,inc, Omega, pomega, NM=1, random=True, Ms=None):
 
     Na=aps.size
 
     
-    Nt=Na*NM
-    xs=np.zeros(Nt)
-    ys=np.zeros(Nt)
-    zs=np.zeros(Nt)
+    # NM=Na, i.e. 1 mean anomaly per orbit
+    if hasattr(Ms,"__len__") and random==False:
+        Nt=Na
+        xs=np.zeros(Nt)
+        ys=np.zeros(Nt)
+        zs=np.zeros(Nt)
+        xs, ys, zs=cartesian_from_orbelement(aps,e,inc, Omega, pomega, Ms)
 
-    for ia in range(Na):
-        if random: Ms=np.random.uniform(0.0,2.0*np.pi,NM)
-        else: Ms=np.linspace(0.0,2.0*np.pi,NM+1)[:-1]
-        # for im in range(NM):
-        #     xs[ia*NM+im], ys[ia*NM+im], zs[ia*NM+im]=cartesian_from_orbelement(aps[ia],e,inc, Omega, pomega, Ms[im])
-        xs[ia*NM:(ia+1)*NM], ys[ia*NM:(ia+1)*NM], zs[ia*NM:(ia+1)*NM]=cartesian_from_orbelement(aps[ia],e[ia],inc[ia], Omega[ia], pomega[ia], Ms)
+    else:
+        Nt=Na*NM
+        xs=np.zeros(Nt)
+        ys=np.zeros(Nt)
+        zs=np.zeros(Nt)
+        for ia in range(Na):
+            if random: Ms=np.random.uniform(0.0,2.0*np.pi,NM)
+            else: Ms=np.linspace(0.0,2.0*np.pi,NM+1)[:-1]
+            xs[ia*NM:(ia+1)*NM], ys[ia*NM:(ia+1)*NM], zs[ia*NM:(ia+1)*NM]=cartesian_from_orbelement(aps[ia],e[ia],inc[ia], Omega[ia], pomega[ia], Ms)
 
     return xs, ys, zs
+
+
+
 
 def f_Tiss(aplt, a, e, I):
     return aplt/a + 2.0*( (1.0-e**2.0)*a/aplt )**0.5 * np.cos(I)
