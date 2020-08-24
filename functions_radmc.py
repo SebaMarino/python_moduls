@@ -798,15 +798,14 @@ def save_dens_vectors(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, 
     rho_d=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # density field
     res_theta=Thedge[1]-Thedge[0]
 
-
     # Thm, Phim, Rm=np.meshgrid(Th, Phi, R)
-    thetam, Phim, Rm=np.meshgrid(Th[::-1], Phi, R) # so it goes from Northpole to equator. theta is still the angle from the equator. 
-
-    dThm, dPhim, dRm = np.meshgrid(Thedge[1:]-Thedge[:-1], Phiedge[1:]-Phiedge[:-1], Redge[1:]-Redge[:-1])
-
+    thetam, Phim, Rm=np.meshgrid(Th[::-1], Phi, R, indexing='ij' ) # so it goes from Northpole to equator. theta is still the angle from the equator.
+    if Nphi>1:
+        dThm, dPhim, dRm = np.meshgrid(Thedge[1:]-Thedge[:-1], Phiedge[1:]-Phiedge[:-1], Redge[1:]-Redge[:-1], indexing='ij' )
+    else:
+        dThm, dPhim, dRm = np.meshgrid(Thedge[1:]-Thedge[:-1], np.array([2.*np.pi]), Redge[1:]-Redge[:-1], indexing='ij' )
     rho=Rm*np.cos(thetam) 
     z=Rm*np.sin(thetam)
-    # zm, phim, rhom=np.meshgrid(z, Phi, rho)
 
     for ia in xrange(Nspec):
         M_dust_temp= 0.0 #np.zeros(Nspec) 
@@ -823,8 +822,7 @@ def save_dens_vectors(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, 
             # a[:-3:-1]  # the last two items, reversed
             # a[-3::-1]  # everything except the last two items, reversed
             
-            M_dust_temp=2.0*np.sum(2.0*rho_d[ia,:Nth-1,:,:]*dPhim*rhom*dRm*dThm[::-1]*Rm)*au**3.0
-
+            M_dust_temp=2.0*np.sum(rho_d[ia,:Nth-1,:,:]*dPhim*rho*dRm*dThm[::-1]*Rm)*au**3.0
         elif len(Th)==1:# one cell
             # theta=Th[0]
             # rho=R[i]*np.cos(theta)
