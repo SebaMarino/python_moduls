@@ -96,7 +96,7 @@ def arc_length(a,b,phi1, phi2):
     Nph=len(phis)
     Arc_length=0.0
 
-    for i in xrange(Nph-1):
+    for i in range(Nph-1):
         if phis[i]==0.0:
             phi_i=1./Nint
         elif phis[i]==np.pi:
@@ -141,7 +141,7 @@ def arc_length2(a,b,phi1, phi2,  Nint=1000000):
     Nph=len(phis)
     Arc_length=0.0
 
-    for i in xrange(Nph-1):
+    for i in range(Nph-1):
 
         # if phis[i]==0.0:
         #     phi_i=1./Nint
@@ -231,12 +231,12 @@ def xyarray(Np, ps_arcsec):
     xs=np.zeros(Np)
     ys=np.zeros(Np)
 
-    for i in xrange(Np+1):
+    for i in range(Np+1):
 
         xedge[i]=-(i-Np/2.0)*ps_arcsec#-ps_arcsec/2.0        
         yedge[i]=(i-Np/2.0)*ps_arcsec#+ps_arcsec/2.0
 
-    for i in xrange(Np):
+    for i in range(Np):
         xs[i]=-(i-Np/2.0)*ps_arcsec-ps_arcsec/2.0           
         ys[i]=(i-Np/2.0)*ps_arcsec+ps_arcsec/2.0
 
@@ -255,8 +255,13 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
 
     # XY
 
+    
     Np=len(image[:,0])
 
+    # check if image_pb is an array:
+    if not hasattr(image_pb,"__len__"):
+        image_pb=np.ones((Np, Np))
+    
     xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
     
     # R phi
@@ -277,29 +282,30 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
     
     Irs1=np.zeros((Nr,Nphi))
     Irs2=np.zeros((Nr,Nphi)) # pb
-    for i_r in xrange(Nr):
+    for i_r in range(Nr):
         ai=rs[i_r]
-        for i_p in xrange(Nphi):
+        for i_p in range(Nphi):
 
             phi1=phis_rad[i_p]  # in the plane of the disc
             XS1,YS1=ellipse2(x0,y0,phi1,chi,ai, PA_rad)
-        
-            ip1 = -int(XS1/ps_arcsec)+Np/2
-            jp1 = int(YS1/ps_arcsec)+Np/2
+
             
+            ip1 = -int(XS1/ps_arcsec)+Np//2
+            jp1 = int(YS1/ps_arcsec)+Np//2
+
             Irs1[i_r,i_p] = image[jp1,ip1] 
             Irs2[i_r,i_p] = image_pb[jp1,ip1]
     # plt.pcolormesh(Irs1)
     # plt.show()
     # if plot:
     #     imagep=image*1.0
-    #     for i_p in xrange(Nphi):
+    #     for i_p in range(Nphi):
             
     #         phi1=phis_rad[i_p] 
     #         XS1,YS1=ellipse(x0,y0,phi1,chi,2.8, PA_rad)
         
-    #         ip1 = -int(XS1/ps_arcsec)+Np/2
-    #         jp1 = int(YS1/ps_arcsec)+Np/2
+    #         ip1 = -int(XS1/ps_arcsec)+Np//2
+    #         jp1 = int(YS1/ps_arcsec)+Np//2
             
     #         imagep[jp1,ip1]=0.0#imagep[jp1,ip1]
     #     fig=plt.figure()
@@ -312,7 +318,7 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
     Ir1=np.nanmean(Irs1, axis=1) # mean intensity in Jy/beam
     Ir2=np.zeros(Nr)
     
-    for i in xrange(Nphi):
+    for i in range(Nphi):
         Ir2=Ir2+(rms/Irs2[:,i])**2.0
 
     Ir2=np.sqrt(Ir2/(Nphi))
@@ -327,7 +333,7 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
     else:
         arclength, phiint= arc_length2(1.0,1.0/chi, phis_rad[0]-PA_rad, phis_rad[-1]-PA_rad)
 
-    print 'arc length = [deg] ', arclength*180.0/np.pi
+    print('arc length = [deg] ', arclength*180.0/np.pi)
     Nindeps_1=rs*arclength/BMAJ_arcsec
     Nindeps_1[Nindeps_1<1.0]=1.0
     
@@ -377,7 +383,7 @@ def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, arc='eli
 
             BMAJ_arcsec1=BMAJ*3600.0
             BMIN_arcsec1=BMIN*3600.0
-            print BMAJ_arcsec1, BMIN_arcsec1
+            print(BMAJ_arcsec1, BMIN_arcsec1)
             beam_area=np.pi*BMAJ_arcsec1*BMIN_arcsec1/(4.*np.log(2.))
             
             data1=data1*beam_area/(ps_arcsec1**2)
@@ -414,11 +420,11 @@ def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax
     BMIN_arcsec1=BMIN*3600.0
     beam_area=np.pi*BMAJ_arcsec1*BMIN_arcsec1/(4.*np.log(2.))
     
-    print "beam = %1.2f x %1.2f" %(BMAJ_arcsec1, BMIN_arcsec1)
+    print("beam = %1.2f x %1.2f" %(BMAJ_arcsec1, BMIN_arcsec1))
     if arcsec2:
         data1=data1/beam_area
         rms=rms/beam_area
-        print 'transforming to Jy/arcsec2'
+        print('transforming to Jy/arcsec2')
     if not ret_beam:
         return radial_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, ps_arcsec=ps_arcsec1, error_std=error_std, arc=arc)
     else:
@@ -456,7 +462,7 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, B
         ps_arcsec=ps_f/1.0e3
 
     elif refine>10.0:
-        print 'too much refining'
+        print('too much refining')
         sys.exit()
         
 
@@ -501,7 +507,7 @@ def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, B
     # plt.show()
     rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
     rmsmap2=(rms/image_pb)**2.0
-    for i_r in xrange(Nr):
+    for i_r in range(Nr):
         try:
             mask_r=(rdep<=rs[i_r]) & (rdep>=rmin)
         except:
@@ -559,7 +565,7 @@ def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, rms, BMAJ_arcsec, 
         ps_arcsec=ps_f/1.0e3
 
     elif refine>10.0:
-        print 'too much refining'
+        print('too much refining')
         sys.exit()
         
     
@@ -573,7 +579,7 @@ def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, rms, BMAJ_arcsec, 
     # dphi=abs(phis_rad[1]-phis_rad[0])
     # Nphi=len(phis_rad)
     
-    print BMAJ_arcsec
+    print(BMAJ_arcsec)
     
     Beam_area=np.pi*BMAJ_arcsec*BMIN_arcsec/(4.0*np.log(2.0)) # in arcsec2
 
@@ -592,7 +598,7 @@ def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, rms, BMAJ_arcsec, 
 
     rmsmap2=(rms/image_pb)**2.0
     
-    for i_r in xrange(Nr):
+    for i_r in range(Nr):
         mask=((np.abs(ypp)<rs[i_r]) & ( (np.abs(xpp)<BMAJ_arcsec/1.5) | (np.abs(xpp)<rs[i_r]*hv)))
         
         F[i_r,0]= np.sum( image[mask]*(ps_arcsec**2.0)/Beam_area)
@@ -603,9 +609,9 @@ def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, rms, BMAJ_arcsec, 
             F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
         else:
             F[i_r,1]=rms
-    print 'Beam area / pixel area',Beam_area/ps_arcsec**2.
-    print 'Beam area = %1.3f arcsec2'%Beam_area
-    print '%1.1f beams within %1.1f arcsec'%(len(image[mask].flatten())*ps_arcsec**2./Beam_area, rs[i_r])        
+    print('Beam area / pixel area',Beam_area/ps_arcsec**2.)
+    print('Beam area = %1.3f arcsec2'%Beam_area)
+    print('%1.1f beams within %1.1f arcsec'%(len(image[mask].flatten())*ps_arcsec**2./Beam_area, rs[i_r]))        
 
 
     # image[mask]=0.0  
@@ -660,13 +666,13 @@ def flux_azimuthal_profile(image, image_pb, x0, y0, PA, inc, rmin, rmax, NPA, rm
 
     PAs=np.arctan2(xv,yv) # rad
 
-    print 'rms =', rms
+    print('rms =', rms)
     rmsmap2=(rms/image_pb)**2.0
     
-    print Beam_area
+    print(Beam_area)
     PA_array=np.linspace(-np.pi, np.pi, NPA+1)
     PA_mid=PA_array[:-1]+(PA_array[1]-PA_array[0])/2.
-    for i_pa in xrange(NPA):
+    for i_pa in range(NPA):
         
         mask=(rdep<=rmax) & (rdep>rmin) & (PAs>PA_array[i_pa]) & (PAs<=PA_array[i_pa+1])
     
@@ -689,7 +695,6 @@ def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,N
     fit1=pyfits.open(fitsfile_pbcor)
     data1=get_last2d(fit1[0].data) 
 
-    # print np.shape(data1)
     header1=fit1[0].header
     ps_deg1=float(header1['CDELT2'])
     ps_arcsec1=ps_deg1*3600.0
@@ -720,7 +725,6 @@ def flux_azimuthal_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, i
     fit1=pyfits.open(fitsfile_pbcor)
     data1=get_last2d(fit1[0].data) 
 
-    # print np.shape(data1)
     header1=fit1[0].header
     ps_deg1=float(header1['CDELT2'])
     ps_arcsec1=ps_deg1*3600.0
@@ -765,7 +769,7 @@ def Convolve_beam(path_image, BMAJ, BMIN, BPA, tag_out=''):
     
     data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
 
-    print np.shape(data1)
+    print(np.shape(data1))
 
     header1	= fit1[0].header
     ps_deg=float(header1['CDELT2'])
@@ -788,9 +792,11 @@ def Convolve_beam(path_image, BMAJ, BMIN, BPA, tag_out=''):
     x1=np.zeros(N)
     y1=np.zeros(N)
     for i in range(N):
-	x1[i]=(i-M/2.0)*ps1
-	y1[i]=(i-N/2.0)*ps1
-
+        x1[i]=(i-M/2.0)*ps1
+        y1[i]=(i-N/2.0)*ps1
+    # for i in range(N):
+    #     x1[i]=(i-M/2.0)*ps1
+    #     y1[i]=(i-N/2.0)*ps1
 
     # BMAJ = float(sys.argv[1])#2.888e-4#*3600.0 #deg
     # BMIN = float(sys.argv[2])#2.240e-4#*3600.0  #deg
@@ -804,8 +810,8 @@ def Convolve_beam(path_image, BMAJ, BMIN, BPA, tag_out=''):
     # Fout1=interpol(N,M,ps1,ps2,Fin1,sigx,sigy,theta)
 
     Gaussimage=np.zeros((N,N))
-    for j in xrange(N):
-        for i in xrange(N):
+    for j in range(N):
+        for i in range(N):
             x=(i-N/2.0)*ps2
             y=(j-N/2.0)*ps2
             Gaussimage[j,i]=Gauss2d(x,y,0.0,0.0,sigx,sigy,theta)
@@ -848,7 +854,7 @@ def Convolve_beam_cube(path_image, BMAJ, BMIN, BPA):
     
     data1 	= fit1[0].data # [0,0,:,:] # extract image matrix
 
-    print np.shape(data1)
+    print(np.shape(data1))
 
     header1	= fit1[0].header
     ps_deg=float(header1['CDELT2'])
@@ -869,8 +875,8 @@ def Convolve_beam_cube(path_image, BMAJ, BMIN, BPA):
     x1=np.zeros(N)
     y1=np.zeros(N)
     for i in range(N):
-	x1[i]=(i-N/2.0)*ps1
-	y1[i]=(i-N/2.0)*ps1
+        x1[i]=(i-N/2.0)*ps1
+        y1[i]=(i-N/2.0)*ps1
 
 
     # BMAJ = float(sys.argv[1])#2.888e-4#*3600.0 #deg
@@ -885,15 +891,15 @@ def Convolve_beam_cube(path_image, BMAJ, BMIN, BPA):
     # Fout1=interpol(N,M,ps1,ps2,Fin1,sigx,sigy,theta)
 
     Gaussimage=np.zeros((N,N))
-    for j in xrange(N):
-        for i in xrange(N):
+    for j in range(N):
+        for i in range(N):
             x=(i-N/2.0)*ps2
             y=(j-N/2.0)*ps2
             Gaussimage[j,i]=Gauss2d(x,y,0.0,0.0,sigx,sigy,theta)
     # Gaussimage=Gaussimage/np.max(Gaussimage)
 
     Fout1=np.zeros((1,Nf,N,N))
-    for k in xrange(Nf):
+    for k in range(Nf):
         Fout1[0,k,:,:]=convolve_fft(Fin1[0,k,:,:],Gaussimage, normalize_kernel=False)
 
     # a=BMAJ*np.pi/180.0
@@ -1011,16 +1017,15 @@ def inter(Nin,Nout,i,j,ps1,ps2,Fin):
 		return f/S
 
 def interpol(Nin,Nout,ps1,ps2,Fin):
-    print ps1, ps2, Nin, Nout
-    print Nin, Nout
+    print(ps1, ps2, Nin, Nout)
+    print(Nin, Nout)
     if ps1!=ps2 or Nin!=Nout:
-	F=np.zeros((Nout,Nout), dtype=np.float64)
-	for i in range(Nout):
-                #print i
-		for j in range (Nout):	
-			F[i,j]=inter(Nin,Nout,i,j,ps1,ps2,Fin)
+        F=np.zeros((Nout,Nout), dtype=np.float64)
+        for i in range(Nout):
+            for j in range (Nout):	
+                F[i,j]=inter(Nin,Nout,i,j,ps1,ps2,Fin)
     else:
-        print 'no interpolation'
+        print('no interpolation')
         F=Fin
     return F
 
@@ -1054,7 +1059,7 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=Fa
         BMAJ=float(header1['BMAJ'])*3600.0 # arcsec 
         BMIN=float(header1['BMIN'])*3600.0 # arcsec 
         BPA=float(header1['BPA']) # deg 
-        print "beam = %1.2f x %1.2f" %(BMAJ, BMIN)
+        print("beam = %1.2f x %1.2f" %(BMAJ, BMIN))
     except:
         BMAJ=0.0
         BMIN=0.0
@@ -1067,7 +1072,7 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=Fa
 
     if remove_star:
         ij=np.unravel_index(np.argmax(data1, axis=None), data1.shape)
-        print ij
+        print(ij)
         data1[ij]=0.0
 
     if ps_final>0.0:
@@ -1209,7 +1214,7 @@ def fload_fits_cube(path_cube, line='CO32'): # for images from CASA
         BMAJ=float(header1['BMAJ'])*3600.0 # arcsec 
         BMIN=float(header1['BMIN'])*3600.0 # arcsec 
         BPA=float(header1['BPA']) # deg 
-        print "beam = %1.2f x %1.2f" %(BMAJ, BMIN)
+        print("beam = %1.2f x %1.2f" %(BMAJ, BMIN))
     except:
         header = pyfits.getheader(path_cube)
         if header.get('CASAMBM', False):
@@ -1235,8 +1240,8 @@ def fload_fits_cube(path_cube, line='CO32'): # for images from CASA
     vs=-(fs-f_line)*ckms/f_line  # km/s
     
     dv=vs[1]-vs[0] # km/s
-    print "dv [km/s] = ", dv
-    print "dnu [GHz] = ", df
+    print("dv [km/s] = ", dv)
+    print("dnu [GHz] = ", df)
 
 
     return data1, ps_arcsec1, x1, y1, x1edge, y1edge, BMAJ, BMIN, BPA, fs, vs, dv
@@ -1250,13 +1255,13 @@ def moment_0(path_cube, line='CO32', v0=0.0, dvel=10.0,  rmin=0.0, inc=90.0, M_s
         Dvel=np.sqrt(G*M_star*M_sun/(rmin*au)) *np.sin(inc*np.pi/180.0) /1.0e3
     else:
         Dvel=dvel
-    print 'Dvel = [km/s]', Dvel
+    print('Dvel = [km/s]', Dvel)
     mask_v=(vs>=v0-Dvel) & (vs<=v0+Dvel)
-    print len(vs[mask_v]), len(vs)
+    print(len(vs[mask_v]), len(vs))
     moment0=np.sum(data1[mask_v,:,:], axis=0)*abs(dv) # Jy km/s
     if rms>=0.0:
         rms_moment0=rms*abs(dv)*np.sqrt( 2*Dvel/abs(dv) )
-    print 'dvel, dv = ', Dvel, dv
+    print('dvel, dv = ', Dvel, dv)
     if ps_final==0.0 or XMAX==0.0:
         
         return moment0, x1edge, y1edge, BMAJ, BMIN, BPA, dv, rms_moment0
@@ -1306,10 +1311,10 @@ def moment_0_shifted(cube, xs, ys, ps_arcsec, BMAJ, vs, v0 , x0, y0, PA, inc, M_
         k_min0=max(0, int((v0+Dvel0-vs[0])/dv) )
         k_max0=min(Nf, int((v0-Dvel0-vs[0])/dv) )
         
-    print k_min0, k_max0
+    print(k_min0, k_max0)
     
-    for j in xrange(Npix):
-        for i in xrange(Npix):
+    for j in range(Npix):
+        for i in range(Npix):
 
             
             if Rs[j,i]>=rlim*f2: ## safe to use keplerian mask
@@ -1354,7 +1359,7 @@ def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, 
         k_max=min(Nf, int(round((v0-Dvel-vs[0])/dv)) )
         # print k_min,k_max, dv, Dvel, v0
     else:
-        print 'error, dv<0 or Dvel<0'
+        print('error, dv<0 or Dvel<0')
         return -1
     
     F=0.0 # integrated  flux
@@ -1367,8 +1372,8 @@ def Flux_inside_cube(amin, amax, cube , ps_arcsec, vs, Dvel, v0, PArad, incrad, 
     
     x1, y1, x1edge, y1edge = xyarray(N1, ps_arcsec)
 
-    for i in xrange(N1):
-        for j in xrange(N1):
+    for i in range(N1):
+        for j in range(N1):
 
             xi=x1[i]-x0
             yi=y1[j]-y0      
@@ -1417,7 +1422,7 @@ def Spectrum(amin,amax, cube,  ps_arcsec, vs, Dvel, v0, PArad, incrad, x0, y0):
         k_min=max(0, int(round((v0+Dvel-vs[0])/dv)))
         k_max=min(Nf, int(round((v0-Dvel-vs[0])/dv)))
     else:
-        print 'error, dv<0 or Dvel<0'
+        print('error, dv<0 or Dvel<0')
         return -1
 
 
@@ -1431,8 +1436,8 @@ def Spectrum(amin,amax, cube,  ps_arcsec, vs, Dvel, v0, PArad, incrad, x0, y0):
     x1, y1, x1edge, y1edge = xyarray(N1, ps_arcsec)
 
     
-    for i in xrange(N1):
-        for j in xrange(N1):
+    for i in range(N1):
+        for j in range(N1):
             
             xi=x1[i]-x0
             yi=y1[j]-y0   
@@ -1443,12 +1448,12 @@ def Spectrum(amin,amax, cube,  ps_arcsec, vs, Dvel, v0, PArad, incrad, x0, y0):
             
             if r<amax and r>amin:
                 Npix+=1.0
-                # for k in xrange(Nf):           
+                # for k in range(Nf):           
                 F[:]+=cube[:,j,i] # Jy/arcsec
     F2[0:k_min-bad_chan]=F[bad_chan:k_min]
     F2[k_min-bad_chan:]=F[k_max+1:-(bad_chan)]
     # corr=np.correlate(F2, F2, mode='full')
-    # plt.plot(corr[corr.size/2:])
+    # plt.plot(corr[corr.size//2:])
     # plt.axvline(k_min)
     # plt.axvline(k_max)
     # plt.show()
@@ -1483,8 +1488,8 @@ def f_shift(N1, x0, y0, ps_arcsec, PA, inc, M_star, dpc, vlim=10.0, rlim=0.0):
     x1, y1, x1edge, y1edge = xyarray(N1, ps_arcsec)
     chi=1.0/np.cos(inc) # aspect ratio of disc
 
-    for i in xrange(N1):
-        for j in xrange(N1):
+    for i in range(N1):
+        for j in range(N1):
 
             xi=x1[i]-x0 # x in sky in arcsec
             yi=y1[j]-y0 # y in sky in arcsec
@@ -1521,17 +1526,17 @@ def plot_cube(filename,cube, ps_arcsec, xedge, yedge, vs, v0=0., Dv=10., rms=0.0
     YMAX=XMAX
     dv=abs(vs)
     chan_plots=[]
-    for i in xrange(len(vs)):
+    for i in range(len(vs)):
         if vs[i]>=v0-Dv and vs[i]<=v0+Dv:
             chan_plots.append(i)
     Nchan=len(chan_plots)
     Nr=int(np.sqrt(Nchan))+1
     Nc=int(np.sqrt(Nchan))
     if Nr*Nc<Nchan: Nc+=1
-    print Nchan, Nr, Nc
+    print(Nchan, Nr, Nc)
     fig = plt.figure(figsize=(Nc*2,Nr*2)) #(8,6))
 
-    for i in xrange(Nchan):
+    for i in range(Nchan):
         
         axi=fig.add_subplot(Nr,Nc,i+1)
 
@@ -1612,9 +1617,9 @@ def plot_cube(filename,cube, ps_arcsec, xedge, yedge, vs, v0=0., Dv=10., rms=0.0
             xticks1=axi.xaxis.get_major_ticks()
             yticks1=axi.yaxis.get_major_ticks()
               
-            for j in xrange(len(xticks1)):
+            for j in range(len(xticks1)):
                 xticks1[j].label1.set_visible(False)
-            for j in xrange(len(yticks1)):
+            for j in range(len(yticks1)):
                 yticks1[j].label1.set_visible(False)
             
         if star:
@@ -1635,10 +1640,10 @@ def plot_cube(filename,cube, ps_arcsec, xedge, yedge, vs, v0=0., Dv=10., rms=0.0
         
     plt.tight_layout()
     plt.subplots_adjust(left=0.08, bottom=0.08, right=0.99, top=1.0, wspace=0.01, hspace=0.01)
-    print 'saving...'
+    print('saving...')
 
     plt.savefig(filename, dpi=500)#,format='png', dpi=500)
-    print 'saved'
+    print('saved')
 
     if show:
         plt.show()
@@ -1673,6 +1678,16 @@ def deproj_vis(u,v,Inc,pa):
 
 def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
 
+    # -el minimo uv distance a considerar de las visibilidades deprojectadas  (0 por ejemplo)
+    # - el maximo uv distance a considerar de las visibilidades deprojectadas  (1e6 por ejemplo)
+    # - El numero de bins. Este es un parametro que tienes que jugar para sacarle el mayor provecho a tus datos. En general yo ocupo valores de ~50, pero si tu S/N es bueno, puedes ocupar valores mayores
+    # - un array de las coordenadas u
+    # - un array de las coordenadas v
+    # - un array de las componentes reales
+    # - un array de las componentes imaginarias
+    # - la inclinacion en grados
+    # - el PA en grados
+
     
     amps=np.sqrt(reals**2+imags**2)
     if len(weights)==1:
@@ -1699,7 +1714,7 @@ def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
     Imag_std=np.zeros(Nr)
 
 
-    for ir in xrange(Nr):
+    for ir in range(Nr):
         #print ir, Nr
         n=0
 
@@ -1843,10 +1858,10 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
         
     plt.tight_layout()
     plt.subplots_adjust(left=0.17, bottom=0.01, right=0.97, top=1.0)
-    print 'saving...'
+    print('saving...')
 
     plt.savefig(filename, dpi=500)#,format='png', dpi=500)
-    print 'saved'
+    print('saved')
 
     if show:
         plt.show()
@@ -1898,7 +1913,6 @@ def lighten_color(color, amount=0.5):
     except:
         c = color
     c = colorsys.rgb_to_hls(*cl.to_rgb(c))
-    print c
     return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
 
 def Bbody(lam, T): # function returns Planck function Bnu in Janskys

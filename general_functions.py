@@ -87,6 +87,7 @@ def fcolor_x(i,N, colormap='viridis'):
 
 def lighten_color(color, amount=0.5):
     # copied from https://stackoverflow.com/questions/37765197/darken-or-lighten-a-color-in-matplotlib
+    # values allowed between [0,2), >1 darkens, <1 lightens
     """
     Lightens the given color by multiplying (1-luminosity) by the given amount.
     Input can be matplotlib color string, hex string, or RGB tuple.
