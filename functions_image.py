@@ -1678,8 +1678,8 @@ def deproj_vis(u,v,Inc,pa):
 
 def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
 
-    # -el minimo uv distance a considerar de las visibilidades deprojectadas  (0 por ejemplo)
-    # - el maximo uv distance a considerar de las visibilidades deprojectadas  (1e6 por ejemplo)
+    # -el minimo uv distance a considerar de las visibilidades deprojectadas (0 por ejemplo)
+    # - el maximo uv distance a considerar de las visibilidades deprojectadas (1e6 por ejemplo)
     # - El numero de bins. Este es un parametro que tienes que jugar para sacarle el mayor provecho a tus datos. En general yo ocupo valores de ~50, pero si tu S/N es bueno, puedes ocupar valores mayores
     # - un array de las coordenadas u
     # - un array de las coordenadas v
@@ -1830,7 +1830,7 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
         width= BMAJ
         height= BMIN
         pa=BPA
-        elli=Ellipse((xc,yc),width,height,angle=90.-pa,linewidth=3,fill=True,color='white', alpha=1.0)
+        elli=Ellipse((xc,yc),width,height,angle=90.-pa,linewidth=0,fill=True,color='white', alpha=1.0)
         #elli.set_clip_box(ax1.bbox)
         #elli.set_alpha(0.7)
         #elli.set_facecolor('black')
