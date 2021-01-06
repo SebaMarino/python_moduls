@@ -1,5 +1,7 @@
 import numpy as np
-import functions_gas_evol_0D as fgas
+from scipy import interpolate
+
+# import functions_gas_evol_0D as fgas
 #from tqdm import tqdm
 
 
@@ -23,8 +25,96 @@ kb = 1.38064852e-23 #mks
 year_s = 3.154e7 # seconds
 
 
+### CO PHOTODISSOCIATION PHOTON COUNTING
+
+try:
+    SCO_grid=np.loadtxt('./Sigma_CO_Mearth_au2.txt')
+    SC1_grid=np.loadtxt('./Sigma_C1_Mearth_au2.txt')
+    tauCO_grid=np.loadtxt('./tau_CO_yr.txt')
+    log10tau_interp=interpolate.RectBivariateSpline( np.log10(SC1_grid),np.log10(SCO_grid), np.log10(tauCO_grid)) # x and y must be swaped, i.e. (y,x) https://github.com/scipy/scipy/issues/3164
+    
+    # log10tau_interp=interpolate.interp2d(np.log10(SCO_grid), np.log10(SC1_grid), np.log10(tauCO_grid))
+
+    
+    # N=200
+    # NCOs2=np.logspace(1, 30, N) # cm-2
+    # NCs2=np.logspace(5, 30, N)  # cm-2
+
+    # Sigma_CO2=NCOs2*m_co/Mearth*au_cm**2.
+    # Sigma_C12=NCs2*m_c1/Mearth*au_cm**2.
+    # tau2D2=10**(log10tau_interp(np.log10(Sigma_CO2),np.log10(Sigma_C12)))
+    # print tau2D2
+
+except:
+    print('Interpolaiton of CO photodissociation from photon counting did not work')
+
 
 #### FUNCTIONS
+
+#### general
+
+def M_to_L(Mstar): # stellar mass to stellar L MS
+
+    if hasattr(Mstar,"__len__"):
+        L=np.zeros(Mstar.shape[0])
+        L[Mstar<0.43]=0.23*Mstar[Mstar<0.43]**2.3
+        mask2= ((Mstar>=0.43))# & (M<2)).
+        L[mask2]=Mstar[mask2]**4.
+        mask3= (Mstar>=2.) & (Mstar<20.)
+        L[mask3]=1.4*Mstar[mask3]**3.5
+        L[Mstar>55.]=3.2e4*Mstar[Mstar>55.]
+        
+        
+    else:
+        L=0.0
+        if Mstar<0.45:
+            L=0.23*Mstar**2.3
+        elif Mstar<2.:
+            L=Mstar**4.
+        elif Mstar<20.:
+            L=1.4*Mstar**3.5
+        else:
+            L=3.2e4*Mstar
+
+    return L
+
+def power_law_dist(xmin, xmax,alpha, N):
+
+    if alpha==-1.0: sys.exit(0)
+    u=np.random.uniform(0.0, 1.0,N)
+    beta=1.0+alpha
+    return ( (xmax**beta-xmin**beta)*u +xmin**beta  )**(1./beta)
+    
+
+## Photodissociation
+
+def tau_CO3(Sigma_CO, Sigma_C1): # interpolate calculations based on photon counting
+
+    tau=np.ones(Sigma_CO.shape[0])*130. # unshielded
+    mask=(Sigma_CO>1.0e-100) & (Sigma_C1>1.0e-100) # if not we get error in interpolation function and we get NaNs
+    if Sigma_CO[mask].shape[0]>0:
+        tau[mask]=10**(log10tau_interp(np.log10(Sigma_C1[mask]),np.log10(Sigma_CO[mask]), grid=False)) # yr, it must be called with C1 first because of column and raws definition. Tested with jupyter notebook and also here https://github.com/scipy/scipy/issues/3164
+    return tau # yr
+
+
+
+## viscous evolution
+def tau_vis(r, dr, alpha, cs, Mstar):
+    
+    Omega=np.sqrt(G*Mstar*Msun/((r*au_m)**3.0)) # s
+    return (dr*au_m)**2.0*Omega/(alpha*cs**2.)/year_s #/3.0
+
+def tau_vis_local(r, dr, alpha, cs, Mstar):
+    
+    Omega=np.sqrt(G*Mstar*Msun/((r*au_m)**3.0)) # s
+    return (r*au_m)**2.0*Omega/(alpha*cs**2.)/year_s/12. #/3.0
+
+
+def tau_vis2(r, dr, alpha, cs, Mstar):
+
+    Omega=np.sqrt(G*Mstar*Msun/((r*au_m)**3.0)) # s
+    return (r*au_m)**2.0*Omega/(alpha*cs**2.)/year_s #/3.0
+
 
 
 def Sigma_dot_vis(Sigmas, Nr, rsi, rhalfsi, hs, nus_au2_yr):
@@ -147,7 +237,7 @@ def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2
     ############## photodissociation
     ###########################################
     if photodissociation:
-        tphCO=fgas.tau_CO3(Sigma_prev[0,:], Sigma_prev[1,:])
+        tphCO=tau_CO3(Sigma_prev[0,:], Sigma_prev[1,:])
         Sdot_ph=Sigma_prev[0,:]/tphCO #(Snext[0,:]/tphCO)
         #Sdot_ph_epsilon=Sigma_prev[0,:]*(1.-np.exp(-epsilon/tphCO))   
         Snext2[0,:]=Snext2[0,:]-epsilon*Sdot_ph
@@ -204,7 +294,7 @@ def Sigma_next_fMdot(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, fMdot, args_fMdot,
     ############## photodissociation
     ###########################################
 
-    tphCO=fgas.tau_CO3(Sigma_prev[0,:], Sigma_prev[1,:])
+    tphCO=tau_CO3(Sigma_prev[0,:], Sigma_prev[1,:])
     Sdot_ph=Sigma_prev[0,:]/tphCO #(Snext[0,:]/tphCO)
     #Sdot_ph_epsilon=Sigma_prev[0,:]*(1.-np.exp(-epsilon/tphCO))   
     Snext2[0,:]=Snext2[0,:]-epsilon*Sdot_ph
@@ -472,3 +562,65 @@ def N_optim_radial_grid(rmin, rmax, rb, res):
 
 
 
+############## COLLISIONS
+
+
+def f_tc_simple(Mtot, r, dr, Dc=10.0, e=0.05, Qd=150.0, Mstar=1.0): # collisional timescale of largest planetesimal
+
+    return 1.4e-3 * r**(13.0/3) * (dr/r) * Dc * Qd**(5./6.) *e**(-5.0/3.0) * Mstar**(-4.0/3.0)*Mtot**(-1.0) # in yr
+
+def f_G(q,Xc):
+
+    return (Xc**(5.-3*q)-1. ) + (6.*q-10.)*(3.*q-4.)**(-1.)*(Xc**(4.-3.*q) -1. ) + (3.*q-5.)*(3.*q-3.)**(-1.)*(Xc**(3.-3.*q)-1. )
+
+def f_Xc(Qd, r, Mstar, e, I):
+
+    return 1.3e-3*(Qd * r / (Mstar*(1.25*e**2. + I**2.)))**(1./3.)
+
+def f_tc_Xc(Mtot, r, dr, rho=2700.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, Mstar=1.0, q=11./6.): # collisional timescale of largest planetesimal
+    A=(3.8 * rho * r**2.5 * dr * Dc  )/(Mstar**0.5 * Mtot) # yr (error in Eq 9 Wyatt, Smith, Su, Rieke, Greaves et al. 2007, equation is in years)
+    B= ( (12.*q - 20.)*( 1.+1.25*(e/I)**2.0 )**(-0.5) )/((18.-9.*q)*f_G(q, f_Xc(Qd, r, Mstar, e, I)))
+    return A*B # yr
+    
+
+def Mtot_t(Mtot0, t, r, dr,  rho=2700.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, Mstar=1.0, q=11./6.):
+    # t in years
+    tc0=f_tc_Xc(Mtot0, r, dr, rho, Dc, e, I, Qd, Mstar, q=q)
+    if hasattr(tc0, "__len__"):
+        for i in xrange(len(tc0)):
+            if tc0[i]<0.0:
+                tc0[i]=f_tc_simple(Mtot0[i], r[i], dr[i],  Dc, e, Qd, Mstar[i])
+    else:
+        if tc0<0.0:
+            tc0=f_tc_simple(Mtot0, r, dr,  Dc, e, Qd, Mstar)
+        
+    return Mtot0/(1.0+t/tc0) 
+
+def Mtot_t_simple(Mtot0, t, r, dr,  rho=2700.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, Mstar=1.0, q=11./6.):
+    # t in years
+    tc0=f_tc_simple(Mtot0, r, dr,  Dc, e, Qd, Mstar)
+
+    return Mtot0/(1.0+t/tc0) 
+
+def Mtotdot_t(Mtot0, t, r, dr, rho=2700.0,  Dc=10.0, e=0.05, I=0.05, Qd=150.0, Mstar=1.0, q=11./6.):
+    # t in years
+    tc0=f_tc_Xc(Mtot0, r, dr, rho,  Dc, e, I, Qd, Mstar, q=q)
+
+    if hasattr(tc0, "__len__"):
+        for i in xrange(len(tc0)):
+            if tc0[i]<0.0:
+                tc0[i]=f_tc_simple(Mtot0[i], r[i], dr[i],  Dc, e, Qd, Mstar[i])
+    else:
+        if tc0<0.0:
+            tc0=f_tc_simple(Mtot0, r, dr,  Dc, e, Qd, Mstar)
+   
+    return Mtot0/(1.0+t/tc0)**2. / tc0 # Mearth/yr
+
+
+def f_Gamma(Lstar): # Fig 8.3 Nicole Pawellek's thesis
+
+    return 6.42*Lstar**(-0.37)
+
+def f_Dbl(Mstar=1.0, Lstar=1.0, rho=2700.0):
+
+    return 0.8*(Lstar/Mstar)*(2700.0/rho)

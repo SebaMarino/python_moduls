@@ -126,7 +126,7 @@ def tau_CO2(Sigma_CO, Sigma_C1):
 
 def tau_CO3(Sigma_CO, Sigma_C1): # interpolate calculations based on photon counting
 
-    tau=np.ones(Sigma_CO.shape[0])*130.
+    tau=np.ones(Sigma_CO.shape[0])*130. 
     mask=(Sigma_CO>1.0e-100) & (Sigma_C1>1.0e-100) # if not we get error in interpolation function and we get NaNs
     if Sigma_CO[mask].shape[0]>0:
         tau[mask]=10**(log10tau_interp(np.log10(Sigma_C1[mask]),np.log10(Sigma_CO[mask]), grid=False)) # yr, it must be called with C1 first because of column and raws definition. Tested with jupyter notebook and also here https://github.com/scipy/scipy/issues/3164
