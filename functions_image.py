@@ -1064,8 +1064,11 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=Fa
         BMAJ=0.0
         BMIN=0.0
         BPA=0.0
-        
 
+    if header1['CTYPE3'] == 'FREQ':
+        wave=c_light/header1['CRVAL3']*1.0e6
+        print('wavelength = %1.3f um'%(wave))
+        
     if header1['BUNIT']=='JY/PIXEL' and output=='JY/ARCSEC2':
         data1=data1/(ps_arcsec1**2.0) # Jy/pixel to Jy/arcsec2
     # x1, y1, x1edge, y1edge = xyarray(N1, ps_arcsec1)

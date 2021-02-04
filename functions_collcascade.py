@@ -33,7 +33,7 @@ def f_dmax( vimp=3.0e3, Qg=0.03, bg=1.38 ):
     return (Xcc**3.0 * vimp**1.5 * v0 **0.5 / Qg / 2.0 )**(1.0/bg)
 
            
-def f_Rcoll(Ds, k, Msi, V, vrel, rho, Qs=500.0, bs=0.37, Qg=0.03, bg=1.38):  #### DESTRUCTIVE COLLISION RATE
+def f_Rcoll(Ds, k, Msi, V, vrel, rho, Qs=608.0, bs=0.38, Qg=0.011, bg=1.36):  #### DESTRUCTIVE COLLISION RATE
 
     delta=Ds[0]/Ds[1] # -1.0
     ND=len(Ds)
@@ -83,13 +83,13 @@ def SizeDist(Mstar=1.0,
     Mstar=Mstar*Msun # kg
     rmid=r0*au # m
     Mbelt=Mbeltem*Mearth # kg
-    print rmid/au, dr, I
+    print(rmid/au, dr, I)
     Vol=4.0*np.pi*rmid*dr*au*I*rmid # [m3]
     # Vol=2.0*np.pi*rmid*dr*au*I*rmid # [m3]
-    print "Vol [au3] = ", Vol/au**3.0
+    print("Vol [au3] = ", Vol/au**3.0)
     vk=(G*Mstar/rmid)**0.5 # m/s
     vrel=vk*(1.25*e**2.0+I**2.0)**(0.5) # m/s
-    print "vrel [km/s] = ",vrel/1.0e3
+    print("vrel [km/s] = ",vrel/1.0e3)
     # ######## BINS
 
     
@@ -148,7 +148,7 @@ def SizeDist(Mstar=1.0,
 
             # Compute initial collisional timescales for each size
             tcolls=1.0/Rs0 /(1.0e6*year) # Myr # this can give inf as Rs0 can be 0 if e<emax to break up planetesimals
-            print tcolls[:30]
+            print(tcolls[:30])
             # initial guess for Dc
             kmin=1
             kmax=kmin
@@ -176,7 +176,7 @@ def SizeDist(Mstar=1.0,
        
             ni=0
             while ni<Nit:
-                print "it , ni ", it, ni
+                print("it , ni ", it, ni)
 
                 Mp=Ms # it should be Mp=Ms*1.0, but without the *1.0 it converges faster
                 # Method from Wyatt+2011
@@ -203,7 +203,7 @@ def SizeDist(Mstar=1.0,
 
                 # compare age and coll timescale
                 tcolli=1.0/Rs /(1.0e6*year)
-                print ts[it],  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxd
+                print(ts[it],  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxd)
                 ni+=1
 
                 # correct maximum size if age<tcoll
@@ -229,7 +229,7 @@ def SizeDist(Mstar=1.0,
 
                 elif ts[it]> 1.1*tcolli[kmax-1] and kmax>kmaxu and ni>ncheck and (kmaxd-kmaxu>1 or kmaxd==0):
                     kmaxd=kmax*1
-                    kmax=int(round( (kmaxu + kmax)/2))
+                    kmax=int(round( (kmaxu + kmax)/2.))
                     ni=0
                     Mb=Ms*1.0
                     tcollib=tcolli[kmax-1]
@@ -251,7 +251,7 @@ def SizeDist(Mstar=1.0,
         
             if kmaxd==kmaxu+1 and abs(ts[it]-tcolli[kmax-1])/ts[it]>0.1:
                 # make weighted average using both size distibution
-                print "average"
+                print("average")
                 w1=min(ts[it], tcolli[kmax-1])/max(ts[it], tcolli[kmax-1])
                 w2=min(ts[it], tcollib)/max(ts[it], tcollib)
                 Ms=(Ms*w1 + Mb*w2)/(w1+w2)
@@ -268,7 +268,7 @@ def SizeDist(Mstar=1.0,
 
 
         else: 
-            print "the epoch must be positive"
+            print("the epoch must be positive")
             return -1.0
 
     return Ds, Msfinal
@@ -317,15 +317,15 @@ def SizeDist_dmax(Mstar=1.0,
     Mstar=Mstar*Msun # kg
     rmid=r0*au # m
     Mbelt=Mbeltem*Mearth # kg
-    print rmid/au, dr, I
+    print(rmid/au, dr, I)
     Vol=4.0*np.pi*rmid*dr*au*I*rmid # [m3]
-    print "Vol [au3] = ", Vol/au**3.0
+    print("Vol [au3] = ", Vol/au**3.0)
     vk=(G*Mstar/rmid)**0.5 # m/s
     vrel=vk*(1.25*e**2.0+I**2.0)**(0.5) # m/s
-    print "vrel [km/s] = ",vrel/1.0e3
+    print("vrel [km/s] = ",vrel/1.0e3)
     # ######## BINS
 
-    print "dmax = ", f_dmax( vimp=vrel, Qg=Qg, bg=bg )
+    print("dmax = ", f_dmax( vimp=vrel, Qg=Qg, bg=bg ))
     dmaxn=f_dmax( vimp=vrel, Qg=Qg, bg=bg )
 
     if dmaxn<dmax:
@@ -389,7 +389,7 @@ def SizeDist_dmax(Mstar=1.0,
 
             # Compute initial collisional timescales for each size
             tcolls=1.0/Rs0 /(1.0e6*year) # Myr # this can give inf as Rs0 can be 0 if e<emax to break up planetesimals
-            print tcolls[:30]
+            print(tcolls[:30])
             # initial guess for Dc
             kmin=1
             kmax=kmin
@@ -417,7 +417,7 @@ def SizeDist_dmax(Mstar=1.0,
        
             ni=0
             while ni<Nit:
-                print "it , ni ", it, ni
+                print("it , ni ", it, ni)
 
                 Mp=Ms # it should be Mp=Ms*1.0, but without the *1.0 it converges faster
                 # Method from Wyatt+2011
@@ -444,7 +444,7 @@ def SizeDist_dmax(Mstar=1.0,
 
                 # compare age and coll timescale
                 tcolli=1.0/Rs /(1.0e6*year)
-                print ts[it], r0,  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxd
+                print(ts[it], r0,  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxd)
                 ni+=1
 
                 # correct maximum size if age<tcoll
@@ -470,7 +470,7 @@ def SizeDist_dmax(Mstar=1.0,
 
                 elif ts[it]> 1.1*tcolli[kmax-1] and kmax>kmaxu and ni>ncheck and (kmaxd-kmaxu>1 or kmaxd==0):
                     kmaxd=kmax*1
-                    kmax=int(round( (kmaxu + kmax)/2))
+                    kmax=int(round( (kmaxu + kmax)/2.))
                     ni=0
                     Mb=Ms*1.0
                     tcollib=tcolli[kmax-1]
@@ -492,7 +492,7 @@ def SizeDist_dmax(Mstar=1.0,
         
             if kmaxd==kmaxu+1 and abs(ts[it]-tcolli[kmax-1])/ts[it]>0.1:
                 # make weighted average using both size distibution
-                print "average"
+                print("average")
                 w1=min(ts[it], tcolli[kmax-1])/max(ts[it], tcolli[kmax-1])
                 w2=min(ts[it], tcollib)/max(ts[it], tcollib)
                 Ms=(Ms*w1 + Mb*w2)/(w1+w2)
@@ -509,13 +509,13 @@ def SizeDist_dmax(Mstar=1.0,
 
 
         else: 
-            print "the epoch must be positive"
+            print("the epoch must be positive")
             return -1.0
 
     ### need to extrapolate Ds to original dmax and Msfinal 
 
     NDe=int(round(np.log(dmax/dmaxn)/np.log(delta)))
-    print NDe
+    print(NDe)
     NDf=ND+NDe
     Msfinalf=np.zeros((Nt,NDf))
     # Rsfinalf=np.zeros((NDf))
@@ -577,15 +577,15 @@ def SizeDist_dmax_gas(Mstar=1.0,
     Mstar=Mstar*Msun # kg
     rmid=r0*au # m
     Mbelt=Mbeltem*Mearth # kg
-    print rmid/au, dr, I
+    print(rmid/au, dr, I)
     Vol=4.0*np.pi*rmid*dr*au*I*rmid # [m3]
-    print "Vol [au3] = ", Vol/au**3.0
+    print("Vol [au3] = ", Vol/au**3.0)
     vk=(G*Mstar/rmid)**0.5 # m/s
     vrel=vk*(1.25*e**2.0+I**2.0)**(0.5) # m/s
-    print "vrel [km/s] = ",vrel/1.0e3
+    print("vrel [km/s] = ",vrel/1.0e3)
     # ######## BINS
 
-    print "dmax = ", f_dmax( vimp=vrel, Qg=Qg, bg=bg )
+    print("dmax = ", f_dmax( vimp=vrel, Qg=Qg, bg=bg ))
     dmaxn=f_dmax( vimp=vrel, Qg=Qg, bg=bg )
 
     if dmaxn<dmax:
@@ -649,7 +649,7 @@ def SizeDist_dmax_gas(Mstar=1.0,
 
             # Compute initial collisional timescales for each size
             tcolls=1.0/Rs0 /(1.0e6*year) # Myr # this can give inf as Rs0 can be 0 if e<emax to break up planetesimals
-            print tcolls[:30]
+            print(tcolls[:30])
             # initial guess for Dc
             kmin=1
             kmax=kmin
@@ -677,7 +677,7 @@ def SizeDist_dmax_gas(Mstar=1.0,
        
             ni=0
             while ni<Nit:
-                print "it , ni ", it, ni
+                print("it , ni ", it, ni)
 
                 Mp=Ms # it should be Mp=Ms*1.0, but without the *1.0 it converges faster
                 # Method from Wyatt+2011
@@ -704,7 +704,7 @@ def SizeDist_dmax_gas(Mstar=1.0,
 
                 # compare age and coll timescale
                 tcolli=1.0/Rs /(1.0e6*year)
-                print ts[it], r0,  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxd
+                print(ts[it], r0,  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxd)
                 ni+=1
 
                 # correct maximum size if age<tcoll
@@ -730,7 +730,7 @@ def SizeDist_dmax_gas(Mstar=1.0,
 
                 elif ts[it]> 1.1*tcolli[kmax-1] and kmax>kmaxu and ni>ncheck and (kmaxd-kmaxu>1 or kmaxd==0):
                     kmaxd=kmax*1
-                    kmax=int(round( (kmaxu + kmax)/2))
+                    kmax=int(round( (kmaxu + kmax)/2.))
                     ni=0
                     Mb=Ms*1.0
                     tcollib=tcolli[kmax-1]
@@ -752,7 +752,7 @@ def SizeDist_dmax_gas(Mstar=1.0,
         
             if kmaxd==kmaxu+1 and abs(ts[it]-tcolli[kmax-1])/ts[it]>0.1:
                 # make weighted average using both size distibution
-                print "average"
+                print("average")
                 w1=min(ts[it], tcolli[kmax-1])/max(ts[it], tcolli[kmax-1])
                 w2=min(ts[it], tcollib)/max(ts[it], tcollib)
                 Ms=(Ms*w1 + Mb*w2)/(w1+w2)
@@ -769,13 +769,13 @@ def SizeDist_dmax_gas(Mstar=1.0,
 
 
         else: 
-            print "the epoch must be positive"
+            print("the epoch must be positive")
             return -1.0
 
     ### need to extrapolate Ds to original dmax and Msfinal 
 
     NDe=int(round(np.log(dmax/dmaxn)/np.log(delta)))
-    print NDe
+    print(NDe)
     NDf=ND+NDe
     Msfinalf=np.zeros((Nt,NDf))
     Rsfinalf=np.zeros((NDf))

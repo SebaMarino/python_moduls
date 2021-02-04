@@ -48,6 +48,15 @@ try:
 except:
     print('Interpolaiton of CO photodissociation from photon counting did not work')
 
+####### CO PHOTODISSOCIATION
+# Visser+2009
+
+kCOs=[1.0, 0.9405, 0.7046, 0.4015, 0.09964, 0.01567, 0.003162, 0.0004839]
+NCOs=[1.0, 1.e13, 1.e14, 1.e15, 1.e16, 1.e17, 1.e18, 1.e19]
+logfkCO = interpolate.interp1d(np.log10(NCOs), np.log10(kCOs))
+slope=np.log(kCOs[-1]/kCOs[-2])/np.log(NCOs[-1]/NCOs[-2])
+
+    
 
 #### FUNCTIONS
 
@@ -88,12 +97,56 @@ def power_law_dist(xmin, xmax,alpha, N):
 
 ## Photodissociation
 
+def selfshielding_CO(NCO):#, NCOs, logfkCO, slope):
+
+    if isinstance(NCO, np.ndarray):
+        kco=np.ones(len(NCO))
+        # for j in xrange(len(NCO)):
+        #     if NCO[j]>=NCOs[0] and NCO[j]<=NCOs[-1]:
+        #         kco[j]=10.0**logfkCO(np.log10(NCO[j]))
+        #     elif NCO[j]<NCOs[0]:
+        #         kco[j]=1.0
+        #     else:
+        #         kco[j]=kCOs[-1]*(NCO[j]/NCOs[-1])**slope
+                
+        mask1=(NCO>=NCOs[0]) & (NCO<=NCOs[-1])
+        kco[ mask1]=10.0**logfkCO(np.log10(NCO[mask1]))
+        mask2=( NCO<NCOs[0])
+        kco[mask2]=1.0
+        mask3=(NCO>NCOs[-1])
+        kco[mask3]=kCOs[-1]*(NCO[mask3]/NCOs[-1])**slope
+
+    else:
+        if NCO>=NCOs[0] and NCO<=NCOs[-1]:
+            kco=10.0**logfkCO(np.log10(NCO))
+        elif NCO<NCOs[0]:
+            kco=1.0
+        else:
+            kco=kCOs[-1]*(NCO/NCOs[-1])**slope
+    return kco
+
+def tau_CO2(Sigma_CO, Sigma_C1): # simple approximation
+    #area=2*np.pi*r*dr*au_cm**2.0 # cm2
+    
+    NC1=Sigma_C1/2.*Mearth/m_c1/au_cm**2.0
+    NCO=Sigma_CO/2.*Mearth/m_co/au_cm**2.0
+    
+    return 120.0 * np.exp( sigma_c1*NC1)/ selfshielding_CO(NCO) # yr
+
 def tau_CO3(Sigma_CO, Sigma_C1): # interpolate calculations based on photon counting
 
     tau=np.ones(Sigma_CO.shape[0])*130. # unshielded
-    mask=(Sigma_CO>1.0e-100) & (Sigma_C1>1.0e-100) # if not we get error in interpolation function and we get NaNs
-    if Sigma_CO[mask].shape[0]>0:
-        tau[mask]=10**(log10tau_interp(np.log10(Sigma_C1[mask]),np.log10(Sigma_CO[mask]), grid=False)) # yr, it must be called with C1 first because of column and raws definition. Tested with jupyter notebook and also here https://github.com/scipy/scipy/issues/3164
+    # to avoid nans we use a floor value for sigmas of 1e-50
+    Sigma_COp=Sigma_CO*1. 
+    Sigma_C1p=Sigma_C1*1.
+    Sigma_COp[Sigma_COp<1.0e-50]=1.0e-50
+    Sigma_C1p[Sigma_C1p<1.0e-50]=1.0e-50
+
+    # mask=(Sigma_CO>1.0e-100) & (Sigma_C1>1.0e-100) # if not we get error in interpolation function and we get NaNs
+    # if Sigma_CO[mask].shape[0]>0:
+        # tau[mask]=10**(log10tau_interp(np.log10(Sigma_C1[mask]),np.log10(Sigma_CO[mask]), grid=False)) # yr, it must be called with C1 first because of column and raws definition. Tested with jupyter notebook and also here https://github.com/scipy/scipy/issues/3164
+
+    tau=10**(log10tau_interp(np.log10(Sigma_C1),np.log10(Sigma_CO), grid=False)) # yr, it must be called with C1 first because of column and raws definition. Tested with jupyter notebook and also here https://github.com/scipy/scipy/issues/3164
     return tau # yr
 
 
@@ -186,7 +239,7 @@ def Sig_dot_p_box(rs, r0, width, Mdot, mask_belt):
 def Sig_dot_p_gauss(rs, hs, r0, sig_g, Mdot, mask_belt):
     
     Sdot_comets=np.zeros(len(rs))
-    Sdot_comets[mask_belt]=np.exp( -(rs[mask_belt]-r0)**2.0 / (2.*sig_g**2.) ) # /(np.sqrt(2.*np.pi)*sig_g)/(2.*np.pi*rs[mask_belt])
+    Sdot_comets[mask_belt]=np.exp( -2* (rs[mask_belt]-r0)**2.0 / (2.*sig_g**2.) ) # /(np.sqrt(2.*np.pi)*sig_g)/(2.*np.pi*rs[mask_belt]) # factor 2 inside exponential is to make Mdot prop to Sigma**2 
     Sdot_comets[mask_belt]=Mdot*Sdot_comets[mask_belt]/(2.*np.pi*np.sum(Sdot_comets[mask_belt]*rs[mask_belt]*hs[mask_belt]))
     return Sdot_comets
 

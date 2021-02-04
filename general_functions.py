@@ -37,6 +37,7 @@ def number_to_text(number):
             return r'%1.0f'%(factor)
         else:
             return r'%1.1f'%(factor)
+        
     else:
         if str(factor)[:3]=='1.0':
             return r'$10^{%1.0f}$'%(exp)
