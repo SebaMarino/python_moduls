@@ -206,25 +206,70 @@ def Sigma_dot_vis(Sigmas, Nr, rsi, rhalfsi, hs, nus_au2_yr):
         
     return Sdot, Sigma_vr_halfs
 
-def Difussion(Sigmas, Nr, rs, rhalfs, hs, nus_au2_yr):
+# def Diffusion(Sigmas, Nr, rs, rhalfs, hs, nus_au2_yr):
 
-    Sigma_tot=Sigmas[0,:]+Sigmas[1,:]*(1.+4./3.) # CO+C+O
+#     Sigma_tot=Sigmas[0,:]+Sigmas[1,:]*(28./12.) # CO+C+O
+#     eps=np.ones((2,Nr))*0.5
+#     eps_dot=np.zeros((2,Nr))
+#     mask_m=Sigma_tot>0.
+#     eps[0,mask_m]=Sigmas[0,mask_m]/Sigma_tot[mask_m]
+#     eps[1,mask_m]=Sigmas[1,mask_m]/Sigma_tot[mask_m]
+
+#     # # geometric average
+#     # eps=np.sqrt(eps[1:]*eps[:-1]) # Nr-1
+    
+#     eps_dot[:,1:-1]=(eps[:,2:]-eps[:,:-2])/(2*hs[1:-1])
+#     eps_dot[:,0]=(eps[:,1]-eps[:,0])/hs[0]
+#     eps_dot[:,-1]=(eps[:,-1]-eps[:,-2])/hs[-1]
+
+#     F=rs*nus_au2_yr*Sigma_tot*eps_dot # Nr
+
+#     Sdot_diff=np.zeros((2,Nr))    
+#     Sdot_diff[:,1:]= (F[:,1:]-F[:,:-1])/(rs[1:]-rs[:-1])/(rs[1:]) # Nr-2
+#     Sdot_diff[:,-1]= (F[:,-1]-F[:,-2])/(rs[-1]-rs[-2])/(rs[-1]) # Nr-2
+
+#     # ### OLD IN 2020 PAPER. F was defined with sigmas instead of sigma_tot
+#     # F=rs*nus_au2_yr*Sigmas*eps_dot # Nr
+#     # Sdot_diff=np.zeros((2,Nr))   
+#     # Sdot_diff[:,1:]= (F[:,1:]-F[:,:-1])/(rs[1:]-rs[:-1])/(rs[1:]) # Nr-2
+#     # Sdot_diff[:,-1]= (F[:,-1]-F[:,-2])/(rs[-1]-rs[-2])/(rs[-1]) # Nr-2
+
+#     # Sdot_diff[:,-1]=0.
+
+#     return Sdot_diff
+
+def Diffusion(Sigmas, Nr, rs, rhalfs, hs, nus_au2_yr):
+
+    Sigma_tot=Sigmas[0,:]+Sigmas[1,:]*(28./12.) # CO+C+O
     eps=np.ones((2,Nr))*0.5
-    eps_dot=np.zeros((2,Nr))
-    mask_m=Sigma_tot>0.0
+    mask_m=Sigma_tot>0.
     eps[0,mask_m]=Sigmas[0,mask_m]/Sigma_tot[mask_m]
     eps[1,mask_m]=Sigmas[1,mask_m]/Sigma_tot[mask_m]
 
-    eps_dot[:,1:-1]=(eps[:,2:]-eps[:,:-2])/(2*hs[1:-1])
-    eps_dot[:,0]=(eps[:,1]-eps[:,0])/hs[0]
-    eps_dot[:,-1]=(eps[:,-1]-eps[:,-2])/hs[-1]
+    # # geometric average
+    eps_half=np.sqrt(eps[:,1:]*eps[:,:-1]) # Nr-1 at cell boundaries
+    #Sigma_tot_halfs=np.sqrt(Sigma_tot[1:]*Sigma_tot[:-1]) # Nr-1 at cell boundaries 
+    # eps_dot_halfs=np.zeros((2,Nr-1)) # Nr-1
+    eps_dot=(eps_half[:,1:]-eps_half[:,:-1])/(hs[1:-1]) # Nr-2 at cell centers
 
-    F=rs*nus_au2_yr*Sigmas*eps_dot # Nr
+    # eps_dot_halfs[:,0]=(eps_half[:,1]-eps_half[:,0])/hs[0]
+    # eps_dot_halfs[:,-1]=(eps[:,-1]-eps[:,-2])/hs[-1]
+
+    
+    F=rs[1:-1]*nus_au2_yr[1:-1]*Sigma_tot[1:-1]*eps_dot # Nr-2
 
     Sdot_diff=np.zeros((2,Nr))    
-    Sdot_diff[:,1:]= (F[:,1:]-F[:,:-1])/(rs[1:]-rs[:-1])/(rs[1:]) # Nr-2
-    Sdot_diff[:,-1]= (F[:,-1]-F[:,-2])/(rs[-1]-rs[-2])/(rs[-1]) # Nr-2
-    # Sdot_diff[:,~mask_m]=0.
+    Sdot_diff[:,1:-2]= (F[:,1:]-F[:,:-1])/(rs[2:-1]-rs[1:-2])/(rs[1:-2]) # Nr-3
+    
+    # Sdot_diff[:,-1]= (F[:,-1]-F[:,-2])/(rs[-1]-rs[-2])/(rs[-1]) # Nr-2
+
+    # ### OLD IN 2020 PAPER. F was defined with sigmas instead of sigma_tot
+    # F=rs*nus_au2_yr*Sigmas*eps_dot # Nr
+    # Sdot_diff=np.zeros((2,Nr))   
+    # Sdot_diff[:,1:]= (F[:,1:]-F[:,:-1])/(rs[1:]-rs[:-1])/(rs[1:]) # Nr-2
+    # Sdot_diff[:,-1]= (F[:,-1]-F[:,-2])/(rs[-1]-rs[-2])/(rs[-1]) # Nr-2
+
+    # Sdot_diff[:,-1]=0.
 
     return Sdot_diff
     
@@ -239,6 +284,12 @@ def Sig_dot_p_box(rs, r0, width, Mdot, mask_belt):
 def Sig_dot_p_gauss(rs, hs, r0, sig_g, Mdot, mask_belt):
     
     Sdot_comets=np.zeros(len(rs))
+
+    ### no mask
+    # Sdot_comets=np.exp( -2* (rs-r0)**2.0 / (2.*sig_g**2.) ) # /(np.sqrt(2.*np.pi)*sig_g)/(2.*np.pi*rs) # factor 2 inside exponential is to make Mdot prop to Sigma**2 
+    # Sdot_comets=Mdot*Sdot_comets/(2.*np.pi*np.sum(Sdot_comets*rs*hs))
+
+    ### with mask to avoid CO input beyond or within the belt
     Sdot_comets[mask_belt]=np.exp( -2* (rs[mask_belt]-r0)**2.0 / (2.*sig_g**2.) ) # /(np.sqrt(2.*np.pi)*sig_g)/(2.*np.pi*rs[mask_belt]) # factor 2 inside exponential is to make Mdot prop to Sigma**2 
     Sdot_comets[mask_belt]=Mdot*Sdot_comets[mask_belt]/(2.*np.pi*np.sum(Sdot_comets[mask_belt]*rs[mask_belt]*hs[mask_belt]))
     return Sdot_comets
@@ -251,8 +302,6 @@ def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2
     Sdot_vis, Sigma_vr_halfs=Sigma_dot_vis(Sigma_prev,  Nr, rs, rhalfs, hs, nus_au2_yr)
     Snext= Sigma_prev + epsilon*Sdot_vis # viscous evolution
 
-
-  
     
     ###########################################
     ############### inner boundary condition
@@ -272,18 +321,16 @@ def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2
     else: 
         Snext[:,-1]=Snext[:,-2]*(nus_au2_yr[-2]/nus_au2_yr[-1])
 
-
     ###########################################
-    ################ diffusion evolution
+    ################ diffusion evolution (this has to come after photodissociation and input rate, otherwise we get weird strong wiggles that diverge resulting in nans)
     ###########################################
     if diffusion:
-        Snext=Snext+epsilon* Difussion(Snext, Nr, rs, rhalfs, hs, nus_au2_yr)
-        
+        Snext=Snext+epsilon* Diffusion(Snext, Nr, rs, rhalfs, hs, nus_au2_yr)
+
     ###########################################
     ############### CO mas input rate
     ###########################################
     Snext2=np.zeros((2, Nr))
-
     Snext2[0,:]=Snext[0,:]+epsilon*Sig_dot_p_gauss(rs, hs, r0, width, Mdot, mask_belt)
     Snext2[1,:]=Snext[1,:]*1.
     ###########################################
@@ -296,7 +343,12 @@ def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2
         Snext2[0,:]=Snext2[0,:]-epsilon*Sdot_ph
         Snext2[1,:]=Snext2[1,:]+epsilon*Sdot_ph*muc1co
         #Snext2[0,Snext2[0,:]<0.0]=0.0
+
+
+ 
     
+    Snext2[Snext2[:,:]<0.0]=0.0
+
     return Snext2
 
 
@@ -334,7 +386,7 @@ def Sigma_next_fMdot(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, fMdot, args_fMdot,
     ################ diffusion evolution
     ###########################################
     if diffusion:
-        Snext=Snext+epsilon* Difussion(Snext, Nr, rs, rhalfs, hs, nus_au2_yr)
+        Snext=Snext+epsilon* Diffusion(Snext, Nr, rs, rhalfs, hs, nus_au2_yr)
         
     ###########################################
     ############### CO mas input rate
@@ -379,7 +431,7 @@ def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Ms
     Nr=len(rs)
     Sigma_g=np.zeros((2,Nr,Nt2))
     wbelt=sig_g*2*np.sqrt(2.*np.log(2))
-    mask_belt=((rs<rbelt+wbelt) & (rs>rbelt-wbelt))
+    mask_belt=((rs<rbelt+wbelt*2) & (rs>rbelt-wbelt*2))
 
     
     ## Temperature and angular velocity
