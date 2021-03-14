@@ -1008,7 +1008,7 @@ def save_dens_axisym_settling(As, rho_grain, gdr, alpha_turb, Redge, R, Thedge, 
                 z=R[i]*np.sin(theta)
                 # for j in xrange(Nphi):
                 if  rho>Redge[0]:
-                    S=   np.pi/2 * As[ia] * rho_grain/(10**flogsigma_g(np.log10(rho)) ) / alpha_turb 
+                    S=   np.pi/2. * As[ia] * rho_grain/(10**flogsigma_g(np.log10(rho)) ) / alpha_turb 
                     hs = h/ np.sqrt(S+1)
                     if z<res_theta and hs<res_theta: # evaluate at z=0 such that the surface density is corect, i.e. rho=Sigma/res_z
                         rho_d[ia,k,:,i]=sigmaf(rho, 0.0, *args)/(res_theta*rho) # rho_3d_dens(rho, 0.0, 0.0, hs, sigmaf, *args )
@@ -1283,7 +1283,7 @@ def save_grid_dens_from_fits(fits_file, Ms, Nspec, dx=1.0, h=0.0):
             
             field[k, :, :] =  data [:, :] * np.exp( - (zs[k])**2./(2.*(h*rs[:,:])**2.) )
         if Nx%2!=0.0: # make sure central point has zero density
-            field[:, Nx/2, Nx/2]=0.0
+            field[:, Nx//2, Nx//2]=0.0
         save_density_cartesian(Ms, field, Nspec, Nx, Xmax, Nz)
 
     Xedge, Zedge = define_grid_cart(Nx, Nz, Xmax, save=True)
@@ -1328,7 +1328,7 @@ def save_gas_dens_velocity_from_fits(fits_file, Mco=0.0, Mc=0.0, Mh=0.0, fion=0.
         for k in xrange(Nz):
             field[k, :, :] =  data [:, :] * np.exp( - (zs[k])**2./(2.*(h*rs[:,:])**2.) )
         if Nx%2!=0.0: # make sure central point has zero density
-            field[:, Nx/2, Nx/2]=0.0
+            field[:, Nx//2, Nx//2]=0.0
         ## normalize
         field=field/(np.sum(field)*(dx*au)**3)
 
@@ -1429,8 +1429,74 @@ def save_gas_dens_velocity_from_fits(fits_file, Mco=0.0, Mc=0.0, Mh=0.0, fion=0.
                 arch_v.write(str(turb*1.0e5)+' \n') # cm/s
 
 
+def save_dens_gas( Redge, R, Thedge, Th, Phiedge, Phi, Mh2, Mco, h, sigmaf, *args):
 
+    # args has the arguments that sigmaf needs in the right order
+
+    Nr=len(R)+1
+    Nth=len(Th)+1
+    Nphi=len(Phi)
+
+    rho_g=np.zeros(((Nth-1)*2,Nphi,Nr-1)) # density field
+
+    M_gas_temp= 0.0 #np.zeros(Nspec) 
+    # print ia
+    # print "Dust species = ", ia
+
+    dphi=Phiedge[1]-Phiedge[0]
+    for k in xrange(Nth-1):
+        theta=Th[Nth-2-k]
+        for i in xrange(Nr-1):
+            rho=R[i]*np.cos(theta)
+            z=R[i]*np.sin(theta)
+            for j in xrange(Nphi):
+                phi=Phi[j]
+                rho_g[k,j,i]=rho_3d_dens(rho, phi, z,h, sigmaf, *args )
+                rho_g[2*(Nth-1)-1-k,j,i]=rho_g[k,j,i]
+                M_gas_temp+=2.0*rho_g[k,j,i]*dphi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
+        # for ia in xrange(Nspec):
+    rho_g=rho_g/M_gas_temp
         
+    
+    #### Save
+
+    path_h2='numberdens_h2.inp'
+    path_12co='numberdens_12c16o.inp'
+    path_13c16o='numberdens_13c16o.inp'
+    path_12c18o='numberdens_12c18o.inp'
+    path_hcop='numberdens_hcop.inp'
+
+    paths=[path_h2, path_12co, path_13c16o, path_12c18o, path_hcop]
+    ms=np.array([2.0, 28.0, 29.0, 30.0, 29.0])* 1.67262178e-24 # molecular masses in grams
+    abundances=[Mh2, Mco, Mco*1.0e-2, Mco*1.0e-3, Mco*1.0e-3] # mass in grams
+
+    for ip in xrange(len(paths)):
+        file_g=open(paths[ip],'w')
+        file_g.write('1 \n') # iformat  
+        file_g.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells 
+
+        for j in range(Nphi):
+            for k in range(2*(Nth-1)):
+                for i in range(Nr-1):
+                    file_g.write(str(rho_g[k,j,i]*abundances[ip]/ms[ip])+' \n')
+        file_g.close()
+
+    file_lines=open('lines.inp', 'w')
+    file_lines.write('2 \n')
+    file_lines.write('4 \n')
+    file_lines.write('12c16o    leiden    0    0    1 \n')
+    file_lines.write('h2 \n')
+    file_lines.write('13c16o    leiden    0    0    1 \n')
+    file_lines.write('h2 \n')
+    file_lines.write('12c18o    leiden    0    0    1 \n')
+    file_lines.write('h2 \n')
+    file_lines.write('hcop    leiden    0    0    1 \n')
+    file_lines.write('h2 \n')
+
+    file_lines.close()
+    # return rho_g # cube 
+
+
 def save_dens_gas_axisym( Redge, R, Thedge, Th, Phiedge, Phi, Mh2, Mco, h, sigmaf, *args):
 
     # args has the arguments that sigmaf needs in the right order
@@ -1609,7 +1675,7 @@ def gas_velocities( Redge, R, Thedge, Th, Phiedge, Phi, M_star=1.0*M_sun, turb=0
                 rho=r*np.sin(Theta)
                 z=r*np.cos(Theta)
 
-                vphi=np.sqrt(G*M_star/(rho*au)) 
+                vphi=np.sqrt(G*M_star/(rho*au)) # flat Keplerian disc, here you want to introduce the perturbations and dependence on z.
                 vr = 0.0
                 vtheta = 0.0
                 arch.write(str(vr)+'\t'+str(vtheta)+'\t'+str(vphi)+' \n')
@@ -1617,21 +1683,22 @@ def gas_velocities( Redge, R, Thedge, Th, Phiedge, Phi, M_star=1.0*M_sun, turb=0
 
     arch.close() 
 
+    # ----------------------TURBULENCES
+
     arch_v=open('microturbulence.inp','w')
     arch_v.write('1 \n')
     arch_v.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # n cells
     if ecc<=0.0:
-        # ----------------------TURBULENCES 0.1 km/s
         
-        for j in xrange(Nphi):
-            for k in xrange(2*(Nth-1)):
-                for i in xrange(Nr-1):
+        for j in range(Nphi):
+            for k in range(2*(Nth-1)):
+                for i in range(Nr-1):
                     arch_v.write(str(turb*1.0e5)+' \n')
 
     else:
-        for j in xrange(Nphi):
-            for k in xrange(2*(Nth-1)):
-                for i in xrange(Nr-1):
+        for j in range(Nphi):
+            for k in range(2*(Nth-1)):
+                for i in range(Nr-1):
                     r=R[i]
                     if k<Nth-1:
                         Theta = np.pi/2.0-Th[Nth-2-k]
@@ -1704,20 +1771,20 @@ def star_pix(nx, omega):
 
     if nx%2==0.0: # even number of pixels
         if omega>=0.0 and omega<=90.0:
-            istar=nx/2 
-            jstar=nx/2 
+            istar=nx//2 
+            jstar=nx//2 
         elif omega>90.0 and omega<=180.0:
-            istar=nx/2-1 
-            jstar=nx/2 
+            istar=nx//2-1 
+            jstar=nx//2 
         elif omega>180.0 and omega<=270.0:
-            istar=nx/2-1 
-            jstar=nx/2-1
+            istar=nx//2-1 
+            jstar=nx//2-1
         elif omega>270.0 and omega<360.0:
-            istar=nx/2 
-            jstar=nx/2 -1
+            istar=nx//2 
+            jstar=nx//2 -1
     else:
-        istar=nx/2
-        jstar=nx/2
+        istar=nx//2
+        jstar=nx//2
     return istar, jstar
 
 def shift_image(image, mx, my, pixdeg_x, pixdeg_y, omega=0.0 ):
@@ -1748,12 +1815,12 @@ def fpad_image(image_in, pad_x, pad_y, nx, ny):
         pad_image = np.zeros((1,1,pad_x,pad_y))
         if nx%2==0 and ny%2==0: # even number of pixels
             pad_image[0,0,
-                      pad_y/2-ny/2:pad_y/2+ny/2,
-                      pad_x/2-nx/2:pad_x/2+nx/2] = image_in[0,0,:,:]
+                      pad_y//2-ny//2:pad_y//2+ny//2,
+                      pad_x//2-nx//2:pad_x//2+nx//2] = image_in[0,0,:,:]
         else:                  # odd number of pixels
             pad_image[0,0,
-                      pad_y/2-(ny-1)/2:pad_y/2+(ny+1)/2,
-                      pad_x/2-(nx-1)/2:pad_x/2+(nx+1)/2] = image_in[0,0,:,:]
+                      pad_y//2-(ny-1)//2:pad_y//2+(ny+1)//2,
+                      pad_x//2-(nx-1)//2:pad_x//2+(nx+1)//2] = image_in[0,0,:,:]
         return pad_image
 
     else:                      # padding is not necessary as image is already the right size (potential bug if nx>pad_x)
@@ -1781,14 +1848,14 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
         flux = np.sum(image_in_jypix_shifted[0,0,:,:])
         print "flux [Jy] = ", flux
     else:
-        delta_freq= (lam[0] - lam[1])*cc*1.0e4/lam[nf/2]**2.0 # Hz
+        delta_freq= (lam[0] - lam[1])*cc*1.0e4/lam[nf//2]**2.0 # Hz
         delta_velocity = (lam[1] - lam[0])*cc*1e-5/lam0 # km/s
 
         if continuum_subtraction:
          
             m=(image_in_jypix_shifted[0,-1,:,:]- image_in_jypix_shifted[0,0,:,:])/(lam[-1]-lam[0])
             I0=image_in_jypix_shifted[0,0,:,:]*1.
-            for k in xrange(nf):
+            for k in range(nf):
                 Cont=I0+(lam[k]-lam[0])*m
                 image_in_jypix_shifted[0,k,:,:]= image_in_jypix_shifted[0,k,:,:] - Cont 
         flux = np.sum(image_in_jypix_shifted[0,:,:,:])*delta_velocity
@@ -1828,25 +1895,28 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
     #header['EPOCH'] = 2000.
     #header['LONPOLE'] = 180.
     header['CTYPE1'] = 'RA---TAN'
-    header['CRVAL1'] = x0
     header['CTYPE2'] = 'DEC--TAN'
-    header['CRVAL2'] = y0
+    if Npixf%2==1: ## if odd number of pixels, central pixel coincides with center
+        header['CRVAL1'] = x0
+        header['CRVAL2'] = y0
+    else:   ## if even number of pixels, there is no central pixel
+        header['CRVAL1'] = x0+pixdeg_x
+        header['CRVAL2'] = y0-pixdeg_y
     
-
     unit = 'DEG'
     multiplier = 1
     # RA
     header['CDELT1'] = -multiplier*pixdeg_x
     header['CUNIT1'] = unit
     # ...Zero point of coordinate system
-    header['CRPIX1'] = 1.0*((Npixf+1)/2)
+    header['CRPIX1'] = (Npixf+1)//2
     # DEC
     header['CDELT2'] = multiplier*pixdeg_y
     header['CUNIT2'] = unit
     #
     # ...Zero point of coordinate system
     #
-    header['CRPIX2'] = 1.0* ((ny+1)/2)
+    header['CRPIX2'] = (Npixf+1)//2
 
     # FREQ
     if nf > 1:
@@ -2355,7 +2425,7 @@ def Simimages_canvas_fields(dpc, X0, Y0, images, wavelengths, fields, Npix, dpix
 
     sau=Npix*dpix*dpc
 
-    for im in xrange(len(images)):
+    for im in range(len(images)):
         os.system('radmc3d image incl '+str(inc)+' phi '+str(omega)+' posang '+str(PA-90.0)+'  npix '+str(Npix)+' lambda '+str(wavelengths[im])+' sizeau '+str(sau)+' secondorder  > simimgaes.log')
 
         pathin ='image_'+images[im]+'_'+tag+'.out'
@@ -2400,7 +2470,7 @@ def sed(wmin, wmax, Nw, inc=0.0, PA=0.0, omega=0.0, output_name='sed.dat', dpc=1
     path='camera_wavelength_micron.inp'
     arch=open(path,'w')
     arch.write(str(Nw)+'\n')
-    for i in xrange(Nw):
+    for i in range(Nw):
         arch.write(str(wmin*Pl**(i))+'\n')
     arch.close()
     if sizeau>0.0:
@@ -2413,7 +2483,7 @@ def sed(wmin, wmax, Nw, inc=0.0, PA=0.0, omega=0.0, output_name='sed.dat', dpc=1
     Nw=int(arch.readline())
     SED=np.zeros((Nw,2))
     arch.readline()
-    for i in xrange(Nw):
+    for i in range(Nw):
         line=arch.readline()
         dat=line.split()
         SED[i,0]=float(dat[0])   # um 
@@ -2516,7 +2586,7 @@ def dered(lam,f,Av,Rv):  # unredenning according to cardelli's law
     #plt.plot(wl,b,color='green')
     #plt.show()
     Funred=np.zeros(npts)
-    for i in xrange(npts):
+    for i in range(npts):
         Funred[i]=f[i]*10.0**(0.4*A[i])
     
 
@@ -2635,22 +2705,22 @@ def plot_field(field='temp', ispec=1, rmax=100., rmin=0., Tcontours=[20., 50.], 
     arch.readline()
     arch.readline()
 
-    for o in xrange(ispec-1):
-        for i in xrange(Nphi*Nth*Nr):
+    for o in range(ispec-1):
+        for i in range(Nphi*Nth*Nr):
             arch.readline()
 
-    for j in xrange(Nphi):
-        for k in xrange(Nth):
-            for i in xrange(Nr): 
+    for j in range(Nphi):
+        for k in range(Nth):
+            for i in range(Nr): 
                 F[j,k,i]=float(arch.readline())
 
     imax=Nr
-    for i in xrange(Nr+1):
+    for i in range(Nr+1):
         if Redge[i]>rmax: 
             imax=i
             break
     fmax=1000.0
-    for i in xrange(Nr+1):
+    for i in range(Nr+1):
         if Redge[i]>rmin: 
             fmax=F[0,Nth/2,i]
             break
