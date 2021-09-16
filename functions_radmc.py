@@ -1871,7 +1871,7 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
     #header['SIMPLE']='T'
     header['BITPIX']=-32
     # all the NAXIS are created automatically header['NAXIS']=2
-    header['OBJECT']='HD109085'
+    header['OBJECT']='simulation'
     header['EPOCH']=2000.0
     header['LONPOLE']=180.0
     header['EQUINOX']=2000.0
@@ -1988,7 +1988,7 @@ def convert_to_fits_alpha(path_image,path_fits, Npixf, dpc , lam0, newlam, mx=0.
     #header['SIMPLE']='T'
     header['BITPIX']=-32
     # all the NAXIS are created automatically header['NAXIS']=2
-    header['OBJECT']='HD109085'
+    header['OBJECT']='simulation'
     header['EPOCH']=2000.0
     header['LONPOLE']=180.0
     header['EQUINOX']=2000.0

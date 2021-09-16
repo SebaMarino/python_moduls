@@ -290,7 +290,7 @@ def Sig_dot_p_gauss(rs, hs, r0, sig_g, Mdot, mask_belt):
     # Sdot_comets=Mdot*Sdot_comets/(2.*np.pi*np.sum(Sdot_comets*rs*hs))
 
     ### with mask to avoid CO input beyond or within the belt
-    Sdot_comets[mask_belt]=np.exp( -2* (rs[mask_belt]-r0)**2.0 / (2.*sig_g**2.) ) # /(np.sqrt(2.*np.pi)*sig_g)/(2.*np.pi*rs[mask_belt]) # factor 2 inside exponential is to make Mdot prop to Sigma**2 
+    Sdot_comets[mask_belt]=np.exp( -1* (rs[mask_belt]-r0)**2.0 / (2.*sig_g**2.) ) # /(np.sqrt(2.*np.pi)*sig_g)/(2.*np.pi*rs[mask_belt]) # factor 2 inside exponential is to make Mdot prop to Sigma**2 
     Sdot_comets[mask_belt]=Mdot*Sdot_comets[mask_belt]/(2.*np.pi*np.sum(Sdot_comets[mask_belt]*rs[mask_belt]*hs[mask_belt]))
     return Sdot_comets
 
@@ -337,7 +337,7 @@ def Sigma_next(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, r0, width, Mdot, nus_au2
     ############## photodissociation
     ###########################################
     if photodissociation:
-        tphCO=tau_CO3(Sigma_prev[0,:], Sigma_prev[1,:])
+        tphCO=tau_CO2(Sigma_prev[0,:], Sigma_prev[1,:])
         Sdot_ph=Sigma_prev[0,:]/tphCO #(Snext[0,:]/tphCO)
         #Sdot_ph_epsilon=Sigma_prev[0,:]*(1.-np.exp(-epsilon/tphCO))   
         Snext2[0,:]=Snext2[0,:]-epsilon*Sdot_ph
@@ -399,7 +399,7 @@ def Sigma_next_fMdot(Sigma_prev, Nr, rs, rhalfs, hs, epsilon, fMdot, args_fMdot,
     ############## photodissociation
     ###########################################
 
-    tphCO=tau_CO3(Sigma_prev[0,:], Sigma_prev[1,:])
+    tphCO=tau_CO2(Sigma_prev[0,:], Sigma_prev[1,:])
     Sdot_ph=Sigma_prev[0,:]/tphCO #(Snext[0,:]/tphCO)
     #Sdot_ph_epsilon=Sigma_prev[0,:]*(1.-np.exp(-epsilon/tphCO))   
     Snext2[0,:]=Snext2[0,:]-epsilon*Sdot_ph

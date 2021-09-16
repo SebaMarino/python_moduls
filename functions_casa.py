@@ -108,7 +108,7 @@ def extractvis(vis, tablename, ms): # by S. Marino
 
     ms.close()
 
-    print 'Chi red = ', np.sum( (table[:,2]**2.+table[:,3]**2)*table[:,4] )/table[:,0].size/2.
+    print 'Chi red = %1.5f'%( np.sum( (table[:,2]**2.+table[:,3]**2)*table[:,4] )/table[:,0].size/2.)
 
     np.savetxt(tablename+'.dat', table)
     np.save(tablename, table)

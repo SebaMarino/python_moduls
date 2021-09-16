@@ -12,7 +12,7 @@ cimport cython
 @cython.cdivision(True)
 # Cython handles the namespace ambiguity internally in this case
 
-def Chi2_simvisC_bilinear(pathfitsfile, table, offra=0.0, offdec=0.0):
+def Chi2_simvisC_bilinear(pathfitsfile, table, offra=0.0, offdec=0.0, save=False, tag=''):
 
     cdef:
         double chi2
@@ -87,7 +87,7 @@ def Chi2_simvisC_bilinear(pathfitsfile, table, offra=0.0, offdec=0.0):
     jps=(-table[:,1]/du+N/2.0) # indices of v with decimals
     #jps=jps.astype(int)
 
-    for i in xrange(Nvis):
+    for i in range(Nvis):
         il=int(ips[i])   # lower u
         iu=int(ips[i]+1) # upper u
             
@@ -124,6 +124,8 @@ def Chi2_simvisC_bilinear(pathfitsfile, table, offra=0.0, offdec=0.0):
 
     ais=np.where(table[:,4]>0.0)
     Nvis_noflaggs=len(ais[0])
+    if save:			
+       np.save('tablevismodel_'+tag, np.array([table[:,0], table[:,1], np.real(vmodel), np.imag(vmodel),table[:,4], table[:,5]  ]))
     # print chi2, Nvis
     return chi2, Nvis_noflaggs
 

@@ -44,8 +44,8 @@ def f_to_M(f,e):
 
     # converts true anomaly f to mean anomaly M, both in radians.
 
-    E = 2.0 *  ma.atan2( (1-e)**0.5 * ma.sin(f/2.0), (1+e)**0.5 * ma.cos(f/2.0)) 
-    M = E-e*ma.sin(E)    
+    E = 2.0 *  np.arctan2( (1-e)**0.5 * np.sin(f/2.0), (1+e)**0.5 * np.cos(f/2.0)) 
+    M = E-e*np.sin(E)    
     return M 
     
 def M_to_r(M, a, e ):
@@ -890,42 +890,192 @@ def orbit_resonance_rotframe(aplt,  ecc, inc, p, q,
                              Omegap=0.0,
                              pomegap=0.0,
                              Mstar=1.0,
-                             res='external'):
+                             res='external',
+                             return_nonrot=False,
+                             phim=0.):
 
-    Norbits=100.0
-    Np=2000
+    if res=='external':
+        Norbits=(q+p)*1.
+    else:
+        Norbits=(q+p)*1.
+        
+    Np=100 # number of points
+    
     #### PLANET ORBIT
     
     Tplt=np.sqrt(aplt**3.0/Mstar) # yr
     
     ts=np.linspace(0.0, Norbits*Tplt, Np)
-    Maplt=(ts/Tplt)*2.*np.pi
+    Maplt=(ts/Tplt)*2.*np.pi # mean anomalies for planet
 
     alphas=np.zeros(Np)
 
-    for i in range(Np):
-        #xi,yi,zi=cartesian_from_orbelement(aplt,eplt,iplt, Omegaplt, pomegaplt, Mplt[i])
+    iorbits=0
+    fi=M_to_f(Maplt[0], eplt) # true anomaly of planet
+    alphas[0]=pomegaplt+fi #  true anomalie + longitude of ascending node, i.e. longitude of the planet
+    for i in range(1,Np):
 
-        fi=M_to_f(Maplt[i], eplt)
-        alphas[i]=pomegaplt+fi#np.arctan2(yi,xi)
-        
+        fi=M_to_f(Maplt[i], eplt) # true anomaly of planet
+
+        alphas[i]=alphas[i]+pomegaplt+fi #  true anomalie + longitude of ascending node, i.e. longitude of the planet
+        if alphas[i]<alphas[i-1]:
+            alphas[i:]= alphas[i:]+2.*np.pi # add extra loop to this and all subsequent times
     #### particles (external resonance)
     if res=='external':
-        a=aplt*(float(p+q)/float(p))**(2./3.)
+        a=aplt*(float(p+q)/float(p))**(2./3.) 
     elif res=='internal':
         a=aplt*(float(p)/float(p+q))**(2./3.)
     else:
         print('error, no internal nor exernal resonance')
         sys.exit()
-    Tp=np.sqrt(a**3.0/Mstar) # yr
+        
+    Tp=np.sqrt(a**3.0/Mstar) # yr period of particle
     print( Tp, Tplt)
-    Map=(ts/Tp)*2.*np.pi
+
+    # phim is the resonant argument
+
+    lambda_p= (phim + p * (Maplt+pomegaplt) + q*pomegaplt)/(p+q) # mean longitude (M+pomega)
+    Map= lambda_p-pomegap # f_to_M( alphas_p-pomegap,ecc)
+
+    # Map2=(ts/Tp)*2.*np.pi # mean anomalies of particle
+    # plt.plot(Map2, Map, 'o')
+    # plt.show()
+
+    # print(Maplt*180/np.pi)
+    #     print(alphas*180/np.pi)
+    #     print(alphas_p*180/np.pi)
+    # #   
+    # print(Map*180/np.pi)
+
+    #Map=(ts/Tp)*2.*np.pi # mean anomalies of particle
 
     xs=np.zeros(Np)
     ys=np.zeros(Np)
-    
+
+    xs_inertial=np.zeros(Np)
+    ys_inertial=np.zeros(Np)
+
     for i in range(Np):
         xs[i],ys[i],zi=cartesian_from_orbelement_rotating_frame(a,ecc,0.0, Omegap, pomegap, Map[i], alphas[i])
 
+        xs_inertial[i],ys_inertial[i],zi=cartesian_from_orbelement(a,ecc,0.0, Omegap, pomegap, Map[i])
 
-    return xs, ys, alphas, a
+        
+    if not return_nonrot:
+        return xs, ys, alphas, a
+    else:
+        return xs, ys, alphas, a, xs_inertial, ys_inertial
+
+
+# def orbit_resonance_single_epoch(aplt,   ### not working, need to figure out how to randomized orbit when lambda_plt and phim are fixed. Randomizing pomegap does not work
+#                                  ecc,
+#                                  inc,
+#                                  p, q,
+#                                  lambda_plt=0.,
+#                                  eplt=0.0,
+#                                  pomegaplt=0.0,
+#                                  Omegap=0.0,
+#                                  #pomegap=0.0,
+#                                  #Mstar=1.0,
+#                                  res='external',
+#                                  # return_nonrot=False,
+#                                  phim=0.):
+
+#     if res=='external':
+#         Norbits=(q+p)*1.
+#     else:
+#         Norbits=(q+p)*1.
+        
+#     Np=100 # number of points
+    
+#     lambda_p= (phim + p * (lambda_plt) + q*pomegaplt)/(p+q) # mean longitude (M+pomega)
+#     pomegap=np.linspace(0., 2.*np.pi, Np) # longitude of pericentre
+#     Mp = lambda_p-pomegap # mean anomaly of particles
+    
+#     #### particles (external resonance)
+#     if res=='external':
+#         a=aplt*(float(p+q)/float(p))**(2./3.) 
+#     elif res=='internal':
+#         a=aplt*(float(p)/float(p+q))**(2./3.)
+#     else:
+#         print('error, no internal nor exernal resonance')
+#         sys.exit()
+
+#     print(aplt,a)
+#     xs=np.zeros(Np)
+#     ys=np.zeros(Np)
+
+#     for i in range(Np):
+#         xs[i],ys[i],zi=cartesian_from_orbelement(a,ecc,0.0, Omegap, pomegap[i], Mp[i])
+#         # xs_inertial[i],ys_inertial[i],zi=cartesian_from_orbelement(a,ecc,0.0, Omegap, pomegap, Map[i])
+
+#     return xs, ys
+
+"""
+    # #### PLANET ORBIT
+
+    # # distribute particles with constant phim
+    
+    # Tplt=np.sqrt(aplt**3.0/Mstar) # yr
+    
+    # ts=np.linspace(0.0, Norbits*Tplt, Np)
+    # Maplt=(ts/Tplt)*2.*np.pi # mean anomalies for planet
+
+    # alphas=np.zeros(Np)
+
+    # iorbits=0
+    # fi=M_to_f(Maplt[0], eplt) # true anomaly of planet
+    # alphas[0]=pomegaplt+fi #  true anomalie + longitude of ascending node, i.e. longitude of the planet
+    # for i in range(1,Np):
+
+    #     fi=M_to_f(Maplt[i], eplt) # true anomaly of planet
+
+    #     alphas[i]=alphas[i]+pomegaplt+fi #  true anomalie + longitude of ascending node, i.e. longitude of the planet
+    #     if alphas[i]<alphas[i-1]:
+    #         alphas[i:]= alphas[i:]+2.*np.pi # add extra loop to this and all subsequent times
+    # #### particles (external resonance)
+    # if res=='external':
+    #     a=aplt*(float(p+q)/float(p))**(2./3.) 
+    # elif res=='internal':
+    #     a=aplt*(float(p)/float(p+q))**(2./3.)
+    # else:
+    #     print('error, no internal nor exernal resonance')
+    #     sys.exit()
+        
+    # Tp=np.sqrt(a**3.0/Mstar) # yr period of particle
+    # print( Tp, Tplt)
+
+    # phim is the resonant argument
+
+    lambda_p= (phim + p * (Maplt+pomegaplt) + q*pomegaplt)/(p+q) # mean longitude (M+pomega)
+    Map= lambda_p-pomegap # f_to_M( alphas_p-pomegap,ecc)
+
+    # Map2=(ts/Tp)*2.*np.pi # mean anomalies of particle
+    # plt.plot(Map2, Map, 'o')
+    # plt.show()
+
+    # print(Maplt*180/np.pi)
+    #     print(alphas*180/np.pi)
+    #     print(alphas_p*180/np.pi)
+    # #   
+    # print(Map*180/np.pi)
+
+    #Map=(ts/Tp)*2.*np.pi # mean anomalies of particle
+
+    xs=np.zeros(Np)
+    ys=np.zeros(Np)
+
+    xs_inertial=np.zeros(Np)
+    ys_inertial=np.zeros(Np)
+
+    for i in range(Np):
+        xs[i],ys[i],zi=cartesian_from_orbelement_rotating_frame(a,ecc,0.0, Omegap, pomegap, Map[i], alphas[i])
+
+        xs_inertial[i],ys_inertial[i],zi=cartesian_from_orbelement(a,ecc,0.0, Omegap, pomegap, Map[i])
+
+        
+    if not return_nonrot:
+        return xs, ys, alphas, a
+    else:
+        return xs, ys, alphas, a, xs_inertial, ys_inertial
+"""

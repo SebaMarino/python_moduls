@@ -27,7 +27,7 @@ def f_Qd(Di, vimp=3.0e3, Qs=608.0, bs=0.38, Qg=0.011, bg=1.36 ): ### DISPERSAL T
     # else:
     return Qd
     
-def f_dmax( vimp=3.0e3, Qg=0.03, bg=1.38 ):
+def f_dmax( vimp=3.0e3, Qg=0.011, bg=1.36 ):
     v0=3.0e3 # m/s
     Xcc=0.95
     return (Xcc**3.0 * vimp**1.5 * v0 **0.5 / Qg / 2.0 )**(1.0/bg)

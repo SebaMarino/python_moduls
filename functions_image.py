@@ -265,7 +265,7 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
     xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
     
     # R phi
-
+    if PA<0.: PA=PA+180.
     PA_rad=PA*np.pi/180.0
     phis_rad=phis*np.pi/180.0
     #phis_rad[phis_rad<0.0]=2.*np.pi+phis_rad[phis_rad<0.0] # phi is possitive everywhere, not necessary as this is properly accounted for later
@@ -1064,11 +1064,11 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=Fa
         BMAJ=0.0
         BMIN=0.0
         BPA=0.0
-
-    if header1['CTYPE3'] == 'FREQ':
-        wave=c_light/header1['CRVAL3']*1.0e6
-        print('wavelength = %1.3f um'%(wave))
-        
+    try:
+        if header1['CTYPE3'] == 'FREQ':
+            wave=c_light/header1['CRVAL3']*1.0e6
+            print('wavelength = %1.3f um'%(wave))
+    except: print('no CTYPE3')    
     if header1['BUNIT']=='JY/PIXEL' and output=='JY/ARCSEC2':
         data1=data1/(ps_arcsec1**2.0) # Jy/pixel to Jy/arcsec2
     # x1, y1, x1edge, y1edge = xyarray(N1, ps_arcsec1)
@@ -1281,7 +1281,7 @@ def moment_0(path_cube, line='CO32', v0=0.0, dvel=10.0,  rmin=0.0, inc=90.0, M_s
    
         return image, xfedge, yfedge, BMAJ, BMIN, BPA, dv, rms_moment0
         
-def moment_0_shifted(cube, xs, ys, ps_arcsec, BMAJ, vs, v0 , x0, y0, PA, inc, M_star, dpc, Dvel0=3.2, f1=1.0, f2=2.3, sign=1.0, width=3.):
+def moment_0_shifted(cube, xs, ys, ps_arcsec, BMAJ, vs, v0 , x0, y0, PA, inc, M_star, dpc, Dvel0=3.2, f1=1.0, f2=1.1, sign=1.0, width=3.):
     Npix=len(cube[0,0,:])
     Nf=len(vs)
     dv=vs[1]-vs[0]
@@ -1747,7 +1747,7 @@ def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
              
     return Rs_edge, Rs, np.array([Real_mean, Real_std, Real_error]), np.array([Imag_mean, Imag_std, Imag_error]), np.array([Amp_mean, Amp_std, Amp_error])
 
-def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, YMAX=0.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, loc_beam='ll', show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, c_levels=[3.0,5.0, 8.0], star=True, xstar=0.0, ystar=0.0, starcolor='white', cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=False, dpc=10., planet=False, xplt=0.0, yplt=0.0, pltcolor='white', title=''):
+def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, YMAX=0.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, loc_beam='ll', show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, c_levels=[3.0,5.0, 8.0], star=True, xstar=0.0, ystar=0.0, starcolor='white', cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=False, dpc=10., planet=False, xplt=0.0, yplt=0.0, pltcolor='white', title='', white_back=False, vmin2=0., axes=True, cbar=True):
 
 
     plt.style.use('style1')
@@ -1765,18 +1765,26 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
     if not cbar_log:
         my_cmap = copy.copy(plt.cm.get_cmap(colormap)) # copy the default cmap
-        my_cmap.set_bad(bad_color)
-        pc=ax1.pcolormesh(xedge,yedge,image, vmin=vmin, vmax=vmax,  cmap=my_cmap, rasterized=True)
+        if white_back:
+            # background
+            image_masked=np.where(image<vmin, np.nan, image)
+            pcb=ax1.pcolormesh(xedge,yedge,image, vmin=vmin2, vmax=vmin,  cmap='binary', rasterized=True)
+            pc=ax1.pcolormesh(xedge,yedge,image_masked, vmin=vmin, vmax=vmax,  cmap=my_cmap, rasterized=True)
+        else:
+            my_cmap.set_bad(bad_color)
+            pc=ax1.pcolormesh(xedge,yedge,image, vmin=vmin, vmax=vmax,  cmap=my_cmap, rasterized=True)
   
         #pc.set_edgecolor('face')
-        cb= fig.colorbar(pc,orientation='horizontal',label=clabel,format=formatcb, ticks=cbticks, pad=0.12)
-        cb.ax.minorticks_on()
+        if cbar:
+            cb= fig.colorbar(pc,orientation='horizontal',label=clabel,format=formatcb, ticks=cbticks, pad=0.12)
+            cb.ax.minorticks_on()
     else:
         my_cmap = copy.copy(plt.cm.get_cmap(colormap)) # copy the default cmap
         my_cmap.set_bad(bad_color)
         pc=ax1.pcolormesh(xedge,yedge,image, norm=LogNorm(vmin=vmin, vmax=vmax),  cmap=my_cmap, rasterized=True)
         #pc.set_edgecolor('face')
-        cb= fig.colorbar(pc,orientation='horizontal',label=clabel, pad=0.12)
+        if cbar:
+            cb= fig.colorbar(pc,orientation='horizontal',label=clabel, pad=0.12)
 
     c1=fcolor_black_white(1.0,3)
     c2=fcolor_black_white(1.0,3)
@@ -1829,7 +1837,8 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
         else:
             xc=XMAX-1.5*BMAJ/2.#abs(minor_ticks[1]-minor_ticks[0])
             yc=-YMAX+1.5*BMAJ/2.#abs(minor_ticks[1]-minor_ticks[0])
-        
+            # xc=0.9
+            # yc=-0.9
         width= BMAJ
         height= BMIN
         pa=BPA
@@ -1858,7 +1867,9 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
         xc=XMAX-1.0*abs(minor_ticks[1]-minor_ticks[0])
         yc=XMAX-2.0*abs(minor_ticks[1]-minor_ticks[0])
         plt.text(xc, yc, title, color='white')
-        
+
+    if not axes:
+        plt.axis('off')
     plt.tight_layout()
     plt.subplots_adjust(left=0.17, bottom=0.01, right=0.97, top=1.0)
     print('saving...')
@@ -1870,7 +1881,7 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
         plt.show()
         plt.clf()
 
-
+    
 
 def cartesian2polar(outcoords, inputshape, origin, fieldscale=1.): # by S. Perez
     """Coordinate transform for converting a polar array to Cartesian coordinates. 
