@@ -46,6 +46,289 @@ def f_Rcoll(Ds, k, Msi, V, vrel, rho, Qs=608.0, bs=0.38, Qg=0.011, bg=1.36):  ##
     return Ri
 
 
+
+def SizeDist_dmax(Mstar=1.0, 
+                  e=0.05,
+                  I=0.05/2.0,    
+                  r0=1.0,          
+                  dr=0.05*2.0*1.0, 
+                  Mbeltem=1.0,          
+                  rho=2700.0,
+                  dmin=0.8e-6,
+                  dmax=1.0e5,
+                  ND=500,
+                  alphap=-3.7,
+                  ts=[100.0],
+                  Qs=608.0,
+                  bs=0.38,
+                  Qg=0.011,
+                     bg=1.36,
+                     threshold=0.1): 
+    # ##################################################
+    # returns size distribution: Ds, M(Ds)
+    # Mstar=1.0, stellar mass in solar masses 
+    # e=0.05, mean eccentricities
+    # I=0.05/2.0,  mean inclinations in radians
+    # r0=1.0,      mean radius in au
+    # dr=0.05*2.0*1.0,  width of annulus in au
+    # Mbeltem=1.0,     total mass in solids in earth Masses
+    # rho=2700.0, bulk density of the solids in kg/m3
+    # dmin=1.0e-6, minimum size of solids in m
+    # dmax=1.0e5, maximum size of solids in m
+    # ND=500,     Number of size log bins 
+    # alphap=-3.7, primordial size distribution
+    # ts=100.0 age of the system in Myr (it must be an array)
+
+    # The only difference with the original function is that it
+    # recalculates dmax based on Xc=1, and scales the mass of the belt
+    # to be consistent.
+    # ##############################################
+
+
+    Mstar=Mstar*Msun # kg
+    rmid=r0*au # m
+    Mbelt=Mbeltem*Mearth # kg
+    print(rmid/au, dr, I)
+    Vol=4.0*np.pi*rmid*dr*au*I*rmid # [m3]
+    print("Vol [au3] = ", Vol/au**3.0)
+    vk=(G*Mstar/rmid)**0.5 # m/s
+    vrel=vk*(1.25*e**2.0+I**2.0)**(0.5) # m/s
+    print("vrel [km/s] = ",vrel/1.0e3)
+    # ######## BINS
+
+    print("dmax = ", f_dmax( vimp=vrel, Qg=Qg, bg=bg ))
+    dmaxn=f_dmax( vimp=vrel, Qg=Qg, bg=bg )
+
+    if dmaxn<dmax:
+        Mbeltn=Mbelt*(dmaxn/dmax)**(alphap+4.0)
+    else:
+        dmaxn=dmax
+        Mbeltn=Mbelt
+        
+    Ds=np.logspace(np.log10(dmaxn), np.log10(dmin), ND) # from big to small [m]
+    delta=Ds[0]/Ds[1] # -1.0
+
+    # ########## redistribution function
+    alphar=-3.5
+    alphare=20
+    etarmax=2.0**(-1.0/3.0) # the largest objects has the same mass as the original
+    keta=-int(np.log(etarmax)/np.log(delta)) # number of bins
+    Fredist=np.zeros(ND)
+
+    for i in range(0,ND):
+        if (delta)**(-i)<=etarmax:
+            Fredist[i]=(delta**(-i))**(4.0+alphar)
+        else:
+            Fredist[i]=1.0*(delta**(-i))**(4.0+alphare)
+    Fredist=Fredist/np.sum(Fredist)
+
+    
+    Nt=len(ts)
+
+    Msfinal=np.zeros((Nt, ND))
+
+    # ######################################
+    # ########### initial conditions
+    # ######################################
+
+    Ms0=np.zeros(ND)
+    for i in range(ND):
+        Ms0[i]=(Ds[i]/dmax)**(alphap+4.0)
+    Ms0=Ms0*Mbeltn/np.sum(Ms0)
+
+    
+    # compute collisional rates to guess maximum size in steady state
+    Rs0=np.zeros(ND)
+    for i in range(ND):
+        Rs0[i]=f_Rcoll(Ds, i,Ms0, Vol, vrel, rho, Qs, bs, Qg, bg)
+
+    # plt.plot(Ds,Rs0)
+    # plt.xscale('log')
+    # plt.yscale('log')
+    # plt.show()
+
+    # #############################################
+    # Calculate size distribution at different epochs
+    # #############################################
+    for it in range(Nt):
+
+        if ts[it]==0.0:
+            Msfinal[it,:]=Ms0
+        
+        elif ts[it]>0.0:
+            
+
+            # Compute initial collisional timescales for each size
+            tcolls=1.0/Rs0 /(1.0e6*year) # Myr # this can give inf as Rs0 can be 0 if e<emax to break up planetesimals
+            print(tcolls[:30])
+            # initial guess for Dc
+            kmin=1
+            kmax=kmin
+            for k in range(kmin,ND):
+                if tcolls[k]<ts[it]:
+                    kmax=k
+                    break
+            kmaxu=kmax*1 # upper limit
+            kmaxl=0 # lower limit
+
+            Nit=20
+            ncheck=18
+
+            Mp=np.zeros(ND)
+            Ms=Ms0*1.0
+            
+            # Msl=Ms0*2.0 # Ms used to save size distribution of kmaxl
+            # Msu=Ms0*2.0 # Ms used to save size distribution of kmaxu
+            
+            tcollib=0.0
+            Rs=np.zeros(ND)
+            Rcoll1=np.zeros(ND)
+            Cs=np.zeros(ND)
+
+            # #############################################
+            # ######## ITERATE TO REACH STEADY STATE SIZE DISTRIBUTION
+            # #############################################
+       
+            ni=0
+            while ni<Nit:
+                print("it , ni ", it, ni)
+
+                Mp=Ms # it should be Mp=Ms*1.0, but without the *1.0 it converges faster
+                # Method from Wyatt+2011
+                for k in range(ND):
+
+                    Rcoll1[k]=f_Rcoll(Ds,k,Ms, Vol, vrel, rho, Qs, bs, Qg, bg)
+                for k in range(ND):
+        
+                    C1k=np.sum(Rcoll1[:k]*Ms[:k]*Fredist[k:0:-1])
+            
+                    if k>=kmax and Rcoll1[k]>0.0:
+                        Mp[k]=(C1k/Rcoll1[k]+Ms[k])/2.0
+            
+                    Rcoll2=f_Rcoll(Ds,k,Mp, Vol, vrel, rho, Qs, bs, Qg, bg)
+
+                    if k>=kmax and Rcoll2>0.0:
+                        Ms[k]=(C1k/Rcoll2+Ms[k])/2.0
+
+                    Rs[k]=Rcoll2
+                    Cs[k]=C1k
+
+
+
+
+                # compare age and coll timescale
+                tcolli=1.0/Rs /(1.0e6*year)
+                print(ts[it], r0,  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxl)
+                ni+=1
+
+                # correct kmax if age<tcoll (it is a smaller size thank D[kmax]) and kmaxl=0 by increasing kmax by half a step
+                if ts[it]*(1.+threshold)< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxl==0:
+                    kmaxl=kmax*1
+                    for ik in range(kmax+1,ND):
+                        if tcolli[ik]<ts[it]:
+                            kmax=int(round( (ik+ kmax)/2.0 ))
+                            break
+                    kmaxu=ik*1
+                    ni=0
+                    tcollil=tcolli[kmax]
+                    Msl=Ms*1.0
+                    Ms= Ms0*1.0 
+                    print(1)
+
+                # correct kmax if age<tcoll (it is a smaller size thank D[kmax]), kmaxl!=0, and kmax differs from kmaxu by more than 1 by increasing kmax by half a step
+                if ts[it]*(1.+threshold)< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxl!=0 and (kmaxu-kmax>1):
+                    kmaxl=kmax*1
+                    kmax=int(round((kmaxu+ kmax)/2.0))
+                    ni=0
+                    tcollil=tcolli[kmax]
+                    Msl=Ms*1.0
+                    Ms= Ms0*1.0 
+                    print(2)
+
+                # correct kmax if age>tcoll by decreasing kmax by decreasing kmax by half a step
+                elif ts[it]> (1.+threshold)*tcolli[kmax] and ni>ncheck and (kmax-kmaxl>1):
+                    kmaxu=kmax*1
+                    kmax=int(round( (kmaxl + kmax)/2.))
+                    ni=0
+                    Msu=Ms*1.0
+                    tcolliu=tcolli[kmax]
+                    Ms= Ms0*1.0 
+                    print(3)
+
+                # elif tcolli[kmax-1]==np.inf and ni>ncheck: # tcolli[kmax-1]==np.inf 
+                #     kmax+=1
+                #     kmaxu=kmax*1
+                #     ni=0
+                #     Ms= Ms0*1.0 
+                #     print(4)
+
+                if kmax==ND-1 or tcolli[-1]>ts[it]: 
+                    Ms= Ms0*1.0 
+                    print(5)
+                    break
+
+            #######################
+            # # if threshold is still not stisfied this will average two size distributions
+            ######################
+            kextra=kmax
+            if ts[it]>(1.+threshold)*tcolli[kmax] and kmax>kmaxl and kmax>kmin:
+                print("average with lower k")
+                
+                w1=min(ts[it], tcollil)/max(ts[it], tcollil)
+                w2=min(ts[it], tcolli[kmax])/max(ts[it], tcolli[kmax])
+                Ms=(Msl*w1 + Ms*w2)/(w1+w2)
+                
+            elif ts[it]*(1.+threshold)<tcolli[kmax] and kmax<kmaxu:
+                print("average with upper k")
+
+                w1=min(ts[it], tcolli[kmax])/max(ts[it], tcolli[kmax])
+                w2=min(ts[it], tcolliu)/max(ts[it], tcolliu)
+
+                Ms=(Ms*w1 + Msu*w2)/(w1+w2)
+
+
+            # collisionally evolve the whole distribution
+            for k in range(ND):
+                Rs[k]=f_Rcoll(Ds, k,Ms, Vol, vrel, rho, Qs, bs, Qg, bg)
+            tcolli=1.0/Rs /(1.0e6*year)
+            if tcolli[0]<ts[it] and kmax==kmin:
+                Ms = Ms/(ts[it]/tcolli[0])
+            Msfinal[it,:]=Ms
+
+
+        else: 
+            print("the epoch must be positive")
+            return -1.0
+
+    ### need to extrapolate Ds to original dmax and Msfinal 
+
+    NDe=int(round(np.log(dmax/dmaxn)/np.log(delta)))
+    print(NDe)
+    NDf=ND+NDe
+    Msfinalf=np.zeros((Nt,NDf))
+    # Rsfinalf=np.zeros((NDf))
+
+    Msfinalf[:,NDe:]=Msfinal
+    # Rsfinalf[NDe:]=Rs
+
+    Dsf=np.logspace(np.log10(dmax), np.log10(dmin), NDf)
+
+    for i in range(NDe):
+        Msfinalf[:,i]=(Dsf[i]/dmax)**(alphap+4.0)
+
+
+    Msfinalf[:,:NDe]=Msfinalf[:,:NDe]*(Mbelt-Mbeltn)/np.sum(Msfinalf[0,:NDe])
+
+    return Dsf, Msfinalf#, Rs
+
+
+
+
+
+
+"""
+
+
 def SizeDist(Mstar=1.0, 
              e=0.05,
              I=0.05/2.0,    
@@ -103,7 +386,7 @@ def SizeDist(Mstar=1.0,
     keta=-int(np.log(etarmax)/np.log(delta)) # number of bins
     Fredist=np.zeros(ND)
 
-    for i in xrange(0,ND):
+    for i in range(0,ND):
         if (delta)**(-i)<=etarmax:
             Fredist[i]=(delta**(-i))**(4.0+alphar)
         else:
@@ -120,14 +403,14 @@ def SizeDist(Mstar=1.0,
     # ######################################
 
     Ms0=np.zeros(ND)
-    for i in xrange(ND):
+    for i in range(ND):
         Ms0[i]=(Ds[i]/dmax)**(alphap+4.0)
     Ms0=Ms0*Mbelt/np.sum(Ms0)
 
     
     # compute collisional rates to guess maximum size in steady state
     Rs0=np.zeros(ND)
-    for i in xrange(ND):
+    for i in range(ND):
         Rs0[i]=f_Rcoll(Ds, i,Ms0, Vol, vrel, rho, Qs, bs, Qg, bg)
 
     # plt.plot(Ds,Rs0)
@@ -138,7 +421,7 @@ def SizeDist(Mstar=1.0,
     # #############################################
     # Calculate size distribution at different epochs
     # #############################################
-    for it in xrange(Nt):
+    for it in range(Nt):
 
         if ts[it]==0.0:
             Msfinal[it,:]=Ms0
@@ -152,12 +435,12 @@ def SizeDist(Mstar=1.0,
             # initial guess for Dc
             kmin=1
             kmax=kmin
-            for k in xrange(kmin,ND):
+            for k in range(kmin,ND):
                 if tcolls[k]<ts[it]:
                     kmax=k
                     break
             kmaxu=kmax*1 # upper limit
-            kmaxd=0 # lower limit
+            kmaxl=0 # lower limit
 
             Nit=20
             ncheck=18
@@ -180,10 +463,10 @@ def SizeDist(Mstar=1.0,
 
                 Mp=Ms # it should be Mp=Ms*1.0, but without the *1.0 it converges faster
                 # Method from Wyatt+2011
-                for k in xrange(ND):
+                for k in range(ND):
 
                     Rcoll1[k]=f_Rcoll(Ds,k,Ms, Vol, vrel, rho, Qs, bs, Qg, bg)
-                for k in xrange(ND):
+                for k in range(ND):
         
                     C1k=np.sum(Rcoll1[:k]*Ms[:k]*Fredist[k:0:-1])
             
@@ -203,13 +486,13 @@ def SizeDist(Mstar=1.0,
 
                 # compare age and coll timescale
                 tcolli=1.0/Rs /(1.0e6*year)
-                print(ts[it],  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxd)
+                print(ts[it],  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxl)
                 ni+=1
 
                 # correct maximum size if age<tcoll
 
-                if ts[it]*1.1< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxd==0:
-                    for ik in xrange(kmax+1,ND):
+                if ts[it]*1.1< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxl==0:
+                    for ik in range(kmax+1,ND):
                         if tcolli[ik]<ts[it]:
                             kmax=int(round( (ik+ kmax)/2.0 ))
                             break
@@ -219,16 +502,16 @@ def SizeDist(Mstar=1.0,
                     Ms= Ms0*1.0 #/(1.0+ts[it]/tcolli[0])
         
 
-                if ts[it]*1.1< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxd!=0 and (kmaxd-kmax>0 or kmaxd==0):
+                if ts[it]*1.1< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxl!=0 and (kmaxl-kmax>0 or kmaxl==0):
                     kmaxu=kmax*1
-                    kmax=int(round((kmaxd+ kmax)/2.0))
+                    kmax=int(round((kmaxl+ kmax)/2.0))
                     ni=0
                     tcollib=tcolli[kmax-1]
                     Mb=Ms*1.0
                     Ms= Ms0*1.0 
 
-                elif ts[it]> 1.1*tcolli[kmax-1] and kmax>kmaxu and ni>ncheck and (kmaxd-kmaxu>1 or kmaxd==0):
-                    kmaxd=kmax*1
+                elif ts[it]> 1.1*tcolli[kmax-1] and kmax>kmaxu and ni>ncheck and (kmaxl-kmaxu>1 or kmaxl==0):
+                    kmaxl=kmax*1
                     kmax=int(round( (kmaxu + kmax)/2.))
                     ni=0
                     Mb=Ms*1.0
@@ -249,7 +532,7 @@ def SizeDist(Mstar=1.0,
                     Ms= Ms0*1.0 #/(1.0+ts[ti]/tcolli[0])
                     break
         
-            if kmaxd==kmaxu+1 and abs(ts[it]-tcolli[kmax-1])/ts[it]>0.1:
+            if kmaxl==kmaxu+1 and abs(ts[it]-tcolli[kmax-1])/ts[it]>0.1:
                 # make weighted average using both size distibution
                 print("average")
                 w1=min(ts[it], tcolli[kmax-1])/max(ts[it], tcolli[kmax-1])
@@ -258,9 +541,9 @@ def SizeDist(Mstar=1.0,
 
 
             # collisionally evolve the whole distribution
-            for k in xrange(ND):
+            for k in range(ND):
                 Rs[k]=f_Rcoll(Ds, k,Ms, Vol, vrel, rho, Qs, bs, Qg, bg)
-            tcolli=1.0/Rs /(1.0e6*year)
+            tcolli=1.0/Rs/(1.0e6*year)
             if tcolli[0]<ts[it] and kmax==kmin:
                 Ms = Ms/(ts[it]/tcolli[0])
 
@@ -275,9 +558,7 @@ def SizeDist(Mstar=1.0,
 
 
 
-
-
-def SizeDist_dmax(Mstar=1.0, 
+def SizeDist_dmax_old(Mstar=1.0, 
                   e=0.05,
                   I=0.05/2.0,    
                   r0=1.0,          
@@ -344,7 +625,7 @@ def SizeDist_dmax(Mstar=1.0,
     keta=-int(np.log(etarmax)/np.log(delta)) # number of bins
     Fredist=np.zeros(ND)
 
-    for i in xrange(0,ND):
+    for i in range(0,ND):
         if (delta)**(-i)<=etarmax:
             Fredist[i]=(delta**(-i))**(4.0+alphar)
         else:
@@ -361,14 +642,14 @@ def SizeDist_dmax(Mstar=1.0,
     # ######################################
 
     Ms0=np.zeros(ND)
-    for i in xrange(ND):
+    for i in range(ND):
         Ms0[i]=(Ds[i]/dmax)**(alphap+4.0)
     Ms0=Ms0*Mbeltn/np.sum(Ms0)
 
     
     # compute collisional rates to guess maximum size in steady state
     Rs0=np.zeros(ND)
-    for i in xrange(ND):
+    for i in range(ND):
         Rs0[i]=f_Rcoll(Ds, i,Ms0, Vol, vrel, rho, Qs, bs, Qg, bg)
 
     # plt.plot(Ds,Rs0)
@@ -379,7 +660,7 @@ def SizeDist_dmax(Mstar=1.0,
     # #############################################
     # Calculate size distribution at different epochs
     # #############################################
-    for it in xrange(Nt):
+    for it in range(Nt):
 
         if ts[it]==0.0:
             Msfinal[it,:]=Ms0
@@ -393,12 +674,12 @@ def SizeDist_dmax(Mstar=1.0,
             # initial guess for Dc
             kmin=1
             kmax=kmin
-            for k in xrange(kmin,ND):
+            for k in range(kmin,ND):
                 if tcolls[k]<ts[it]:
                     kmax=k
                     break
             kmaxu=kmax*1 # upper limit
-            kmaxd=0 # lower limit
+            kmaxl=0 # lower limit
 
             Nit=20
             ncheck=18
@@ -421,10 +702,10 @@ def SizeDist_dmax(Mstar=1.0,
 
                 Mp=Ms # it should be Mp=Ms*1.0, but without the *1.0 it converges faster
                 # Method from Wyatt+2011
-                for k in xrange(ND):
+                for k in range(ND):
 
                     Rcoll1[k]=f_Rcoll(Ds,k,Ms, Vol, vrel, rho, Qs, bs, Qg, bg)
-                for k in xrange(ND):
+                for k in range(ND):
         
                     C1k=np.sum(Rcoll1[:k]*Ms[:k]*Fredist[k:0:-1])
             
@@ -444,38 +725,42 @@ def SizeDist_dmax(Mstar=1.0,
 
                 # compare age and coll timescale
                 tcolli=1.0/Rs /(1.0e6*year)
-                print(ts[it], r0,  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxd)
+                print(ts[it], r0,  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxl)
                 ni+=1
 
                 # correct maximum size if age<tcoll
 
-                if ts[it]*1.1< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxd==0:
-                    for ik in xrange(kmax+1,ND):
+                if ts[it]*1.1< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxl==0:
+                    print(1)
+                    for ik in range(kmax+1,ND):
                         if tcolli[ik]<ts[it]:
                             kmax=int(round( (ik+ kmax)/2.0 ))
                             break
+
                     ni=0
                     tcollib=tcolli[kmax-1]
                     Mb=Ms*1.0
                     Ms= Ms0*1.0 #/(1.0+ts[it]/tcolli[0])
-        
 
-                if ts[it]*1.1< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxd!=0 and (kmaxd-kmax>0 or kmaxd==0):
+
+                if ts[it]*1.1< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxl!=0 and (kmaxl-kmax>0 or kmaxl==0):
                     kmaxu=kmax*1
-                    kmax=int(round((kmaxd+ kmax)/2.0))
+                    kmax=int(round((kmaxl+ kmax)/2.0))
                     ni=0
                     tcollib=tcolli[kmax-1]
                     Mb=Ms*1.0
                     Ms= Ms0*1.0 
+                    print(2)
 
-                elif ts[it]> 1.1*tcolli[kmax-1] and kmax>kmaxu and ni>ncheck and (kmaxd-kmaxu>1 or kmaxd==0):
-                    kmaxd=kmax*1
+                elif ts[it]> 1.1*tcolli[kmax-1] and kmax>kmaxu and ni>ncheck and (kmaxl-kmaxu>1 or kmaxl==0):
+                    kmaxl=kmax*1
                     kmax=int(round( (kmaxu + kmax)/2.))
                     ni=0
                     Mb=Ms*1.0
                     tcollib=tcolli[kmax-1]
                     Ms= Ms0*1.0 #/(1.0+ts[ti]/tcolli[0])
-                
+                    print(3)
+
                 elif tcolli[kmax-1]==np.inf and ni>ncheck: # tcolli[kmax-1]==np.inf 
                     kmax+=1
                     kmaxu=kmax*1
@@ -483,14 +768,17 @@ def SizeDist_dmax(Mstar=1.0,
                     tcollib=tcolli[kmax-1]
                     Mb=Ms*1.0
                     Ms= Ms0*1.0 #/(1.0+ts[ti]/tcolli[0])
+                    print(4)
 
                 if kmax==ND-1 or tcolli[-1]>ts[it]: 
                     Mb=Ms*1.0
                     tcollib=tcolli[kmax-1]                
                     Ms= Ms0*1.0 #/(1.0+ts[ti]/tcolli[0])
+                    print(5)
+
                     break
         
-            if kmaxd==kmaxu+1 and abs(ts[it]-tcolli[kmax-1])/ts[it]>0.1:
+            if kmaxl==kmaxu+1 and abs(ts[it]-tcolli[kmax-1])/ts[it]>0.1:
                 # make weighted average using both size distibution
                 print("average")
                 w1=min(ts[it], tcolli[kmax-1])/max(ts[it], tcolli[kmax-1])
@@ -499,7 +787,7 @@ def SizeDist_dmax(Mstar=1.0,
 
 
             # collisionally evolve the whole distribution
-            for k in xrange(ND):
+            for k in range(ND):
                 Rs[k]=f_Rcoll(Ds, k,Ms, Vol, vrel, rho, Qs, bs, Qg, bg)
             tcolli=1.0/Rs /(1.0e6*year)
             if tcolli[0]<ts[it] and kmax==kmin:
@@ -525,14 +813,13 @@ def SizeDist_dmax(Mstar=1.0,
 
     Dsf=np.logspace(np.log10(dmax), np.log10(dmin), NDf)
 
-    for i in xrange(NDe):
+    for i in range(NDe):
         Msfinalf[:,i]=(Dsf[i]/dmax)**(alphap+4.0)
 
 
     Msfinalf[:,:NDe]=Msfinalf[:,:NDe]*(Mbelt-Mbeltn)/np.sum(Msfinalf[0,:NDe])
 
     return Dsf, Msfinalf#, Rs
-
 
 
 
@@ -604,7 +891,7 @@ def SizeDist_dmax_gas(Mstar=1.0,
     keta=-int(np.log(etarmax)/np.log(delta)) # number of bins
     Fredist=np.zeros(ND)
 
-    for i in xrange(0,ND):
+    for i in range(0,ND):
         if (delta)**(-i)<=etarmax:
             Fredist[i]=(delta**(-i))**(4.0+alphar)
         else:
@@ -621,14 +908,14 @@ def SizeDist_dmax_gas(Mstar=1.0,
     # ######################################
 
     Ms0=np.zeros(ND)
-    for i in xrange(ND):
+    for i in range(ND):
         Ms0[i]=(Ds[i]/dmax)**(alphap+4.0)
     Ms0=Ms0*Mbeltn/np.sum(Ms0)
 
     
     # compute collisional rates to guess maximum size in steady state
     Rs0=np.zeros(ND)
-    for i in xrange(ND):
+    for i in range(ND):
         Rs0[i]=f_Rcoll(Ds, i,Ms0, Vol, vrel, rho, Qs, bs, Qg, bg)
 
     # plt.plot(Ds,Rs0)
@@ -639,7 +926,7 @@ def SizeDist_dmax_gas(Mstar=1.0,
     # #############################################
     # Calculate size distribution at different epochs
     # #############################################
-    for it in xrange(Nt):
+    for it in range(Nt):
 
         if ts[it]==0.0:
             Msfinal[it,:]=Ms0
@@ -653,12 +940,12 @@ def SizeDist_dmax_gas(Mstar=1.0,
             # initial guess for Dc
             kmin=1
             kmax=kmin
-            for k in xrange(kmin,ND):
+            for k in range(kmin,ND):
                 if tcolls[k]<ts[it]:
                     kmax=k
                     break
             kmaxu=kmax*1 # upper limit
-            kmaxd=0 # lower limit
+            kmaxl=0 # lower limit
 
             Nit=20
             ncheck=18
@@ -681,10 +968,10 @@ def SizeDist_dmax_gas(Mstar=1.0,
 
                 Mp=Ms # it should be Mp=Ms*1.0, but without the *1.0 it converges faster
                 # Method from Wyatt+2011
-                for k in xrange(ND):
+                for k in range(ND):
 
                     Rcoll1[k]=f_Rcoll(Ds,k,Ms, Vol, vrel, rho, Qs, bs, Qg, bg)
-                for k in xrange(ND):
+                for k in range(ND):
         
                     C1k=np.sum(Rcoll1[:k]*Ms[:k]*Fredist[k:0:-1])
             
@@ -704,13 +991,13 @@ def SizeDist_dmax_gas(Mstar=1.0,
 
                 # compare age and coll timescale
                 tcolli=1.0/Rs /(1.0e6*year)
-                print(ts[it], r0,  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxd)
+                print(ts[it], r0,  kmax, kmin,  tcolli[kmax+1], tcolli[kmax], tcolli[kmax-1],  tcolli[0], kmaxu, kmaxl)
                 ni+=1
 
                 # correct maximum size if age<tcoll
 
-                if ts[it]*1.1< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxd==0:
-                    for ik in xrange(kmax+1,ND):
+                if ts[it]*1.1< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxl==0:
+                    for ik in range(kmax+1,ND):
                         if tcolli[ik]<ts[it]:
                             kmax=int(round( (ik+ kmax)/2.0 ))
                             break
@@ -720,16 +1007,16 @@ def SizeDist_dmax_gas(Mstar=1.0,
                     Ms= Ms0*1.0 #/(1.0+ts[it]/tcolli[0])
         
 
-                if ts[it]*1.1< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxd!=0 and (kmaxd-kmax>0 or kmaxd==0):
+                if ts[it]*1.1< tcolli[kmax] and kmax<ND-1 and ni>ncheck and kmaxl!=0 and (kmaxl-kmax>0 or kmaxl==0):
                     kmaxu=kmax*1
-                    kmax=int(round((kmaxd+ kmax)/2.0))
+                    kmax=int(round((kmaxl+ kmax)/2.0))
                     ni=0
                     tcollib=tcolli[kmax-1]
                     Mb=Ms*1.0
                     Ms= Ms0*1.0 
 
-                elif ts[it]> 1.1*tcolli[kmax-1] and kmax>kmaxu and ni>ncheck and (kmaxd-kmaxu>1 or kmaxd==0):
-                    kmaxd=kmax*1
+                elif ts[it]> 1.1*tcolli[kmax-1] and kmax>kmaxu and ni>ncheck and (kmaxl-kmaxu>1 or kmaxl==0):
+                    kmaxl=kmax*1
                     kmax=int(round( (kmaxu + kmax)/2.))
                     ni=0
                     Mb=Ms*1.0
@@ -750,7 +1037,7 @@ def SizeDist_dmax_gas(Mstar=1.0,
                     Ms= Ms0*1.0 #/(1.0+ts[ti]/tcolli[0])
                     break
         
-            if kmaxd==kmaxu+1 and abs(ts[it]-tcolli[kmax-1])/ts[it]>0.1:
+            if kmaxl==kmaxu+1 and abs(ts[it]-tcolli[kmax-1])/ts[it]>0.1:
                 # make weighted average using both size distibution
                 print("average")
                 w1=min(ts[it], tcolli[kmax-1])/max(ts[it], tcolli[kmax-1])
@@ -759,7 +1046,7 @@ def SizeDist_dmax_gas(Mstar=1.0,
 
 
             # collisionally evolve the whole distribution
-            for k in xrange(ND):
+            for k in range(ND):
                 Rs[k]=f_Rcoll(Ds, k,Ms, Vol, vrel, rho, Qs, bs, Qg, bg)
             tcolli=1.0/Rs /(1.0e6*year)
             if tcolli[0]<ts[it] and kmax==kmin:
@@ -785,7 +1072,7 @@ def SizeDist_dmax_gas(Mstar=1.0,
 
     Dsf=np.logspace(np.log10(dmax), np.log10(dmin), NDf)
 
-    for i in xrange(NDe):
+    for i in range(NDe):
         Msfinalf[:,i]=(Dsf[i]/dmax)**(alphap+4.0)
 
 
@@ -801,7 +1088,7 @@ def SizeDist_dmax_gas(Mstar=1.0,
 
 
 # # Qds=np.zeros(len(Ds))
-# # for i in xrange(len(Ds)):
+# # for i in range(len(Ds)):
 # #     Qds[i]=f_Qd(Ds[i])
 # # plt.plot(Ds,Qds)
     
@@ -809,9 +1096,10 @@ def SizeDist_dmax_gas(Mstar=1.0,
 # plt.yscale('log')
 # plt.show()
 
-# for i in xrange(len(tsystem)):
+# for i in range(len(tsystem)):
 #     plt.plot(Ds, Msf[i,:], color='black')
 
 # plt.xscale('log')
 # plt.yscale('log')
 # plt.show()
+"""
