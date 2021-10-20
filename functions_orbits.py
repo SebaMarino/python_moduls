@@ -371,7 +371,7 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
         
         alphai=pomegai+fi
         
-        Alphas[i2-Ni]=alphai
+        Alphas[i2]=alphai
         # Orb_par_planet[i2-Ni, :]=[ti,ai,ei,inci,Omegai, pomegai, Mi, fi]
 
     # Third, LOAD ORB ELEMENTS OF PARTICLES AND DE-ROTATE THEIR X AND Y
@@ -966,6 +966,32 @@ def orbit_resonance_rotframe(aplt,  ecc, inc, p, q,
     else:
         return xs, ys, alphas, a, xs_inertial, ys_inertial
 
+
+
+def load_collisions(path_model, Nruns=1):
+
+    if Nruns==1:
+        colls=np.loadtxt(path_model+'collisions.txt', delimiter=',')
+
+        
+    elif Nruns>1:
+        colls=np.loadtxt(path_model+'model_1/collisions.txt', delimiter=',')
+        Nrows=np.shape(colls)[0]
+        Ncolls=np.shape(colls)[1]
+        print(Nrows, Ncolls)
+        ## add extra column with run index
+        colls=np.concatenate((colls, np.ones((Nrows,1))),axis=1)
+        for i in range(2,Nruns+1):
+            colli=np.loadtxt(path_model+'model_'+str(i)+'/collisions.txt', delimiter=',')
+            Nrows=np.shape(colli)[0]
+            ## add extra column with run index
+            colli=np.concatenate((colli, np.ones((Nrows,1))*i),axis=1)
+            colls=np.concatenate((colls, colli))
+        
+    else:
+        sys.exit('error, the value of Nrun is invalid')
+
+    return colls
 
 # def orbit_resonance_single_epoch(aplt,   ### not working, need to figure out how to randomized orbit when lambda_plt and phim are fixed. Randomizing pomegap does not work
 #                                  ecc,
