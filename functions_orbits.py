@@ -314,7 +314,7 @@ def Tdomain(path_sim):  # for REBOUND
 
 
 
-def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
+def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' , rotframe=False):
     print("loading particles from "+path_sim)
     # returns numpy array with list of x y de-rotated positions of
     # Npart particles between ti and tf
@@ -326,7 +326,6 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
     if Npart>Nsmall: 
         print("error, Npart> simulated particles")
         sys.exit()
-    # SECOND, LOAD ORB ELEMENTS OF PLANET TO DE-ROTATE WITH RESPECT ITS POSITION
 
     # check how many epochs to save (Ntaverage)
     if Tp<Tf and dTaverage<=Tp:
@@ -341,38 +340,33 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
 
     Ni=int((Tp-dTaverage)/dT) # line where to start loading
     print( Ni, Ntaverage)
-    # Orb_par_planet=np.zeros((Ntaverage, 8))
+
+    # SECOND, LOAD ORB ELEMENTS OF PLANET TO DE-ROTATE WITH RESPECT ITS POSITION
+
     Alphas=np.zeros(Ntaverage)
 
-    filei=open(path_sim+'body_1.txt', 'r')
+    if rotframe:
+        filei=open(path_sim+'body_1.txt', 'r')
 
-    filei.readline() # header
+        filei.readline() # header
 
-    for i2 in range(Ni):
-        filei.readline()
-    for i2 in range(Ntaverage):
+        for i2 in range(Ni):
+            filei.readline()
+        for i2 in range(Ntaverage):
 
-        dat=filei.readline().split(delimiter)
-        ti =float(dat[0])
-        ai =float(dat[1])
-        ei =float(dat[2])
-        inci =float(dat[3])*np.pi/180.0
-        Omegai =float(dat[4])*np.pi/180.0
-        pomegai =float(dat[5])*np.pi/180.0
-        Mi =float(dat[6])*np.pi/180.0
-        # ti =orbplanet[i2,0]
-        # ai =orbplanet[i2,1]
-        # ei =orbplanet[i2,2]
-        # inci =orbplanet[i2,3]*np.pi/180.0
-        # Omegai =orbplanet[i2,4]*np.pi/180.0
-        # pomegai =orbplanet[i2,5]*np.pi/180.0
-        # Mi =orbplanet[i2,6]*np.pi/180.0
-        fi= M_to_f(Mi,ei)
+            dat=filei.readline().split(delimiter)
+            ti =float(dat[0])
+            ai =float(dat[1])
+            ei =float(dat[2])
+            inci =float(dat[3])*np.pi/180.0
+            Omegai =float(dat[4])*np.pi/180.0
+            pomegai =float(dat[5])*np.pi/180.0
+            Mi =float(dat[6])*np.pi/180.0
+            fi= M_to_f(Mi,ei)
         
-        alphai=pomegai+fi
+            alphai=pomegai+fi
         
-        Alphas[i2]=alphai
-        # Orb_par_planet[i2-Ni, :]=[ti,ai,ei,inci,Omegai, pomegai, Mi, fi]
+            Alphas[i2]=alphai
 
     # Third, LOAD ORB ELEMENTS OF PARTICLES AND DE-ROTATE THEIR X AND Y
 
@@ -423,6 +417,12 @@ def load_particles(path_sim, Npart, Tp, dTaverage, delimiter=',' ):
 
         filei.close()
     return Particles
+
+
+
+
+
+
 
 
 def load_particles_spread(path_sim, Npart, Tp, Nspread,  delimiter=',' ):
@@ -1105,3 +1105,91 @@ def load_collisions(path_model, Nruns=1):
     else:
         return xs, ys, alphas, a, xs_inertial, ys_inertial
 """
+
+
+
+
+
+# def load_particles_numpy(path_sim, Npart, Tp, dTaverage, delimiter=',' , rotframe=False):
+#     #### THIS IS VERY SLOW BECAUSE IT LOADS THE WHOLE OUTPUT FOR EACH PARTICLE
+
+#     print("loading particles from "+path_sim)
+#     # returns numpy array with list of x y de-rotated positions of
+#     # Npart particles between ti and tf
+
+#     # FIRST, LOAD SIMULATION PARAMETERS
+
+#     Ti,Tf,Nt,dT,Nplt, Nsmall=Tdomain(path_sim)
+
+#     if Npart>Nsmall: 
+#         print("error, Npart> simulated particles")
+#         sys.exit()
+
+#     # check how many epochs to save (Ntaverage)
+#     if Tp<Tf and dTaverage<=Tp:
+#         Ntaverage=int(dTaverage*2/dT) +1
+#     elif Tp==Tf and dTaverage<=Tp:
+#         Ntaverage=int(dTaverage/dT) +1
+#     elif Tp>Tf and Tp-dTaverage<Tf and dTaverage<=Tp:
+#         Ntaverage=int((Tf-(Tp-dTaverage))/dT) +1
+#     else: 
+#         print("error, epoch of interest does not overlay with simulation epochs")
+#         sys.exit()
+
+#     Ni=int((Tp-dTaverage)/dT) # line where to start loading
+#     print( Ni, Ntaverage)
+
+#     # SECOND, LOAD ORB ELEMENTS OF PLANET TO DE-ROTATE WITH RESPECT ITS POSITION
+
+#     Alphas=np.zeros(Ntaverage)
+
+#     if rotframe:
+#         filei=open(path_sim+'body_1.txt', 'r')
+
+#         filei.readline() # header
+
+#         for i2 in range(Ni):
+#             filei.readline()
+#         for i2 in range(Ntaverage):
+
+#             dat=filei.readline().split(delimiter)
+#             ti =float(dat[0])
+#             ai =float(dat[1])
+#             ei =float(dat[2])
+#             inci =float(dat[3])*np.pi/180.0
+#             Omegai =float(dat[4])*np.pi/180.0
+#             pomegai =float(dat[5])*np.pi/180.0
+#             Mi =float(dat[6])*np.pi/180.0
+#             fi= M_to_f(Mi,ei)
+        
+#             alphai=pomegai+fi
+        
+#             Alphas[i2]=alphai
+
+#     # Third, LOAD ORB ELEMENTS OF PARTICLES AND DE-ROTATE THEIR X AND Y
+
+#     Particles=np.zeros((Npart, Ntaverage, 11)) # t, x, y,z, a_0, a, e, i, omega, pomega, M
+#     for i1 in range(Npart):
+#         #print i1, Npart
+
+#         orbits=np.loadtxt(path_sim+'body_'+str(i1+Nplt+1)+'.txt', delimiter=',')
+#         a0i=orbits[0,1]
+#         if len(orbits[:,0])>=Ni+Ntaverage:
+
+#             orbitsp=orbits[Ni:Ni+Ntaverage,:]
+#             orbitsp[:,3:] = orbitsp[:,3:]*np.pi/180.0
+
+#             xs,ys,zs=cartesian_from_orbelement_rotating_frame(orbitsp[:,1],orbitsp[:,2], orbitsp[:,3], orbitsp[:,4], orbitsp[:,5], orbitsp[:,6], Alphas)
+
+            
+            
+#             Particles[i1, :, 0] =orbitsp[:,0]
+#             Particles[i1, :, 1] =xs
+#             Particles[i1, :, 2] =ys
+#             Particles[i1, :, 3] =zs
+#             Particles[i1, :, 4] =a0i
+#             Particles[i1, :, 5:] =orbitsp[:,1:-1]
+            
+
+       
+#     return Particles

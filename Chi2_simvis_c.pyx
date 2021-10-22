@@ -124,8 +124,11 @@ def Chi2_simvisC_bilinear(pathfitsfile, table, offra=0.0, offdec=0.0, save=False
 
     ais=np.where(table[:,4]>0.0)
     Nvis_noflaggs=len(ais[0])
-    if save:			
-       np.save('tablevismodel_'+tag, np.array([table[:,0], table[:,1], np.real(vmodel), np.imag(vmodel),table[:,4], table[:,5]  ]))
+    if save:
+       table_model=table*1.
+       table_model[:,2]=np.real(vmodel)
+       table_model[:,3]=np.imag(vmodel)
+       np.save('tablevismodel_'+tag, table_model)
     # print chi2, Nvis
     return chi2, Nvis_noflaggs
 
