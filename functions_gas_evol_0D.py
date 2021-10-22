@@ -382,7 +382,7 @@ def integrate_no_Cshielding_noviscosity(MCO, MC1, MCOdot_p, dt0,tf,tol, r,dr, al
     ts=[]
     
     tvis= tau_vis2(r,dr, alphai, cs, Mstar)
-    print 't vis = %1.1e yr'%tvis
+    print('t vis = %1.1e yr'%tvis)
     ti=0.0
     
     MCOs.append(MCO)
