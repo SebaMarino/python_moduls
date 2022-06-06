@@ -1,29 +1,31 @@
 import numpy as np
 import sys, os
 
-def extractvis(vis, tablename, ms): # by S. Marino
 
+### ms.putdata does not work with CASA 6.2. use tb.pucol instead
+
+def extractvis(vis, tablename, ms): # by S. Marino. 
+    # this could workt with tb instead of ms, but I am not sure how to get the frquencies of each data point. It needs some testing
+
+    
     cc=2.99792458e8 # m/s
 
 
     mse=vis # it will extract the visibilities from the 4 spws
 
-    print "openning ms"
+    print("openning ms")
     ms.open(mse, nomodify=True)
-    print "ms opened"
+    print("ms opened")
 
     visd0=ms.getdata(['data', 'data_desc_id','axis_info'],ifraxis=False)
     visd=np.array(visd0['data']) # complex visibilities
     spwids=np.array(visd0['data_desc_id']) # spws ids 
 
-    # viscd0=ms.getdata(['corrected_data'])
-    # viscd=np.array(viscd0['corrected_data'])
-
     nchan=np.shape(visd)[1] # number of channels
     nrows=np.shape(visd)[2] # numer of rows (approx nscans x nspws)
 
-    print np.shape(visd)
-    print np.shape(spwids)
+    print(np.shape(visd))
+    print(np.shape(spwids))
 
     # weights (two weights for all channels in one spw that correspond to two polarization modes XX YY)
     wts0=ms.getdata(['weight'])
@@ -40,18 +42,18 @@ def extractvis(vis, tablename, ms): # by S. Marino
     flags0=ms.getdata(['flag'])
     flags=np.array(flags0['flag'])
 
-    print "flag dimension: "+str(flags.shape)
-    print "n flags in flagrow: "+str(np.sum(flag_row))
-    print "n flags in flags: "+str(np.sum(flags))
+    print("flag dimension: "+str(flags.shape))
+    print("n flags in flagrow: "+str(np.sum(flag_row)))
+    print("n flags in flags: "+str(np.sum(flags)))
 
     # frequencies
     freqs=visd0['axis_info']['freq_axis']['chan_freq']/1.0e9 # freq in GHz (channel,spw) (e.g, freqs[:,0] are freqs of channels in the 1st spw) 
     
     nspw=len(freqs[0,:])
     table=np.zeros((nrows*nchan,6)) # u, v, Vreal, Vimag, weight lam
-    print np.shape(uvs['u'])
+    print(np.shape(uvs['u']))
 
-    for i in xrange(nrows):
+    for i in range(nrows):
 
         # print i, nrows
         # if flag_row[i]==1: 
@@ -79,7 +81,7 @@ def extractvis(vis, tablename, ms): # by S. Marino
         else: 
             continue
 
-        for j in xrange(nchan):
+        for j in range(nchan):
             u=np.array(uvs['u'][i])*freqs[j,ispw]*1.0e9/cc # us
             v=np.array(uvs['v'][i])*freqs[j,ispw]*1.0e9/cc # vs
             
@@ -108,14 +110,21 @@ def extractvis(vis, tablename, ms): # by S. Marino
 
     ms.close()
 
-    print 'Chi red = %1.5f'%( np.sum( (table[:,2]**2.+table[:,3]**2)*table[:,4] )/table[:,0].size/2.)
+    print('Chi red = %1.5f'%( np.sum( (table[:,2]**2.+table[:,3]**2)*table[:,4] )/table[:,0].size/2.))
 
     np.savetxt(tablename+'.dat', table)
     np.save(tablename, table)
 
 
 
-def simvis(ms_in, model, ms_out, factor, ms):
+
+
+
+
+
+
+
+def simvis(ms_in, model, ms_out, factor, tb):
     # ms_in: path to ms file (including .ms) with original observations from where visibilities where extracted
     # model: name of the numpy table with model visibilities (including .npy)
     # ms_out: name/path to new ms file which will contain the simulated visibilities (including .ms)
@@ -124,17 +133,18 @@ def simvis(ms_in, model, ms_out, factor, ms):
     os.system('rm -r '+ms_out)
     os.system('cp -r '+ms_in+' '+ms_out)
 
-    print "openning ms"
-    ms.open(ms_out, nomodify=False)
-    print "ms opened"
+    print("openning ms")
+    tb.open(ms_out, nomodify=False)
+    print("ms opened")
 
-    visd0=ms.getdata(['data', 'data_desc_id','axis_info'],ifraxis=False)
-    visd=np.array(visd0['data']) # complex visibilities
-    # spwids=np.array(visd0['data_desc_id']) # spws ids 
-        
+    # visd0=ms.getdata(['data', 'data_desc_id','axis_info'],ifraxis=False)
+    # visd=np.array(visd0['data']) # complex visibilities
+
+    # spwids=np.array(visd0['data_desc_id']) # spws ids         
     # viscd0=ms.getdata(['corrected_data'])
     # viscd=np.array(viscd0['corrected_data'])
 
+    visd=tb.getcol('DATA')
     nchan=np.shape(visd)[1] # number of channels
     nrows=np.shape(visd)[2] # numer of rows (aprox nscans x nspws)
 
@@ -156,18 +166,16 @@ def simvis(ms_in, model, ms_out, factor, ms):
     
     ### MATRIX STYLE
     table_model_reshaped=table_model.reshape((3, nchan, nrows), order='F')
-    print np.shape(errRe), nchan, nrows
+    print(np.shape(errRe), nchan, nrows)
     errRe_m=errRe.reshape(nchan, nrows)
     errImag_m=errImag.reshape(nchan, nrows)
-    # if op=='res':
-    #     print 'calculating residuals!'
-    #     visd0['data']=visd-(table_model_reshaped[0]+ table_model_reshaped[1]*1j)
-    # elif op=='sim':
-    print 'adding noise to model visibilities!'
-    visd0['data'][0,:,:]=(table_model_reshaped[0]+errRe_m+ (table_model_reshaped[1]+errImag_m)*1j)
-    visd0['data'][1,:,:]=(table_model_reshaped[0]+errRe_m+ (table_model_reshaped[1]+errImag_m)*1j)     
-    ms.putdata(visd0) # save modified data
-    ms.close()
+    print('adding noise to model visibilities!')
+    # visd0['data'][0,:,:]=(table_model_reshaped[0]+errRe_m+ (table_model_reshaped[1]+errImag_m)*1j)
+    # visd0['data'][1,:,:]=(table_model_reshaped[0]+errRe_m+ (table_model_reshaped[1]+errImag_m)*1j)     
+    visd[0,:,:]=(table_model_reshaped[0]+errRe_m+ (table_model_reshaped[1]+errImag_m)*1j)
+    visd[1,:,:]=(table_model_reshaped[0]+errRe_m+ (table_model_reshaped[1]+errImag_m)*1j)     
+    tb.putcol('DATA', visd) # save modified data
+    tb.close()
 
 
 def residuals(ms_in, model, ms_out, ms):
@@ -179,9 +187,9 @@ def residuals(ms_in, model, ms_out, ms):
     os.system('rm -r '+ms_out)
     os.system('cp -r '+ms_in+' '+ms_out)
 
-    print "openning ms"
+    print("openning ms")
     ms.open(ms_out, nomodify=False)
-    print "ms opened"
+    print("ms opened")
 
     visd0=ms.getdata(['data'],ifraxis=False)
     visd=np.array(visd0['data']) # complex visibilities
@@ -197,10 +205,11 @@ def residuals(ms_in, model, ms_out, ms):
     # LOAD MODEL VISIBILITIES AT THE SAME UV POINTS AND SUBTRACT (output of run_best.py and you should move it to the workign directory)
     # #################################################
     
-    table_model = np.load(model) 
-    sigs=np.zeros(len(table_model[0,:]))#+1.0e-10
-    mask_sig=table_model[2,:]>0.0
-    sigs[mask_sig]=1./np.sqrt(table_model[2,mask_sig])
+    table_model = np.load(model)
+    print(np.max(table_model[0,:]))
+    # sigs=np.zeros(len(table_model[0,:]))#+1.0e-10
+    # mask_sig=table_model[2,:]>0.0
+    # sigs[mask_sig]=1./np.sqrt(table_model[2,mask_sig])
         
     # errRe   = factor*np.random.normal(0.0, sigs)
     # errImag = factor*np.random.normal(0.0, sigs)
@@ -214,8 +223,62 @@ def residuals(ms_in, model, ms_out, ms):
     # print np.shape(errRe), nchan, nrows
     # errRe_m=errRe.reshape(nchan, nrows)
     # errImag_m=errImag.reshape(nchan, nrows)
-    print 'calculating residuals!'
+    print('calculating residuals!')
+    print('hola')
     visd0['data']=visd-(table_model_reshaped[0]+ table_model_reshaped[1]*1j)
-    print 'saving modified data'
+    print('saving modified data')
     ms.putdata(visd0) # save modified data
     ms.close()
+
+    
+def residuals_tb(ms_in, model, ms_out, tb):
+    # ms_in: path to ms file (including .ms) with original observations from where visibilities where extracted
+    # model: name of the numpy table with model visibilities (including .npy)
+    # ms_out: name/path to new ms file which will contain the residual visibilities (including .ms)
+
+    
+    os.system('rm -r '+ms_out)
+    os.system('cp -r '+ms_in+' '+ms_out)
+
+    print("openning ms")
+    tb.open(ms_out, nomodify=False)
+    print("ms opened")
+
+    # visd0=ms.getdata(['data'],ifraxis=False)
+    visd=tb.getcol('DATA') # complex visibilities
+    # spwids=np.array(visd0['data_desc_id']) # spws ids 
+        
+    # viscd0=ms.getdata(['corrected_data'])
+    # viscd=np.array(viscd0['corrected_data'])
+
+    nchan=np.shape(visd)[1] # number of channels
+    nrows=np.shape(visd)[2] # numer of rows (aprox nscans x nspws)
+
+    # #################################################
+    # LOAD MODEL VISIBILITIES AT THE SAME UV POINTS AND SUBTRACT (output of run_best.py and you should move it to the workign directory)
+    # #################################################
+    
+    table_model = np.load(model)
+    print(np.max(table_model[0,:]))
+    # sigs=np.zeros(len(table_model[0,:]))#+1.0e-10
+    # mask_sig=table_model[2,:]>0.0
+    # sigs[mask_sig]=1./np.sqrt(table_model[2,mask_sig])
+        
+    # errRe   = factor*np.random.normal(0.0, sigs)
+    # errImag = factor*np.random.normal(0.0, sigs)
+
+    # #################################################
+    # SUBTRACT MODEL TO VISIBILITIES AND SAVE
+    # #################################################
+    
+    ### MATRIX STYLE
+    table_model_reshaped=table_model.reshape((3, nchan, nrows), order='F')
+    # print np.shape(errRe), nchan, nrows
+    # errRe_m=errRe.reshape(nchan, nrows)
+    # errImag_m=errImag.reshape(nchan, nrows)
+    print('calculating residuals!')
+    print('hola')
+    visd=visd-(table_model_reshaped[0]+ table_model_reshaped[1]*1j)
+    print('saving modified data')
+    tb.putcol('DATA', visd) # save modified data
+    tb.close()

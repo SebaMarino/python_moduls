@@ -657,7 +657,7 @@ def load_particles_spread_rotframe(path_sim, Npart, Tp, Nspread,  delimiter=',',
             Mps=Mrand*(nplt/ni)+Mp
             
             #for i3 in range(Nspread):
-            alphas=pomegap+M_to_f(Mps,ep)
+            alphas=pomegap+M_to_f_array(Mps,ep)
 
             x,y,z=cartesian_from_orbelement_rotating_frame(ai,ei,inci, Omegai, pomegai, Mis, alphas)
             Particles[i1, :, 0]= ti
@@ -781,7 +781,7 @@ def load_particles_spread_x(path_sim, Nspread, delimiter=',' ): # function to lo
 
     return Particles
 
-def Surface_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nbinsx=50, a1=-1.0, a2=-1.0):
+def Surface_density(Particles, amin=0.0, amax=1.0e6, gamma=-1.0, xmax=200.0, Nbinsx=50, a1=-1.0, a2=-1.0, dimensions=2):
     # returns Surface density
 
     # xmax=200.0         # maximum x and y in AU
@@ -789,10 +789,6 @@ def Surface_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nb
 
     # Nbinsx=80           # number of bins in x and y
     # # Nbinsz=10           # number of bins in x
-
-    Binsx=np.linspace(-xmax,xmax,Nbinsx+1)
-    dxs=Binsx[1:]-Binsx[:-1]  # radial width of each bin
-    xs=Binsx[:-1]+dxs/2.0    # mean radius at each bin
 
     if a1==-1.0 and a2==-1.0:
         mask= (Particles[:,0,4]>amin) & (Particles[:,0,4]<amax)
@@ -807,15 +803,19 @@ def Surface_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nb
     ys=Particles[mask,:,2 ].flatten()
     a0s=Particles[mask,:,4 ].flatten()
 
-    Nxy=np.array( np.histogram2d(ys, xs, bins=[Binsx,Binsx], weights=a0s**(gamma+1.0))[0], dtype=float)
-
-    Nxy[int(Nbinsx/2),int(Nbinsx/2)]=0.0
-
-    # Nxy=np.array(np.histogram2d(Particles[mask,:,2 ],Particles[mask,:,3], bins=[Binsx,Binsx], weights=Particles[mask,:,4 ]**(gamma+1.0))[0], dtype=float)
-    # print 'hey'
-    return Nxy, Binsx
-
-
+    if dimensions==2:
+        Binsx=np.linspace(-xmax,xmax,Nbinsx+1)
+        
+        Nxy=np.array( np.histogram2d(ys, xs, bins=[Binsx,Binsx], weights=a0s**(gamma+1.0))[0], dtype=float)
+        Nxy[int(Nbinsx/2),int(Nbinsx/2)]=0.0
+        return Nxy, Binsx
+    elif dimensions==1:
+        Binsr=np.linspace(0.0,xmax,Nbinsx+1)
+    
+        rs=np.sqrt(xs**2.+ys**2.)
+        Nr=np.array( np.histogram(rs, bins=Binsr, weights=a0s**(gamma+1.0))[0], dtype=float)
+        return Nr, Binsr
+    
 def Volume_density(Particles, amin=0.0, amax=1000.0, gamma=-1.0, xmax=200.0, Nbinsz=5, Nbinsx=50, a1=-1.0, a2=-1.0):
     # returns Surface density
 

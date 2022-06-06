@@ -12,6 +12,15 @@ cimport cython
 @cython.cdivision(True)
 # Cython handles the namespace ambiguity internally in this case
 
+
+def get_last2d(data):
+    if data.ndim <= 2:
+        return data
+    slc = [0] * (data.ndim - 2)    
+    slc += [slice(None), slice(None)]
+    return data[tuple(slc)]
+
+
 def Chi2_simvisC_bilinear(pathfitsfile, table, offra=0.0, offdec=0.0, save=False, tag=''):
 
     cdef:
@@ -32,7 +41,7 @@ def Chi2_simvisC_bilinear(pathfitsfile, table, offra=0.0, offdec=0.0, save=False
     # Import fits file
     # Note: model image has to be multiplied by the primary beam
     fit = fits.open(pathfitsfile) 
-    data=np.fliplr(fit[0].data[0,0,:,:]) # in Jy/pixel
+    data=np.fliplr(get_last2d(fit[0].data)) # in Jy/pixel
     header=fit[0].header
     
     N=len(data[:,0])
@@ -152,7 +161,7 @@ def Model_simvisC_bilinear(pathfitsfile, table, save=False, tag='', offra=0.0, o
     # Import fits file
     # Note: model image has to be multiplied by the primary beam
     fit = fits.open(pathfitsfile) 
-    data=np.fliplr(fit[0].data[0,0,:,:]) # in Jy/pixel
+    data=np.fliplr(get_last2d(fit[0].data)) # in Jy/pixel
     header=fit[0].header
     print tag    
     N=len(data[:,0])

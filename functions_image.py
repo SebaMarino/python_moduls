@@ -1019,13 +1019,27 @@ def inter(Nin,Nout,i,j,ps1,ps2,Fin):
 def interpol(Nin,Nout,ps1,ps2,Fin):
     print(ps1, ps2, Nin, Nout)
     print(Nin, Nout)
-    if ps1!=ps2 or Nin!=Nout:
+    if ps1!=ps2:
         F=np.zeros((Nout,Nout), dtype=np.float64)
         for i in range(Nout):
             for j in range (Nout):	
                 F[i,j]=inter(Nin,Nout,i,j,ps1,ps2,Fin)
+    elif Nin>Nout:
+        diff=Nin-Nout
+        if diff%2==0:
+            print('no interpolation and different size')
+            i1=diff//2
+            i2=Nin-diff//2
+            F=Fin[i1:i2,i1:i2]
+        else:
+            F=np.zeros((Nout,Nout), dtype=np.float64)
+            for i in range(Nout):
+                for j in range (Nout):	
+                    F[i,j]=inter(Nin,Nout,i,j,ps1,ps2,Fin)
+    elif Nout>Nin:
+        raise ValueError('Output image size is larger than input')
     else:
-        print('no interpolation')
+        print('no interpolation and same size')
         F=Fin
     return F
 
@@ -1086,8 +1100,8 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=Fa
     if XMAX<=0.0:
         XMAX=ps_arcsec1*N1/2.
         
-    Nf=int(XMAX*2.0/(ps_final/1000.0))
-        
+    Nf=int(round(XMAX*2.0/(ps_final/1000.0)))
+    print('Nf = ', Nf)
         
     xf=np.zeros(Nf+1)
     yf=np.zeros(Nf+1)
@@ -1182,7 +1196,7 @@ def rainbow_cmap():
 ############## DATA CUBE ANALYSIS #######
 #########################################
 
-def fload_fits_cube(path_cube, line='CO32'): # for images from CASA
+def fload_fits_cube(path_cube, line='CO32', type_data='data', output=''): # for images from CASA
 
     if line=='CO32':
         f_line=345.79599 # GHz
@@ -1213,42 +1227,54 @@ def fload_fits_cube(path_cube, line='CO32'): # for images from CASA
     N1=len(data1[0,0,:])
     Nf=len(data1[:,0,0])
 
-    try:
-        BMAJ=float(header1['BMAJ'])*3600.0 # arcsec 
-        BMIN=float(header1['BMIN'])*3600.0 # arcsec 
-        BPA=float(header1['BPA']) # deg 
-        print("beam = %1.2f x %1.2f" %(BMAJ, BMIN))
-    except:
-        header = pyfits.getheader(path_cube)
-        if header.get('CASAMBM', False):
-            beam = pyfits.open(path_cube)[1].data
-            beam = np.median([b[:3] for b in beam.view()], axis=0)
-            BMAJ=beam[0]
-            BMIN=beam[1]
-            BPA= beam[2]
+    if type_data=='data':
+        try:
+            BMAJ=float(header1['BMAJ'])*3600.0 # arcsec 
+            BMIN=float(header1['BMIN'])*3600.0 # arcsec 
+            BPA=float(header1['BPA']) # deg 
             print("beam = %1.2f x %1.2f" %(BMAJ, BMIN))
+        except:
+            header = pyfits.getheader(path_cube)
+            if header.get('CASAMBM', False):
+                beam = pyfits.open(path_cube)[1].data
+                beam = np.median([b[:3] for b in beam.view()], axis=0)
+                BMAJ=beam[0]
+                BMIN=beam[1]
+                BPA= beam[2]
+                print("beam = %1.2f x %1.2f" %(BMAJ, BMIN))
 
+                
     ########### SPATIAL GRID
 
     x1, y1, x1edge, y1edge = xyarray(N1, ps_arcsec1)
 
         
     ########## FREQUENCY GRID
+    ckms=299792.458 # km/s
         
     df=float(header1['CDELT3'])/1.0e9 # GHz
-    f0=float(header1['CRVAL3'])/1.0e9 # GHz
-    ckms=299792.458 # km/s
+    k0=float(header1['CRPIX3'])
 
-    fs=np.linspace(f0,f0+df*(Nf),Nf) #GHz
+    f0=float(header1['CRVAL3'])/1.0e9 - (k0-1)*df # GHz
+    print('v0 = ',(f0-f_line)/f_line *ckms )
+    
+
+    fs=np.linspace(f0,f0+df*(Nf-1),Nf) #GHz
     vs=-(fs-f_line)*ckms/f_line  # km/s
     
     dv=vs[1]-vs[0] # km/s
     print("dv [km/s] = ", dv)
     print("dnu [GHz] = ", df)
 
+    if header1['BUNIT']=='JY/PIXEL' and output=='JY/ARCSEC2':
+        data1=data1/(ps_arcsec1**2.0) # Jy/pixel to Jy/arcsec2
+    
+    if type_data=='data':
+        return data1, ps_arcsec1, x1, y1, x1edge, y1edge, BMAJ, BMIN, BPA, fs, vs, dv
+    else:
+        return data1, ps_arcsec1, x1, y1, x1edge, y1edge, fs, vs, dv
 
-    return data1, ps_arcsec1, x1, y1, x1edge, y1edge, BMAJ, BMIN, BPA, fs, vs, dv
-        
+    
 
 def moment_0(path_cube, line='CO32', v0=0.0, dvel=10.0,  rmin=0.0, inc=90.0, M_star=1.0, ps_final=0.0, XMAX=0.0, rms=0.0):
 
@@ -1523,7 +1549,7 @@ def plot_cube(filename,cube, ps_arcsec, xedge, yedge, vs, v0=0., Dv=10., rms=0.0
 
 
     plt.style.use('style1')
-    font= {'family':'Times New Roman', 'size': 12}
+    font= {'family':'Times New Roman', 'size': 11}
     rc('font', **font)
 
     YMAX=XMAX
@@ -1751,14 +1777,17 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
 
     plt.style.use('style1')
-    font= {'family':'Times New Roman', 'size': 12}
+    font= {'family':'Times New Roman', 'size': 11}
     rc('font', **font)
 
     if YMAX<=0.0:
         YMAX=XMAX
 
     # ysize=YMAX/XMAX
-    fig = plt.figure(figsize=(4,4.6))#(8,6))
+    if cbar:
+        fig = plt.figure(figsize=(4,4.6))#(8,6))
+    else:
+        fig = plt.figure(figsize=(4,4.))#(8,6))
 
     ax1=fig.add_subplot(111)
 
@@ -1806,22 +1835,25 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
     ax1.set_yticks(major_ticks)                                                       
     ax1.set_yticks(minor_ticks, minor=True) 
 
-    for tick in ax1.get_xticklines():
-        tick.set_color(tickcolor)
+    ax1.tick_params(axis='both', which='both', color=tickcolor)
 
-    for minortick in ax1.xaxis.get_minorticklines():
-        minortick.set_color(tickcolor)
+    #### code below not working anymore
+    # for tick in ax1.get_xticklines():
+    #     tick.set_color(tickcolor)
 
-    for tick in ax1.get_yticklines():
-        tick.set_color(tickcolor)
+    # for minortick in ax1.xaxis.get_minorticklines():
+    #     minortick.set_color(tickcolor)
 
-    for minortick in ax1.yaxis.get_minorticklines():
-        minortick.set_color(tickcolor)
+    # for tick in ax1.get_yticklines():
+    #     tick.set_color(tickcolor)
 
-        ax1.spines['bottom'].set_color(tickcolor)
-        ax1.spines['top'].set_color(tickcolor)
-        ax1.spines['left'].set_color(tickcolor)
-        ax1.spines['right'].set_color(tickcolor)
+    # for minortick in ax1.yaxis.get_minorticklines():
+    #     minortick.set_color(tickcolor)
+
+    ax1.spines['bottom'].set_color(tickcolor)
+    ax1.spines['top'].set_color(tickcolor)
+    ax1.spines['left'].set_color(tickcolor)
+    ax1.spines['right'].set_color(tickcolor)
 
     ax1.set_xlabel('RA offset ['+xunit+']')
     ax1.set_ylabel('DEC offset ['+xunit+']')
@@ -1879,7 +1911,6 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
 
     if show:
         plt.show()
-        plt.clf()
 
     
 
