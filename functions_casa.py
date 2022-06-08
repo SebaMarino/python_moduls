@@ -75,9 +75,9 @@ def extractvis(vis, tablename, ms): # by S. Marino.
             wtsc=4.0*wts1i*wts2i/(wts1i+wts2i)
             # sigs=np.sqrt(1.0/wts1) # uncertainties or errors
         elif  wts1i!=0.0:
-            wtsc=wtsc1i
+            wtsc=wts1i
         elif  wts2i!=0.0:
-            wtsc=wtsc2i
+            wtsc=wts2i
         else: 
             continue
 
