@@ -122,8 +122,6 @@ def extractvis(vis, tablename, ms): # by S. Marino.
 
 
 
-
-
 def simvis(ms_in, model, ms_out, factor, tb):
     # ms_in: path to ms file (including .ms) with original observations from where visibilities where extracted
     # model: name of the numpy table with model visibilities (including .npy)
@@ -178,60 +176,10 @@ def simvis(ms_in, model, ms_out, factor, tb):
     tb.close()
 
 
-def residuals(ms_in, model, ms_out, ms):
-    # ms_in: path to ms file (including .ms) with original observations from where visibilities where extracted
-    # model: name of the numpy table with model visibilities (including .npy)
-    # ms_out: name/path to new ms file which will contain the residual visibilities (including .ms)
+
 
     
-    os.system('rm -r '+ms_out)
-    os.system('cp -r '+ms_in+' '+ms_out)
-
-    print("openning ms")
-    ms.open(ms_out, nomodify=False)
-    print("ms opened")
-
-    visd0=ms.getdata(['data'],ifraxis=False)
-    visd=np.array(visd0['data']) # complex visibilities
-    # spwids=np.array(visd0['data_desc_id']) # spws ids 
-        
-    # viscd0=ms.getdata(['corrected_data'])
-    # viscd=np.array(viscd0['corrected_data'])
-
-    nchan=np.shape(visd)[1] # number of channels
-    nrows=np.shape(visd)[2] # numer of rows (aprox nscans x nspws)
-
-    # #################################################
-    # LOAD MODEL VISIBILITIES AT THE SAME UV POINTS AND SUBTRACT (output of run_best.py and you should move it to the workign directory)
-    # #################################################
-    
-    table_model = np.load(model)
-    print(np.max(table_model[0,:]))
-    # sigs=np.zeros(len(table_model[0,:]))#+1.0e-10
-    # mask_sig=table_model[2,:]>0.0
-    # sigs[mask_sig]=1./np.sqrt(table_model[2,mask_sig])
-        
-    # errRe   = factor*np.random.normal(0.0, sigs)
-    # errImag = factor*np.random.normal(0.0, sigs)
-
-    # #################################################
-    # SUBTRACT MODEL TO VISIBILITIES AND SAVE
-    # #################################################
-    
-    ### MATRIX STYLE
-    table_model_reshaped=table_model.reshape((3, nchan, nrows), order='F')
-    # print np.shape(errRe), nchan, nrows
-    # errRe_m=errRe.reshape(nchan, nrows)
-    # errImag_m=errImag.reshape(nchan, nrows)
-    print('calculating residuals!')
-    print('hola')
-    visd0['data']=visd-(table_model_reshaped[0]+ table_model_reshaped[1]*1j)
-    print('saving modified data')
-    ms.putdata(visd0) # save modified data
-    ms.close()
-
-    
-def residuals_tb(ms_in, model, ms_out, tb):
+def residuals(ms_in, model, ms_out, tb):
     # ms_in: path to ms file (including .ms) with original observations from where visibilities where extracted
     # model: name of the numpy table with model visibilities (including .npy)
     # ms_out: name/path to new ms file which will contain the residual visibilities (including .ms)
@@ -282,3 +230,56 @@ def residuals_tb(ms_in, model, ms_out, tb):
     print('saving modified data')
     tb.putcol('DATA', visd) # save modified data
     tb.close()
+
+
+def residuals_old(ms_in, model, ms_out, ms):
+    # ms_in: path to ms file (including .ms) with original observations from where visibilities where extracted
+    # model: name of the numpy table with model visibilities (including .npy)
+    # ms_out: name/path to new ms file which will contain the residual visibilities (including .ms)
+
+    
+    os.system('rm -r '+ms_out)
+    os.system('cp -r '+ms_in+' '+ms_out)
+
+    print("openning ms")
+    ms.open(ms_out, nomodify=False)
+    print("ms opened")
+
+    visd0=ms.getdata(['data'],ifraxis=False)
+    visd=np.array(visd0['data']) # complex visibilities
+    # spwids=np.array(visd0['data_desc_id']) # spws ids 
+        
+    # viscd0=ms.getdata(['corrected_data'])
+    # viscd=np.array(viscd0['corrected_data'])
+
+    nchan=np.shape(visd)[1] # number of channels
+    nrows=np.shape(visd)[2] # numer of rows (aprox nscans x nspws)
+
+    # #################################################
+    # LOAD MODEL VISIBILITIES AT THE SAME UV POINTS AND SUBTRACT (output of run_best.py and you should move it to the workign directory)
+    # #################################################
+    
+    table_model = np.load(model)
+    print(np.max(table_model[0,:]))
+    # sigs=np.zeros(len(table_model[0,:]))#+1.0e-10
+    # mask_sig=table_model[2,:]>0.0
+    # sigs[mask_sig]=1./np.sqrt(table_model[2,mask_sig])
+        
+    # errRe   = factor*np.random.normal(0.0, sigs)
+    # errImag = factor*np.random.normal(0.0, sigs)
+
+    # #################################################
+    # SUBTRACT MODEL TO VISIBILITIES AND SAVE
+    # #################################################
+    
+    ### MATRIX STYLE
+    table_model_reshaped=table_model.reshape((3, nchan, nrows), order='F')
+    # print np.shape(errRe), nchan, nrows
+    # errRe_m=errRe.reshape(nchan, nrows)
+    # errImag_m=errImag.reshape(nchan, nrows)
+    print('calculating residuals!')
+    print('hola')
+    visd0['data']=visd-(table_model_reshaped[0]+ table_model_reshaped[1]*1j)
+    print('saving modified data')
+    ms.putdata(visd0) # save modified data
+    ms.close()
