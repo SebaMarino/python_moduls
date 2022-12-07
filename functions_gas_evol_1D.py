@@ -601,6 +601,8 @@ def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots,
 
         
     epsilon=ts[1]-ts[0]
+    print(Nt2)
+    print(int(Nt2))
     ts2=np.zeros(Nt2)
 
     Nr=len(rs)
