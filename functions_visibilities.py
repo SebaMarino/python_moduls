@@ -51,9 +51,12 @@ def bin_predicted_visibilites(model, uvtable, bin_size=1e3):
 
 
 def load_vis(path, fsigma=1.):
-    
-    uvtable=np.load(path)
 
+    try:
+        uvtable=np.load(path)
+    except:
+        uvtable=np.loadtxt(path)
+        
     mask=uvtable[:,4]>0.
 
     u,v=uvtable[mask,0], uvtable[mask,1]

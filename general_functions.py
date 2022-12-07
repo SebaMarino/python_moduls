@@ -24,6 +24,26 @@ G=6.67384e-11 # mks
 M_sun= 1.9891e30 # kg
 
 
+def sci_notation(number, sig_fig=2): # stolen from https://stackoverflow.com/questions/53553377/python-scientific-notation-with-superscript-exponent
+    ret_string = "{0:.{1:d}e}".format(number, sig_fig)
+    a,b = ret_string.split("e")
+    b = int(b)         # removed leading "+" and strips leading zeros too.
+    
+    # check exponent
+    if b==0: 
+        c=''
+    else: c="x$10^{%i}$"%b
+    
+    # check digit
+    if a=='1':
+        if c=='':
+            return '1'
+        else:
+            return c[1:]
+    else: 
+        return a + c
+
+
 def number_to_text(number):
 
     if number<=0.0:

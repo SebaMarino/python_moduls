@@ -71,7 +71,7 @@ def index_time(ts, ti):
         return np.nan
 
     else:
-        for it in xrange(len(ts)):
+        for it in range(len(ts)):
             if ti<ts[it]:
                 break
     return it
@@ -80,7 +80,7 @@ def selfshielding_CO(NCO):#, NCOs, logfkCO, slope):
 
     if isinstance(NCO, np.ndarray):
         kco=np.ones(len(NCO))
-        # for j in xrange(len(NCO)):
+        # for j in range(len(NCO)):
         #     if NCO[j]>=NCOs[0] and NCO[j]<=NCOs[-1]:
         #         kco[j]=10.0**logfkCO(np.log10(NCO[j]))
         #     elif NCO[j]<NCOs[0]:
@@ -253,7 +253,7 @@ def Mtot_t(Mtot0, t, r, dr,  rho=2700.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, Msta
     # t in years
     tc0=f_tc_Xc(Mtot0, r, dr, rho, Dc, e, I, Qd, Mstar, q=q)
     if hasattr(tc0, "__len__"):
-        for i in xrange(len(tc0)):
+        for i in range(len(tc0)):
             if tc0[i]<0.0:
                 tc0[i]=f_tc_simple(Mtot0[i], r[i], dr[i],  Dc, e, Qd, Mstar[i])
     else:
@@ -273,7 +273,7 @@ def Mtotdot_t(Mtot0, t, r, dr, rho=2700.0,  Dc=10.0, e=0.05, I=0.05, Qd=150.0, M
     tc0=f_tc_Xc(Mtot0, r, dr, rho,  Dc, e, I, Qd, Mstar, q=q)
 
     if hasattr(tc0, "__len__"):
-        for i in xrange(len(tc0)):
+        for i in range(len(tc0)):
             if tc0[i]<0.0:
                 tc0[i]=f_tc_simple(Mtot0[i], r[i], dr[i],  Dc, e, Qd, Mstar[i])
     else:

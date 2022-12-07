@@ -1860,6 +1860,7 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
     ax1.set_aspect('equal')
 
     #---add beam
+    print(BMAJ, BMIN, show_beam)
     if BMAJ!=0.0 and BMIN!=0.0 and show_beam:
         if loc_beam=='lr':
             xc=-XMAX+1.5*BMAJ/2.#abs(minor_ticks[1]-minor_ticks[0])

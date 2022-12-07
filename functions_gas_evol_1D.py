@@ -421,7 +421,7 @@ def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Ms
                 Nt2=(Nt-1)/dt_skip+2
         elif dt_skip==1: Nt2=Nt
     else:
-        print 'not a valid dt_skip'
+        print('not a valid dt_skip')
         sys.exit(0)
 
 
@@ -445,10 +445,10 @@ def viscous_evolution(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha, Ms
     if np.shape(Sigma0)==(2,Nr) and np.all(Sigma0>=0.0):
         Sigma_g[:,:,0]=Sigma0
     else:
-        print np.shape(Sigma0), Sigma0>0.0
+        print(np.shape(Sigma0), Sigma0>0.0)
     Sigma_temp=Sigma_g[:,:,0]*1.0
     j=1
-    for i in xrange(1,Nt):
+    for i in range(1,Nt):
         mask_m=np.sum(Sigma_temp, axis=0)>0.0
         mus[mask_m]=(Sigma_temp[0,mask_m]+Sigma_temp[1,mask_m]*(1.+16./12.))/(Sigma_temp[0,mask_m]/28.+Sigma_temp[1,mask_m]/6.) # Sigma+Oxigen/(N)
  
@@ -477,7 +477,7 @@ def viscous_evolution_fMdot(ts, epsilon, rs, rhalfs, hs, fMdot, par_fMdot, Mdot,
                 Nt2=(Nt-1)/dt_skip+2
         elif dt_skip==1: Nt2=Nt
     else:
-        print 'not a valid dt_skip'
+        print('not a valid dt_skip')
         sys.exit(0)
 
 
@@ -502,10 +502,10 @@ def viscous_evolution_fMdot(ts, epsilon, rs, rhalfs, hs, fMdot, par_fMdot, Mdot,
     if np.shape(Sigma0)==(2,Nr) and np.all(Sigma0>=0.0):
         Sigma_g[:,:,0]=Sigma0
     else:
-        print np.shape(Sigma0), Sigma0>0.0
+        print(np.shape(Sigma0), Sigma0>0.0)
     Sigma_temp=Sigma_g[:,:,0]*1.0
     j=1
-    for i in xrange(1,Nt):
+    for i in range(1,Nt):
         mask_m=np.sum(Sigma_temp, axis=0)>0.0
         mus[mask_m]=(Sigma_temp[0,mask_m]+Sigma_temp[1,mask_m]*(1.+16./12.))/(Sigma_temp[0,mask_m]/28.+Sigma_temp[1,mask_m]/6.) # Sigma+Oxigen/(N)
  
@@ -542,7 +542,7 @@ def viscous_evolution_adt(tf, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdot, alpha
     if np.shape(Sigma0)==(2,Nr) and np.all(Sigma0>=0.0):
         Sigma_g[:,:,0]=Sigma0
     else:
-        print np.shape(Sigma0), Sigma0>0.0
+        print(np.shape(Sigma0), Sigma0>0.0)
 
     i=1
     ti=0.0
@@ -596,7 +596,7 @@ def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots,
                 Nt2=(Nt-1)/dt_skip+2
         elif dt_skip==1: Nt2=Nt
     else:
-        print 'not a valid dt_skip'
+        print('not a valid dt_skip')
         sys.exit(0)
 
         
@@ -620,10 +620,10 @@ def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots,
     if np.shape(Sigma0)==(2,Nr) and np.all(Sigma0>=0.0):
         Sigma_g[:,:,0]=Sigma0
     else:
-        print np.shape(Sigma0), Sigma0>0.0
+        print(np.shape(Sigma0), Sigma0>0.0)
     Sigma_temp=Sigma_g[:,:,0]*1.0
     j=1
-    for i in xrange(1,Nt):
+    for i in range(1,Nt):
         mask_m=np.sum(Sigma_temp, axis=0)>0.0
         mus[mask_m]=(Sigma_temp[0,mask_m]+Sigma_temp[1,mask_m]*(1.+16./12.))/(Sigma_temp[0,mask_m]/28.+Sigma_temp[1,mask_m]/6.) # Sigma+Oxigen/(N)
         nus=alpha*kb*Ts/(mus*mp)/(Omegas_s) # m2/s 
@@ -653,7 +653,7 @@ def N_optim_radial_grid(rmin, rmax, rb, res):
     f=0
     while True:
         rs, rhalfs, hs = radial_grid_powerlaw(rmin, rmax, Nr, 0.5)  #0.5)
-        for i in xrange(1,Nr):
+        for i in range(1,Nr):
             if rs[i]>rb:
                 dr=rs[i]-rs[i-1]
                 break
@@ -692,7 +692,7 @@ def Mtot_t(Mtot0, t, r, dr,  rho=2700.0, Dc=10.0, e=0.05, I=0.05, Qd=150.0, Msta
     # t in years
     tc0=f_tc_Xc(Mtot0, r, dr, rho, Dc, e, I, Qd, Mstar, q=q)
     if hasattr(tc0, "__len__"):
-        for i in xrange(len(tc0)):
+        for i in range(len(tc0)):
             if tc0[i]<0.0:
                 tc0[i]=f_tc_simple(Mtot0[i], r[i], dr[i],  Dc, e, Qd, Mstar[i])
     else:
@@ -712,7 +712,7 @@ def Mtotdot_t(Mtot0, t, r, dr, rho=2700.0,  Dc=10.0, e=0.05, I=0.05, Qd=150.0, M
     tc0=f_tc_Xc(Mtot0, r, dr, rho,  Dc, e, I, Qd, Mstar, q=q)
 
     if hasattr(tc0, "__len__"):
-        for i in xrange(len(tc0)):
+        for i in range(len(tc0)):
             if tc0[i]<0.0:
                 tc0[i]=f_tc_simple(Mtot0[i], r[i], dr[i],  Dc, e, Qd, Mstar[i])
     else:
