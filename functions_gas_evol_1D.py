@@ -472,10 +472,10 @@ def viscous_evolution_fMdot(ts, epsilon, rs, rhalfs, hs, fMdot, par_fMdot, Mdot,
     if isinstance(dt_skip, int) and dt_skip>0:
         if dt_skip>1:  #  skips dt_skip to make arrays smaller
             if (Nt-1)%dt_skip==0:
-                Nt2=(Nt-1)/dt_skip+1
+                Nt2=int((Nt-1)/dt_skip+1)
             else:
-                Nt2=(Nt-1)/dt_skip+2
-        elif dt_skip==1: Nt2=Nt
+                Nt2=int((Nt-1)/dt_skip+2)
+        elif dt_skip==1: Nt2=int(Nt)
     else:
         print('not a valid dt_skip')
         sys.exit(0)
@@ -591,10 +591,10 @@ def viscous_evolution_evolcoll(ts, epsilon, rs, rhalfs, hs, rbelt, sig_g, Mdots,
     if isinstance(dt_skip, int) and dt_skip>0:
         if dt_skip>1:  #  skips dt_skip to make arrays smaller
             if (Nt-1)%dt_skip==0:
-                Nt2=(Nt-1)/dt_skip+1
+                Nt2=int((Nt-1)/dt_skip+1)
             else:
-                Nt2=(Nt-1)/dt_skip+2
-        elif dt_skip==1: Nt2=Nt
+                Nt2=int((Nt-1)/dt_skip+2)
+        elif dt_skip==1: Nt2=int(Nt)
     else:
         print('not a valid dt_skip')
         sys.exit(0)
