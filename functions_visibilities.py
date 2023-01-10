@@ -41,6 +41,17 @@ def plot_binned_uvdata(uvtable, geom, bin_size=1e3, ax=None, cut_data=None, **pl
     
     return binned_vis
 
+def bin_uvdata(uvtable, geom, bin_size=1e3, cut_data=None):
+    u,v, vis, w = uvtable
+    
+    up, vp, visp = geom.apply_correction(u,v,vis)
+    if cut_data is not None:
+        up, vp, visp, w = cut_data([up,vp, visp, w])
+        
+    binned_vis = frank.utilities.UVDataBinner(np.hypot(up,vp), visp, w, bin_size)
+    
+    return binned_vis
+
 def bin_predicted_visibilites(model, uvtable, bin_size=1e3):
     u,v, vis, w = uvtable
 

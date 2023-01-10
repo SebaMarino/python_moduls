@@ -62,8 +62,8 @@ def SizeDist_dmax(Mstar=1.0,
                   Qs=608.0,
                   bs=0.38,
                   Qg=0.011,
-                     bg=1.36,
-                     threshold=0.1): 
+                  bg=1.36,
+                  threshold=0.1): 
     # ##################################################
     # returns size distribution: Ds, M(Ds)
     # Mstar=1.0, stellar mass in solar masses 
@@ -142,6 +142,7 @@ def SizeDist_dmax(Mstar=1.0,
     for i in range(ND):
         Rs0[i]=f_Rcoll(Ds, i,Ms0, Vol, vrel, rho, Qs, bs, Qg, bg)
 
+
     # plt.plot(Ds,Rs0)
     # plt.xscale('log')
     # plt.yscale('log')
@@ -157,7 +158,7 @@ def SizeDist_dmax(Mstar=1.0,
         
         elif ts[it]>0.0:
             
-
+            
             # Compute initial collisional timescales for each size
             tcolls=1.0/Rs0 /(1.0e6*year) # Myr # this can give inf as Rs0 can be 0 if e<emax to break up planetesimals
             print(tcolls[:30])
@@ -287,12 +288,14 @@ def SizeDist_dmax(Mstar=1.0,
                 Ms=(Ms*w1 + Msu*w2)/(w1+w2)
 
 
-            # collisionally evolve the whole distribution
+            # collisionally evolve the whole distribution if maximum size is in coll equilibrium
             for k in range(ND):
                 Rs[k]=f_Rcoll(Ds, k,Ms, Vol, vrel, rho, Qs, bs, Qg, bg)
             tcolli=1.0/Rs /(1.0e6*year)
-            if tcolli[0]<ts[it] and kmax==kmin:
+
+            if tcolli[0]<ts[it]:# and kmax==kmin+1:
                 Ms = Ms/(ts[it]/tcolli[0])
+
             Msfinal[it,:]=Ms
 
 

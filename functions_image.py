@@ -1597,23 +1597,26 @@ def plot_cube(filename,cube, ps_arcsec, xedge, yedge, vs, v0=0., Dv=10., rms=0.0
         axi.set_yticks(major_ticks)                                                       
         axi.set_yticks(minor_ticks, minor=True) 
 
-        for tick in axi.get_xticklines():
-            tick.set_color(tickcolor)
+        ### this doesn't work anymore
+        # for tick in axi.get_xticklines():
+        #     tick.set_color(tickcolor)
 
-        for minortick in axi.xaxis.get_minorticklines():
-            minortick.set_color(tickcolor)
+        # for minortick in axi.xaxis.get_minorticklines():
+        #     minortick.set_color(tickcolor)
 
-        for tick in axi.get_yticklines():
-            tick.set_color(tickcolor)
+        # for tick in axi.get_yticklines():
+        #     tick.set_color(tickcolor)
 
-        for minortick in axi.yaxis.get_minorticklines():
-            minortick.set_color(tickcolor)
+        # for minortick in axi.yaxis.get_minorticklines():
+        #     minortick.set_color(tickcolor)
 
         axi.spines['bottom'].set_color(tickcolor)
         axi.spines['top'].set_color(tickcolor)
         axi.spines['left'].set_color(tickcolor)
         axi.spines['right'].set_color(tickcolor)
 
+        axi.tick_params(axis='both', colors=tickcolor, which='both')
+        
         axi.set_aspect('equal')
 
         axi.set_xlim(XMAX,-XMAX)
