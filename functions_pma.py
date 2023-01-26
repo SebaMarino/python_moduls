@@ -1,5 +1,5 @@
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 ### untis
 Msun=1.989e+30 # kg
@@ -31,7 +31,7 @@ def f_gamma(Pp):
 #             zeta=1.
 #     return zeta
 
-def f_zeta_v2(r, m1, Nrandom, epoch='eDR3', gaia='eDR3'):
+def f_zeta_v2(r, m1, Nrandom, epoch='eDR3', gaia='eDR3'): # This does not incorporates uncertainty as it does not depend on cosi. Uncertainty is absorbed by eta
 
     if gaia=='DR2':
         delta_t_HG=24.25 # years
@@ -62,7 +62,7 @@ def f_zeta_v2(r, m1, Nrandom, epoch='eDR3', gaia='eDR3'):
 
     return zeta
 
-def f_zeta_v3(r, m1, Nrandom, cosi, epoch='eDR3', gaia='eDR3'):
+def f_zeta_v3(r, m1, Nrandom, cosi, epoch='eDR3', gaia='eDR3'): # this incorporates uncertainty through cosi. 
 
     # cosi is one or a set of random inclinations distributed as uniform if no information or as something else
     # e.g. cosi=np.random.uniform(0.0, 1.0, Nrandom)
@@ -144,7 +144,7 @@ def f_m2(rs, m1, v, PA_pma, epoch='DR3', inc=0.0, PA=0.0, gaia='eDR3'):
     periods=f_Period(rs, m1) # years
     zeta=np.zeros(len(rs))
     for i in range(len(rs)):
-        zeta[i]=f_zeta_v2(rs[i], m1, 1,  epoch=epoch, gaia=gaia) 
+        zeta[i]=f_zeta_v2(rs[i], m1, 1,  epoch=epoch, gaia=gaia)  # when inc and PA is known
         #zeta[i]=f_zeta_v3(rs[i], m1, 1, np.cos(inc), epoch=epoch) 
     if epoch=='DR2':
         delta_t= 1038./ 365.24 # years, GAIA
@@ -167,7 +167,7 @@ def get_mass_MC(rs, PMa_ra, PMa_ra_err, PMa_dec, PMa_dec_err, parallax, epoch='e
 
     if np.isnan(inc_err) or np.isnan(inc):
         print('unknown system inc')
-        incs=np.arccos(np.random.uniform(0.0, 1.0, Nrandom))*180/np.pi
+        incs=np.arccos(np.random.uniform(0.0, 1.0, Nrandom))*180/np.pi 
     else:
         incs=np.random.normal(inc, inc_err, Nrandom)
     if np.isnan(PA) or np.isnan(PA_err):
@@ -176,6 +176,7 @@ def get_mass_MC(rs, PMa_ra, PMa_ra_err, PMa_dec, PMa_dec_err, parallax, epoch='e
     else:
         PAs=np.random.normal(PA, PA_err, Nrandom)
 
+     
     msMC=np.zeros((Nr, Nrandom))
     ms=np.zeros((Nr, 7))
 
