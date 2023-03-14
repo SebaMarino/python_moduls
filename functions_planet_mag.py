@@ -34,8 +34,12 @@ def get_mag_from_mass_age(input_age, input_mass, input_distance=10., obs_filter 
     except:
         # filter not in BEX models, use ATMO only (twice as a simple not definitive solution)
         bex=get_mass_vs_mag_atmo(input_age, input_distance, obs_filter = obs_filter, diff='sandwich' )
-
+        
+    # try:
     atmo=get_mass_vs_mag_atmo(input_age, input_distance, obs_filter = obs_filter, diff='sandwich' )
+    # except:
+    #     # filter not in ATMO, use BEX only
+    #     atmo=get_mass_vs_mag_bex(input_age, input_distance, obs_filter = obs_filter, diff='sandwich' )
 
     fill_value=25
 

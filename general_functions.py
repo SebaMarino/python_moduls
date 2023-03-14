@@ -400,3 +400,52 @@ def add_arrow(line, position=None, direction='right', size=15, color=None, zorde
                        size=size,
                        zorder=zorder,
     )
+
+
+
+def get_percentile_2D(logP, xs, ys, levels=[0.997, 0.95, 0.68]):
+    """
+    function to calculate contour levels that enclose confidence levels
+    logP: 2D matrix containing log(P) with arbitrary normalization
+    xs: array with x coordinates linearly or log spaced
+    ys: array with y coordinates linearly or log spaced
+    levels: array with confidence levels (<1)
+    """
+
+    levels_sorted=np.sort(levels)[::-1]
+    
+    # get dx and dy
+    dxs=xs[1:]-xs[:-1]
+    dys=ys[1:]-ys[:-1]
+
+    if dxs[0]==dxs[1]: # linear spacing
+        dxs=dxs[0]*np.ones_like(xs) 
+    else:              # log spacing
+        dxs=xs*(xs[1]/xs[0]-1.)
+    if dys[0]==dys[1]: # linear spacing
+        dys=dys[0]*np.ones_like(ys) 
+    else:              # log spacing
+        dys=ys*(ys[1]/ys[0]-1.)
+    # Normalize P
+    
+    dxm, dym = np.meshgrid(dxs, dys)
+    
+    # subtract maximum and normalize
+    logPmax=np.max(logP)
+    P=np.exp(logP-logPmax)
+    I=np.sum(P*dxm*dym)
+    P=P/I
+    
+    Pvalues=np.sort(P.flatten())
+    
+    clevels=[]
+    i=0
+    for val in Pvalues:
+        mask=P>val
+        if i>=len(levels_sorted):
+            break
+        if np.sum(P[mask]*dxm[mask]*dym[mask])<levels_sorted[i]:
+            clevels.append(val)
+            i+=1
+    
+    return np.log(np.array(clevels)*I)+logPmax
