@@ -34,7 +34,7 @@ def Intextpol(x,y,xi):
     Nx=len(x)
     if xi<=x[0]: return y[0] # extrapol                                                                                                                                                                         
     elif xi<=x[Nx-1]: #interpol                                                                                                                                                                                                              
-        for l in xrange(1,Nx):
+        for l in range(1,Nx):
             if xi<=x[l]:
                 return y[l-1]+(xi-x[l-1])*(y[l]-y[l-1])/(x[l]-x[l-1])
 
@@ -68,7 +68,7 @@ def effnk(n1,k1,n2,k2,n3,k3,f2,f3):
     roots=np.roots(p) 
 
     # check roots
-    for i in xrange(len(roots)):
+    for i in range(len(roots)):
         effi=roots[i]
         if effi.real>0.0 and effi.imag>0.0:
             return cma.sqrt(effi)
@@ -106,8 +106,8 @@ def mix_opct_bruggeman(pathout, paths, densities, massfractions, Nw=200, wmin=0.
     f2=v2/v1
     f3=v3/v1
 
-    print v2, v3
-    print "final density = ", df
+    print(v2, v3)
+    print("final density = ", df)
 
 
     O1=np.loadtxt(path1)
@@ -150,7 +150,7 @@ def mix_opct_bruggeman(pathout, paths, densities, massfractions, Nw=200, wmin=0.
     Opct1[i,1]=eff.real
     Opct1[i,2]=eff.imag
 
-    for i in xrange(1,Nw):
+    for i in range(1,Nw):
         Opct1[i,0]=wmin*(wmax/wmin)**(i*1.0/(Nw-1))
     
         # n1=10.0**logO1n(np.log10(Opct1[i,0]))
@@ -238,20 +238,20 @@ def opac_arg(amin, amax, density, N, Inte, lnk_file, Type, exp=3.5):
         Ws_mass=np.zeros(N) # weigths by mass and abundances
         Ws_number=np.zeros(N) # wights by abundances
 
-        for i in xrange(N):
+        for i in range(N):
             Ws_mass[i]=A[i]**(-exp+4.)  # w(a) propto n(a)*m(a)*da and da propto a
             Ws_number[i]=A[i]**(-exp+1.)
 
         W_mass=Ws_mass/np.sum(Ws_mass)
         W_number=Ws_number/np.sum(Ws_number)
 
-        for i in xrange(N):
+        for i in range(N):
             file_inp=open(path+'Tempkappa/dustkappa_'+Type+'_'+str(i+1)+'.inp','r')
             file_inp.readline()
             file_inp.readline()
 
 
-            for j in xrange(Nw):
+            for j in range(Nw):
                 line=file_inp.readline()
                 dat=line.split()
                 kabs=float(dat[1])
@@ -266,14 +266,14 @@ def opac_arg(amin, amax, density, N, Inte, lnk_file, Type, exp=3.5):
             os.system('rm '+path+'Tempkappa/dustkappa_'+Type+'_'+str(i+1)+'.inp')
 
         ### normalize g
-        for j in xrange(Nw):
+        for j in range(Nw):
             Op[j,3]=Op[j,3]/Op[j,2]
 
         final=open(path+pathout,'w')
     
         final.write('3 \n')
         final.write(str(Nw)+'\n')
-        for i in xrange(Nw):
+        for i in range(Nw):
             final.write('%f \t %f \t %f \t %f\n' %(Op[i,0],Op[i,1],Op[i,2],Op[i,3]))
         final.close()
 
@@ -287,8 +287,8 @@ def write_opacities(optc_file, Nspec, Asedge, grain_density, exp=3.5):
     arch.write(str(Nspec)+"              Nr of dust species \n")
     arch.write("============================================================================ \n")
 
-    for i in xrange(Nspec):
-        print i
+    for i in range(Nspec):
+        print(i)
         opac_arg(Asedge[i]*1.0e4, Asedge[i+1]*1.0e4, grain_density, 100, 1, optc_file, 'dust_'+str(i+1), exp=exp )
         os.system('cp '+path_opac+'Tempkappa/* ./')
 
@@ -306,7 +306,7 @@ def change_dustopac(Nspec=1, tag=''):
     arch.write("2               Format number of this file \n")
     arch.write(str(Nspec)+"              Nr of dust species \n")
     arch.write("============================================================================ \n")
-    for i in xrange(Nspec):
+    for i in range(Nspec):
         arch.write("1               Way in which this dust species is read \n")
         arch.write("0               0=Thermal grain \n")
         arch.write("dust_"+str(i+1)+tag+ " Extension of name of dustkappa_***.inp file \n")
@@ -319,26 +319,26 @@ def corrupt_opacities(path_in, path_out, columns=[], factor=-1.0, value=-1.0 ):
     try:
         ncol=len(columns)
     except:
-        print 'columns is not an array'
+        print('columns is not an array')
         return
     if ncol==0:
-        print 'no columns were specify'
+        print('no columns were specify')
         return
 
     for coli in columns:
         if coli not in [1,2,3] or not isinstance(coli, int):
-            print 'no valid column or value in columns is not an int' 
+            print('no valid column or value in columns is not an int') 
             return
     file1=open(path_in,'r')
     ncolsf=int(file1.readline())
-    if ncolsf<ncol: print 'too many columns were specify'
+    if ncolsf<ncol: print('too many columns were specify')
     Nw1=int(file1.readline())
     kappa1=np.zeros((Nw1,ncolsf+1))
 
-    for j in xrange(Nw1):
+    for j in range(Nw1):
         line=file1.readline()
         dat=line.split()
-        for k in xrange(ncolsf+1):
+        for k in range(ncolsf+1):
             kappa1[j,k]=float(dat[k])
     file1.close()
 
@@ -349,12 +349,12 @@ def corrupt_opacities(path_in, path_out, columns=[], factor=-1.0, value=-1.0 ):
         file2.write('%1.0i \n'%(ncolsf-ncol-1))
         file2.write('%1.0i \n'%Nw1)
 
-        for j in xrange(Nw1):
+        for j in range(Nw1):
             linef='%1.5f\t'%(kappa1[j,0])
-            for k in xrange(ncolsf-ncol):
+            for k in range(ncolsf-ncol):
                 linef=linef+'%1.5f\t'%(kappa1[j,k+1])
             linef=linef[:-1]+'\n'
-            print linef
+            print(linef)
 
             file2.write(linef)
 
@@ -370,12 +370,12 @@ def corrupt_opacities(path_in, path_out, columns=[], factor=-1.0, value=-1.0 ):
             for coli in columns:
                 kappa1[:,coli]= value
 
-        for j in xrange(Nw1):
+        for j in range(Nw1):
             linef='%1.5f\t'%(kappa1[j,0])
-            for k in xrange(ncolsf):
+            for k in range(ncolsf):
                 linef=linef+'%1.5f\t'%(kappa1[j,k+1])
             linef=linef[:-1]+'\n'
-            print linef
+            print(linef)
             file2.write(linef)
     file2.close()
     
@@ -385,7 +385,7 @@ def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star
 
     # -------- STAR and wavelength
     
-    print 'Setting Stellar flux...'
+    print('Setting Stellar flux...')
     Nw=len(waves)
         
     if T_star>0.0:
@@ -457,11 +457,11 @@ def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star
     if plt:
         arch_star.write(str(R_plt)+'\t'+str(M_plt)+'\t'+'0.0 0.0 0.0   \n')
     ### wavelengths
-    for i in xrange(Nw):
+    for i in range(Nw):
         arch_star.write(str(waves[i])+'\n')
     ### star
     if T_star>0.0:
-        for i in xrange(Nw):
+        for i in range(Nw):
             arch_star.write(str(Flux[i])+'\n')
     else:
         arch_star.write(str(T_star)+'\n')
@@ -505,10 +505,10 @@ def write_stellar_spectrum(dir_stellar_templates,  waves, T_star, R_star, M_star
 #     arch_ex.write('2 \n')
 #     arch_ex.write(str(Nw)+'\n')
 #     ### wavelengths
-#     for i in xrange(Nw):
+#     for i in range(Nw):
 #         arch_ex.write(str(waves[i])+'\n')
 #     ### Inu
-#     for i in xrange(Nw):
+#     for i in range(Nw):
 #         if waves[i]>Inu_ISRF[0,0] and waves[i]<Inu_ISRF[-1,0]:
 #             arch_ex.write(str(fInu(waves[i]))+'\n')
 #         else:
@@ -525,11 +525,11 @@ def write_interstellar_spectrum(waves, path_ISRF='/Users/marino/Astronomy/Debris
 
 
     flam=np.zeros(Nw)
-    for i in xrange(Nw):
+    for i in range(Nw):
         if True:#waves[i]<8.0:
             flam[i]=Flam_ISRF(waves[i])  #/(np.pi*4.)
     Ftot=np.sum(flam[:-1]*(waves[1:]-waves[:-1]))*1.0e-7 * (1.0e2)**2  # from ergs /s /cm2 to Joules/ s/ m2
-    print 'Ftot = %1.1e'%Ftot
+    print('Ftot = %1.1e'%Ftot)
     # plt.plot(waves, Ilam * waves)
     # plt.xscale('log')
     # plt.yscale('log')
@@ -540,10 +540,10 @@ def write_interstellar_spectrum(waves, path_ISRF='/Users/marino/Astronomy/Debris
     arch_ex.write('2 \n')
     arch_ex.write(str(Nw)+'\n')
     ### wavelengths
-    for i in xrange(Nw):
+    for i in range(Nw):
         arch_ex.write(str(waves[i])+'\n')
     ### Inu
-    for i in xrange(Nw):
+    for i in range(Nw):
         Flam=Flam_ISRF(waves[i])*1.0e4 # from um-1 to cm-1 (cgs)
         Inu= Flam * ( waves[i]*1.0e-4 )**2.0 /cc #/ (4.*np.pi) # units of erg /cm2 /sec/ Hz/ ster
 
@@ -589,7 +589,7 @@ def define_grid_sph(Nr, Nth, Nphi, Rmax, Rmin, Thmax, Thmin, logr=False, logthet
         R=np.zeros(Nr-1)
         Redge[0]=Rmin
         Px_r=(Rmax/Rmin)**(1.0/(Nr-1))
-        for i in xrange(1,Nr):
+        for i in range(1,Nr):
             Redge[i]=Rmin*Px_r**i   
             R[i-1]=( Redge[i]+Redge[i-1])/2.0
 
@@ -607,7 +607,7 @@ def define_grid_sph(Nr, Nth, Nphi, Rmax, Rmin, Thmax, Thmin, logr=False, logthet
         Thedge[1]=Thmin
         Th[0]=Thmin/2.0
 
-        for i in xrange(1,Nth-1):
+        for i in range(1,Nth-1):
             Thedge[i+1]=Thedge[i]*Pth
             Th[i]=(Thedge[i+1]+Thedge[i])/2.0
     else:
@@ -685,13 +685,13 @@ def define_grid_cart(Nx, Nz, Xmax, save=True):
 
         arch.write(str(Nx)+ '\t'+ str(Nx)+'\t'+ str(Nz)+'\n')
 
-        for i in xrange(Nx+1):
+        for i in range(Nx+1):
             arch.write(str(Xedge[i]*au)+'\t')
         arch.write('\n')
-        for i in xrange(Nx+1):
+        for i in range(Nx+1):
             arch.write(str(Xedge[i]*au)+'\t')
         arch.write('\n')
-        for i in xrange(Nz+1):
+        for i in range(Nz+1):
             arch.write(str(Zedge[i]*au)+'\t')
         arch.write('\n')
         arch.close()
@@ -708,7 +708,7 @@ def def_wavelengths(wmin, wmax, Nw, save=True):
     path='wavelength_micron.inp'
     arch=open(path,'w')
     arch.write(str(Nw)+'\n')
-    for i in xrange(Nw):
+    for i in range(Nw):
         arch.write(str(waves[i])+'\n')
     arch.close()
 
@@ -720,7 +720,7 @@ def grains_size_grid(amin, amax, Nspec, Mdust_tot, Sizedist_exp): ## define grai
     As=(Asedge[:-1]+Asedge[1:])/2.0
 
     Ms=np.zeros(Nspec) # dust mass in each bin
-    print Mdust_tot
+    print(Mdust_tot)
     if Mdust_tot>0.0:
         Ms[:] = np.abs(abs(Asedge[1:]**(Sizedist_exp+3.0+1.0)-Asedge[:-1]**(Sizedist_exp+3.0+1.0)))
         Ms=Ms*Mdust_tot/np.sum(Ms) # normalise to set total dust mass = M_dust
@@ -746,14 +746,14 @@ def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *
     res_theta=Thedge[-1]-Thedge[-2]
 
         
-    for ia in xrange(Nspec):
+    for ia in range(Nspec):
         M_dust_temp= 0.0 #np.zeros(Nspec) 
        
         if len(Th)>1: # more than one cell per emisphere
 
-            for k in xrange(Nth-1):
+            for k in range(Nth-1):
                 theta=Th[Nth-2-k] # we want to sample theta going from Northpole towards the equator. Th and theta represent angle from the equator.
-                for i in xrange(Nr-1):
+                for i in range(Nr-1):
                     rho=R[i]*np.cos(theta)
                     z=R[i]*np.sin(theta)
                     rho_d[ia,k,:,i]=rho_3d_dens(rho, 0.0, z,h, sigmaf, *args )
@@ -761,7 +761,7 @@ def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *
                     M_dust_temp+=2.0*rho_d[ia,k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0
         elif len(Th)==1:# one cell
             theta=Th[0]
-            for i in xrange(Nr-1):
+            for i in range(Nr-1):
 
                 rho=R[i]*np.cos(theta)
                 rho_d[ia,0,:,i]=sigmaf(rho, 0.0, *args)/(res_theta*rho) # rho_3d_dens(rho, 0.0, 0.0, hs, sigmaf, *args )
@@ -781,7 +781,7 @@ def save_dens_axisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, *
     dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells
     dust_d.write(str(Nspec)+' \n') # n species
 
-    for ai in xrange(Nspec):
+    for ai in range(Nspec):
         for j in range(Nphi):
             for k in range(2*(Nth-1)):
                 for i in range(Nr-1):
@@ -807,7 +807,7 @@ def save_dens_vectors(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, 
     rho=Rm*np.cos(thetam) 
     z=Rm*np.sin(thetam)
 
-    for ia in xrange(Nspec):
+    for ia in range(Nspec):
         M_dust_temp= 0.0 #np.zeros(Nspec) 
         
         # nother emisphere
@@ -845,7 +845,7 @@ def save_dens_vectors(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf, 
     dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells
     dust_d.write(str(Nspec)+' \n') # n species
 
-    for ai in xrange(Nspec):
+    for ai in range(Nspec):
         for j in range(Nphi):
             for k in range(2*(Nth-1)):
                 for i in range(Nr-1):
@@ -864,14 +864,14 @@ def save_dens_axisym_flared(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, rc
     res_theta=Thedge[-1]-Thedge[-2]
 
         
-    for ia in xrange(Nspec):
+    for ia in range(Nspec):
         M_dust_temp= 0.0 #np.zeros(Nspec) 
        
         if len(Th)>1: # more than one cell per emisphere
 
-            for k in xrange(Nth-1):
+            for k in range(Nth-1):
                 theta=Th[Nth-2-k]
-                for i in xrange(Nr-1):
+                for i in range(Nr-1):
                     rho=R[i]*np.cos(theta)
                     z=R[i]*np.sin(theta)
                     hi=h*(rho/rc)**flaring_index # aspect ratio
@@ -880,7 +880,7 @@ def save_dens_axisym_flared(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, rc
                     M_dust_temp+=2.0*rho_d[ia,k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0
         elif len(Th)==1:# one cell
             theta=Th[0]
-            for i in xrange(Nr-1):
+            for i in range(Nr-1):
 
                 rho=R[i]*np.cos(theta)
                 rho_d[ia,0,:,i]=sigmaf(rho, 0.0, *args)/(res_theta*rho) # rho_3d_dens(rho, 0.0, 0.0, hs, sigmaf, *args )
@@ -900,7 +900,7 @@ def save_dens_axisym_flared(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, rc
     dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells
     dust_d.write(str(Nspec)+' \n') # n species
 
-    for ai in xrange(Nspec):
+    for ai in range(Nspec):
         for j in range(Nphi):
             for k in range(2*(Nth-1)):
                 for i in range(Nr-1):
@@ -918,14 +918,14 @@ def save_dens_axisym_mirror(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, si
     rho_d=np.zeros((Nspec,Nth-1,Nphi,Nr-1)) # density field
     res_theta=Thedge[-1]-Thedge[-2]
 
-    for ia in xrange(Nspec):
+    for ia in range(Nspec):
         M_dust_temp= 0.0 #np.zeros(Nspec) 
         
         if len(Th)>1: # more than one cell per emisphere
 
-            for k in xrange(Nth-1):
+            for k in range(Nth-1):
                 theta=Th[Nth-2-k]
-                for i in xrange(Nr-1):
+                for i in range(Nr-1):
                     rho=R[i]*np.cos(theta)
                     z=R[i]*np.sin(theta)
 
@@ -934,7 +934,7 @@ def save_dens_axisym_mirror(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, si
 
         elif len(Th)==1:# one cell
             theta=Th[0]
-            for i in xrange(Nr-1):
+            for i in range(Nr-1):
                 rho=R[i]*np.cos(theta)
                 rho_d[ia,0,:,i]=sigmaf(rho, 0.0, *args)/(res_theta*rho) # rho_3d_dens(rho, 0.0, 0.0, hs, sigmaf, *args )
                 M_dust_temp+=2.0*rho_d[ia,0,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(res_theta)*R[i]*au**3.0
@@ -954,12 +954,12 @@ def save_dens_axisym_mirror(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, si
     dust_d.write(str(Nspec)+' \n') # n species
 
     # if south_emisphere:
-    #     for ai in xrange(Nspec):
+    #     for ai in range(Nspec):
     #         for j in range(Nphi):
     #             for k in range(2*(Nth-1)):
     #                 for i in range(Nr-1):
     #                     dust_d.write(str(rho_d[ai,k,j,i])+' \n')
-    for ai in xrange(Nspec):
+    for ai in range(Nspec):
         for j in range(Nphi):
             for k in range(Nth-1):
                 for i in range(Nr-1):
@@ -989,24 +989,24 @@ def save_dens_axisym_settling(As, rho_grain, gdr, alpha_turb, Redge, R, Thedge, 
     ### create Surface density function to cumpute stoke number.
     #### you have to iterate through as there is an if in the definition of sigmaf probably
     Sigma_g=np.zeros(Nr)
-    for i in xrange(Nr):
+    for i in range(Nr):
         Sigma_g[i]=sigmaf(Redge[i], 0.0, *args)
     M_temp=np.sum(Sigma_g*2.0*np.pi*Redge*dR)*au**2
     Sigma_g=Sigma_g*M_gas/M_temp
     flogsigma_g=interpolate.interp1d(np.log10(Redge), np.log10(Sigma_g))
 
     ### compute density field includding settling
-    for ia in xrange(Nspec):
+    for ia in range(Nspec):
         M_dust_temp= 0.0 #np.zeros(Nspec) 
         # print ia
         # print "Dust species = ", ia
   
-        for k in xrange(Nth-1):
+        for k in range(Nth-1):
             theta=Th[Nth-2-k]
-            for i in xrange(Nr-1):
+            for i in range(Nr-1):
                 rho=R[i]*np.cos(theta)
                 z=R[i]*np.sin(theta)
-                # for j in xrange(Nphi):
+                # for j in range(Nphi):
                 if  rho>Redge[0]:
                     S=   np.pi/2. * As[ia] * rho_grain/(10**flogsigma_g(np.log10(rho)) ) / alpha_turb 
                     hs = h/ np.sqrt(S+1)
@@ -1029,7 +1029,7 @@ def save_dens_axisym_settling(As, rho_grain, gdr, alpha_turb, Redge, R, Thedge, 
     dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells
     dust_d.write(str(Nspec)+' \n') # n species
 
-    for ai in xrange(Nspec):
+    for ai in range(Nspec):
         for j in range(Nphi):
             for k in range(2*(Nth-1)):
                 for i in range(Nr-1):
@@ -1051,23 +1051,23 @@ def save_dens_nonaxisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf
     dphi=Phiedge[1]-Phiedge[0]
     rho_d=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # density field
 
-    for ia in xrange(Nspec):
+    for ia in range(Nspec):
         M_dust_temp= 0.0 #np.zeros(Nspec) 
         # print ia
         # print "Dust species = ", ia
   
-        for k in xrange(Nth-1):
+        for k in range(Nth-1):
             theta=Th[Nth-2-k]
-            for i in xrange(Nr-1):
+            for i in range(Nr-1):
                 rho=R[i]*np.cos(theta)
                 z=R[i]*np.sin(theta)
-                for j in xrange(Nphi):
+                for j in range(Nphi):
                     phi=Phi[j]
                     rho_d[ia,k,j,i]=rho_3d_dens(rho,phi, z,h, sigmaf, *args )
                     rho_d[ia,2*(Nth-1)-1-k,j,i]=rho_d[ia,k,j,i]
                     
                     M_dust_temp+=2.0*rho_d[ia,k,j,i]*(dphi)*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
-        # for ia in xrange(Nspec):
+        # for ia in range(Nspec):
         rho_d[ia,:,:,:]=rho_d[ia,:,:,:]*Ms[ia]/M_dust_temp
         
         
@@ -1079,7 +1079,7 @@ def save_dens_nonaxisym(Nspec, Redge, R, Thedge, Th, Phiedge, Phi, Ms, h, sigmaf
     dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells 
     dust_d.write(str(Nspec)+' \n') # n species
 
-    for ai in xrange(Nspec):
+    for ai in range(Nspec):
         for j in range(Nphi):
             for k in range(2*(Nth-1)):
                 for i in range(Nr-1):
@@ -1099,18 +1099,18 @@ def save_dens_nonaxisym_2comp(Nspec, Redge, R, Thedge, Th, Phiedge, Phi,h, Ms1, 
     dphi=Phiedge[1]-Phiedge[0]
     rho_d1=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # density field
     rho_d2=np.zeros((Nspec,(Nth-1)*2,Nphi,Nr-1)) # density field
-    for ia in xrange(Nspec):
+    for ia in range(Nspec):
         M_dust_temp1= 0.0 #np.zeros(Nspec) 
         M_dust_temp2= 0.0 #np.zeros(Nspec) 
         # print ia
         # print "Dust species = ", ia
   
-        for k in xrange(Nth-1):
+        for k in range(Nth-1):
             theta=Th[Nth-2-k]
-            for i in xrange(Nr-1):
+            for i in range(Nr-1):
                 rho=R[i]*np.cos(theta)
                 z=R[i]*np.sin(theta)
-                for j in xrange(Nphi):
+                for j in range(Nphi):
                     phi=Phi[j]
                     rho_d1[ia,k,j,i]=rho_3d_dens(rho,phi, z,h, sigmaf1, *args1 )
                     rho_d1[ia,2*(Nth-1)-1-k,j,i]=rho_d1[ia,k,j,i]
@@ -1120,7 +1120,7 @@ def save_dens_nonaxisym_2comp(Nspec, Redge, R, Thedge, Th, Phiedge, Phi,h, Ms1, 
                     
                     M_dust_temp1+=2.0*rho_d1[ia,k,j,i]*(dphi)*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
                     M_dust_temp2+=2.0*rho_d2[ia,k,j,i]*(dphi)*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
-        # for ia in xrange(Nspec):
+        # for ia in range(Nspec):
         rho_d1[ia,:,:,:]=rho_d1[ia,:,:,:]*Ms1[ia]/M_dust_temp1
         rho_d2[ia,:,:,:]=rho_d2[ia,:,:,:]*Ms2[ia]/M_dust_temp2
         
@@ -1133,7 +1133,7 @@ def save_dens_nonaxisym_2comp(Nspec, Redge, R, Thedge, Th, Phiedge, Phi,h, Ms1, 
     dust_d.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells 
     dust_d.write(str(Nspec)+' \n') # n species
 
-    for ai in xrange(Nspec):
+    for ai in range(Nspec):
         for j in range(Nphi):
             for k in range(2*(Nth-1)):
                 for i in range(Nr-1):
@@ -1163,13 +1163,13 @@ def save_density_cartesian_flat(Ms, field, Nspec, Nx, Xmax, Nz):
 
     M_dust_temp = np.sum(field)*(dx*au)**2 * (2*Zmax*au)
 
-    for ia in xrange(Nspec):
+    for ia in range(Nspec):
 
         rho_d[ia,:]=rho_d[ia,:]*Ms[ia]/M_dust_temp
 
-        # for i in xrange(Nx-1):
+        # for i in range(Nx-1):
         #     x=Xedge[i]+dx/2.0
-        #     for j in xrange(Nx-1):
+        #     for j in range(Nx-1):
         #         y=Xedge[j]+dx/2.0
         #         rho=np.sqrt(x**2.0+y**2.0)
         #         H=H_odisk*(rho/R_odisk)**flare_odisk
@@ -1177,7 +1177,7 @@ def save_density_cartesian_flat(Ms, field, Nspec, Nx, Xmax, Nz):
         #             # print 'hey'
         #             print rho
         #         Sigma=field[j,i]
-        #         for k in xrange(Nz-1):
+        #         for k in range(Nz-1):
         #             z=Zedge[k]+dz/2.0
         #             rho_d[ia,j,i,k]=Sigma #rho_p(Sigma,H,z)
         #             M_dust_temp+=rho_d[ia,j,i,k]*dx**2.0*dz*au**3.0
@@ -1191,7 +1191,7 @@ def save_density_cartesian_flat(Ms, field, Nspec, Nx, Xmax, Nz):
     dust_d.write(str((Nx)*(Nx)*(Nz))+' \n') # iformat n cells 
     dust_d.write(str(Nspec)+' \n') # n species
 
-    for ai in xrange(Nspec):
+    for ai in range(Nspec):
         for k in range(Nz):
             for j in range(Nx):
                 for i in range(Nx):
@@ -1218,13 +1218,13 @@ def save_density_cartesian(Ms, field, Nspec, Nx, Xmax, Nz):
 
     M_dust_temp = np.sum(field)*(dx*au)**3
 
-    for ia in xrange(Nspec):
+    for ia in range(Nspec):
 
         rho_d[ia,:]=rho_d[ia,:]*Ms[ia]/M_dust_temp
 
-        # for i in xrange(Nx-1):
+        # for i in range(Nx-1):
         #     x=Xedge[i]+dx/2.0
-        #     for j in xrange(Nx-1):
+        #     for j in range(Nx-1):
         #         y=Xedge[j]+dx/2.0
         #         rho=np.sqrt(x**2.0+y**2.0)
         #         H=H_odisk*(rho/R_odisk)**flare_odisk
@@ -1232,7 +1232,7 @@ def save_density_cartesian(Ms, field, Nspec, Nx, Xmax, Nz):
         #             # print 'hey'
         #             print rho
         #         Sigma=field[j,i]
-        #         for k in xrange(Nz-1):
+        #         for k in range(Nz-1):
         #             z=Zedge[k]+dz/2.0
         #             rho_d[ia,j,i,k]=Sigma #rho_p(Sigma,H,z)
         #             M_dust_temp+=rho_d[ia,j,i,k]*dx**2.0*dz*au**3.0
@@ -1246,7 +1246,7 @@ def save_density_cartesian(Ms, field, Nspec, Nx, Xmax, Nz):
     dust_d.write(str((Nx)*(Nx)*(Nz))+' \n') # iformat n cells 
     dust_d.write(str(Nspec)+' \n') # n species
 
-    for ai in xrange(Nspec):
+    for ai in range(Nspec):
         for k in range(Nz):
             for j in range(Nx):
                 for i in range(Nx):
@@ -1279,7 +1279,7 @@ def save_grid_dens_from_fits(fits_file, Ms, Nspec, dx=1.0, h=0.0):
 
         Xs, Ys  = np.meshgrid( xs, xs) # x, y, z
         rs=np.sqrt(Xs**2. + Ys**2.)
-        for k in xrange(Nz):
+        for k in range(Nz):
             
             field[k, :, :] =  data [:, :] * np.exp( - (zs[k])**2./(2.*(h*rs[:,:])**2.) )
         if Nx%2!=0.0: # make sure central point has zero density
@@ -1325,7 +1325,7 @@ def save_gas_dens_velocity_from_fits(fits_file, Mco=0.0, Mc=0.0, Mh=0.0, fion=0.
 
         Xs, Ys  = np.meshgrid( xs, xs) # x, y, z
         rs=np.sqrt(Xs**2. + Ys**2.)
-        for k in xrange(Nz):
+        for k in range(Nz):
             field[k, :, :] =  data [:, :] * np.exp( - (zs[k])**2./(2.*(h*rs[:,:])**2.) )
         if Nx%2!=0.0: # make sure central point has zero density
             field[:, Nx//2, Nx//2]=0.0
@@ -1355,8 +1355,8 @@ def save_gas_dens_velocity_from_fits(fits_file, Mco=0.0, Mc=0.0, Mh=0.0, fion=0.
     # paths=path_h2, path_12co, path_13c16o, path_12c18o, path_hcop]
     # ms=np.array([2.0, 28.0, 29.0, 30.0, 29.0])* 1.67262178e-24 # molecular masses in grams
     # abundances=[Mh2, Mco, Mco*1.0e-2, Mco*1.0e-3, Mco*1.0e-3] # mass in grams
-    for ip in xrange(len(paths)):
-        print 'Mass = %1.1e [Mearth]'%(Masses[ip]/M_earth)
+    for ip in range(len(paths)):
+        print('Mass = %1.1e [Mearth]'%(Masses[ip]/M_earth))
 
         file_g=open(paths[ip],'w')
         file_g.write('1 \n') # iformat
@@ -1423,9 +1423,9 @@ def save_gas_dens_velocity_from_fits(fits_file, Mco=0.0, Mc=0.0, Mh=0.0, fion=0.
     arch_v.write(str(Nx*Nx*Nz)+' \n') # n cells
     # ----------------------TURBULENCES 0.1 km/s
     turb=0.1
-    for k in xrange(Nz):
-        for j in xrange(Nx):
-            for i in xrange(Nx):
+    for k in range(Nz):
+        for j in range(Nx):
+            for i in range(Nx):
                 arch_v.write(str(turb*1.0e5)+' \n') # cm/s
 
 
@@ -1444,17 +1444,17 @@ def save_dens_gas( Redge, R, Thedge, Th, Phiedge, Phi, Mh2, Mco, h, sigmaf, *arg
     # print "Dust species = ", ia
 
     dphi=Phiedge[1]-Phiedge[0]
-    for k in xrange(Nth-1):
+    for k in range(Nth-1):
         theta=Th[Nth-2-k]
-        for i in xrange(Nr-1):
+        for i in range(Nr-1):
             rho=R[i]*np.cos(theta)
             z=R[i]*np.sin(theta)
-            for j in xrange(Nphi):
+            for j in range(Nphi):
                 phi=Phi[j]
                 rho_g[k,j,i]=rho_3d_dens(rho, phi, z,h, sigmaf, *args )
                 rho_g[2*(Nth-1)-1-k,j,i]=rho_g[k,j,i]
                 M_gas_temp+=2.0*rho_g[k,j,i]*dphi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
-        # for ia in xrange(Nspec):
+        # for ia in range(Nspec):
     rho_g=rho_g/M_gas_temp
         
     
@@ -1470,7 +1470,7 @@ def save_dens_gas( Redge, R, Thedge, Th, Phiedge, Phi, Mh2, Mco, h, sigmaf, *arg
     ms=np.array([2.0, 28.0, 29.0, 30.0, 29.0])* 1.67262178e-24 # molecular masses in grams
     abundances=[Mh2, Mco, Mco*1.0e-2, Mco*1.0e-3, Mco*1.0e-3] # mass in grams
 
-    for ip in xrange(len(paths)):
+    for ip in range(len(paths)):
         file_g=open(paths[ip],'w')
         file_g.write('1 \n') # iformat  
         file_g.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells 
@@ -1511,17 +1511,17 @@ def save_dens_gas_axisym( Redge, R, Thedge, Th, Phiedge, Phi, Mh2, Mco, h, sigma
     # print ia
     # print "Dust species = ", ia
   
-    for k in xrange(Nth-1):
+    for k in range(Nth-1):
         theta=Th[Nth-2-k]
-        for i in xrange(Nr-1):
+        for i in range(Nr-1):
             rho=R[i]*np.cos(theta)
             z=R[i]*np.sin(theta)
-            # for j in xrange(Nphi):
+            # for j in range(Nphi):
 
             rho_g[k,:,i]=rho_3d_dens(rho, 0.0, z,h, sigmaf, *args )
             rho_g[2*(Nth-1)-1-k,:,i]=rho_g[k,:,i]
             M_gas_temp+=2.0*rho_g[k,0,i]*2.0*np.pi*rho*(Redge[i+1]-Redge[i])*(Thedge[Nth-2-k+1]-Thedge[Nth-2-k])*R[i]*au**3.0 
-        # for ia in xrange(Nspec):
+        # for ia in range(Nspec):
     rho_g=rho_g/M_gas_temp
         
     
@@ -1537,7 +1537,7 @@ def save_dens_gas_axisym( Redge, R, Thedge, Th, Phiedge, Phi, Mh2, Mco, h, sigma
     ms=np.array([2.0, 28.0, 29.0, 30.0, 29.0])* 1.67262178e-24 # molecular masses in grams
     abundances=[Mh2, Mco, Mco*1.0e-2, Mco*1.0e-3, Mco*1.0e-3] # mass in grams
 
-    for ip in xrange(len(paths)):
+    for ip in range(len(paths)):
         file_g=open(paths[ip],'w')
         file_g.write('1 \n') # iformat  
         file_g.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells 
@@ -1579,12 +1579,12 @@ def save_dens_gas_axisym_carbon_electrons( Redge, R, Thedge, Th, Phiedge, Phi, h
     # print ia
     # print "Dust species = ", ia
   
-    for k in xrange(Nth-1):
+    for k in range(Nth-1):
         theta=Th[Nth-2-k]
-        for i in xrange(Nr-1):
+        for i in range(Nr-1):
             rho=R[i]*np.cos(theta)
             z=R[i]*np.sin(theta)
-            # for j in xrange(Nphi):
+            # for j in range(Nphi):
 
             rho_g1[k,:,i]=rho_3d_dens(rho, 0.0, z,h, sigmaf1, *args1 )
             rho_g1[2*(Nth-1)-1-k,:,i]=rho_g1[k,:,i]
@@ -1618,8 +1618,8 @@ def save_dens_gas_axisym_carbon_electrons( Redge, R, Thedge, Th, Phiedge, Phi, h
     # paths=path_h2, path_12co, path_13c16o, path_12c18o, path_hcop]
     # ms=np.array([2.0, 28.0, 29.0, 30.0, 29.0])* 1.67262178e-24 # molecular masses in grams
     # abundances=[Mh2, Mco, Mco*1.0e-2, Mco*1.0e-3, Mco*1.0e-3] # mass in grams
-    for ip in xrange(len(paths)):
-        print 'Mass = %1.1e'%Masses[ip]
+    for ip in range(len(paths)):
+        print('Mass = %1.1e'%Masses[ip])
 
         file_g=open(paths[ip],'w')
         file_g.write('1 \n') # iformat  
@@ -1661,10 +1661,10 @@ def gas_velocities( Redge, R, Thedge, Th, Phiedge, Phi, M_star=1.0*M_sun, turb=0
     arch.write('1 \n') # iformat  
     arch.write(str((Nr-1)*2*(Nth-1)*(Nphi))+' \n') # iformat n cells   
 
-    for j in xrange(Nphi):
+    for j in range(Nphi):
         phi=Phi[j]
-        for k in xrange(2*(Nth-1)):
-            for i in xrange(Nr-1):
+        for k in range(2*(Nth-1)):
+            for i in range(Nr-1):
                 r=R[i]
             
                 if k<Nth-1:
@@ -1726,7 +1726,7 @@ def load_image(path_image, dpc):
     iformat=int(f.readline())
 
     if (iformat < 1) or (iformat > 4):
-        print "ERROR: File format of image not recognized"
+        print("ERROR: File format of image not recognized")
         return
 
     nx, ny = tuple(np.array(f.readline().split(),dtype=int))
@@ -1834,7 +1834,7 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
        
     if fstar>=0.0:
          image_in_jypix[:, :, jstar,istar]=fstar
-    print 'Fstar=', image_in_jypix[0, 0, jstar,istar]
+    print('Fstar=', image_in_jypix[0, 0, jstar,istar])
     
     image_in_jypix_shifted= shift_image(image_in_jypix, mx, my, pixdeg_x, pixdeg_y, omega=omega)
 
@@ -1846,7 +1846,7 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
     
     if nf==1:
         flux = np.sum(image_in_jypix_shifted[0,0,:,:])
-        print "flux [Jy] = ", flux
+        print("flux [Jy] = ", flux)
     else:
         delta_freq= (lam[0] - lam[1])*cc*1.0e4/lam[nf//2]**2.0 # Hz
         delta_velocity = (lam[1] - lam[0])*cc*1e-5/lam0 # km/s
@@ -1859,7 +1859,7 @@ def convert_to_fits(path_image,path_fits, Npixf, dpc , mx=0.0, my=0.0, x0=0.0, y
                 Cont=I0+(lam[k]-lam[0])*m
                 image_in_jypix_shifted[0,k,:,:]= image_in_jypix_shifted[0,k,:,:] - Cont 
         flux = np.sum(image_in_jypix_shifted[0,:,:,:])*delta_velocity
-        print "flux [Jy km/s] = ", flux
+        print("flux [Jy km/s] = ", flux)
   
         
     ### HEADER
@@ -2107,7 +2107,7 @@ def convert_to_fits_canvas(path_image,path_fits,path_canvas, dpc, mx=0.0, my=0.0
         inans= np.isnan(image_in_jypix_shifted)
         image_in_jypix_shifted[inans]=0.0
     else:
-        print "don't multiply by pbm"
+        print("don't multiply by pbm")
 
     flux = np.sum(image_in_jypix_shifted[0,0,:,:])
     header['BUNIT'] = 'JY/PIXEL' 
@@ -2164,7 +2164,7 @@ def convert_to_fits_canvas_fields(path_image,path_fits,path_canvas, dpc, mx=0.0,
         inans= np.isnan(image_in_jypix_shifted)
         image_in_jypix_shifted[inans]=0.0
     else:
-        print "don't multiply by pbm"
+        print("don't multiply by pbm")
 
     flux = np.sum(image_in_jypix_shifted[0,0,:,:])
     header['BUNIT'] = 'JY/PIXEL' 
@@ -2235,7 +2235,7 @@ def convert_to_fits_canvas_fields_alpha(path_image,path_fits,path_canvas, dpc, l
         inans= np.isnan(image_in_jypix_shifted)
         image_in_jypix_shifted[inans]=0.0
     else:
-        print "don't multiply by pbm"
+        print("don't multiply by pbm")
 
     image_in_jypix_float=image_in_jypix_shifted.astype(np.float32)
 
@@ -2299,7 +2299,7 @@ def convert_to_fits_canvas_alpha(path_image,path_fits,path_canvas, dpc, lam0, ne
         inans= np.isnan(image_in_jypix_shifted)
         image_in_jypix_shifted[inans]=0.0
     else:
-        print "don't multiply by pbm"
+        print("don't multiply by pbm")
 
     image_in_jypix_float=image_in_jypix_shifted.astype(np.float32)
 
@@ -2514,7 +2514,7 @@ def Simimage_gas(dpc,  imagename, mol, line, vmax, Nnu, Npix, dpix, inc, PA, off
     transition='iline '+str(line)+' imolspec '+str(mol)+' widthkms '+str(vmax)+' vkms 0.0 linenlam '+str(Nnu)
     
     sau=Npix*dpix*dpc
-    print Npix, transition
+    print(Npix, transition)
     os.system('radmc3d image incl '+str(inc)+' phi '+str(omega)+' posang '+str(PA-90.0)+' '+transition+ ' npix '+str(Npix)+' sizeau '+str(sau)+' doppcatch noscat')
     pathin ='image_'+imagename+'_'+tag+'.out'
     os.system('mv image.out '+pathin)
@@ -2724,7 +2724,7 @@ def plot_field(field='temp', ispec=1, rmax=100., rmin=0., Tcontours=[20., 50.], 
         if Redge[i]>rmin: 
             fmax=F[0,Nth/2,i]
             break
-    print fmax
+    print(fmax)
     rhoedge, phiedge = np.meshgrid( Redge[:imax], Phiedge)
     redge, thetaedge = np.meshgrid( Redge[:imax], Thedge)
 

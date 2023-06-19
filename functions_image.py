@@ -1017,7 +1017,7 @@ def inter(Nin,Nout,i,j,ps1,ps2,Fin):
 def interpol(Nin,Nout,ps1,ps2,Fin):
     print(ps1, ps2, Nin, Nout)
     print(Nin, Nout)
-    if ps1!=ps2:
+    if abs(ps1-ps2)/ps1>0.001:
         F=np.zeros((Nout,Nout), dtype=np.float64)
         for i in range(Nout):
             for j in range (Nout):	
