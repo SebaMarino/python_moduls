@@ -1,0 +1,6 @@
+*.pyc
+*~
+Python_functions
+*.c
+*.so
+build
