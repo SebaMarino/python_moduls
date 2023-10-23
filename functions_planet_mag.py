@@ -266,7 +266,7 @@ def get_mass_vs_mag_bex(input_age, input_distance=10., obs_filter = 'f444w', dif
 
 
 
-def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM=100, Na=100,amin=0., Nphi=30, amax=200., Mpmin=0.1, Mpmax=100., Nage=10, absolute_mag=True, simple=False, obs_filter='f1550c' , contrast_type='magnitude', a_log=False, fov=10.):
+def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM=100, Na=100,amin=0., Nphi=30, amax=200., Mpmin=0.1, Mpmax=100., Nage=10, absolute_mag=True, simple=False, obs_filter='f1550c' , contrast_type='magnitude', a_log=False, fov=10., inc_is_known=True):
     # inc in radians    
     
     # add point at separation 0 and at amax (repeat first and last values)
@@ -317,8 +317,14 @@ def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM
 
     Detectability=np.zeros((NM,Na))
 
-    phis=np.linspace(0.0, np.pi/2., Nphi+1)[:-1] # only necessary to do one quarter
+    if inc_is_known:
+        phis=np.linspace(0.0, np.pi/2., Nphi+1)[:-1] # only necessary to do one quarter
 
+    else:
+        ### if random inc
+        phis=np.random.uniform(0.0, np.pi/2., Nphi+1)[:-1] # only necessary to do one quarter
+        incs=np.arccos(np.random.uniform(0., 1.0, Nphi))
+    
     ## ITERATE AND CALCULATE PROBABILITY FOR EACH BIN
     for j in range(NM):
         #print(j)
@@ -328,10 +334,15 @@ def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM
             
                 magi=get_mag_from_mass_age(ages[k], Mps[j], input_distance=dpc_contrast,obs_filter=obs_filter )
                 for i in range(Na):
-                    xs=aps[i]*np.cos(phis)
-                    ys=aps[i]*np.sin(phis)*np.cos(inc)
-                    separations=np.sqrt(xs**2+ys**2)/dpc
-
+                    if inc_is_known:
+                        xs=aps[i]*np.cos(phis)
+                        ys=aps[i]*np.sin(phis)*np.cos(inc)
+                        separations=np.sqrt(xs**2+ys**2)/dpc
+                    else:
+                        xs=aps[i]*np.cos(phis)
+                        ys=aps[i]*np.sin(phis)*np.cos(incs)
+                        separations=np.sqrt(xs**2+ys**2)/dpc
+                        
                     if simple: # consider detected if above 5sigma, undetected if not
                         mask_detections=(fcontrast(separations)>magi) & (separations<fov)
                         Detectability[j, i]=Detectability[j, i]+len(separations[mask_detections])/(Nphi*Nage)
