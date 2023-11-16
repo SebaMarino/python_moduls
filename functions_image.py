@@ -352,44 +352,38 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
 
 
 
-def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, arc='elipse'):
+def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, arc='elipse', cube=False):
 
-
-    fit1=pyfits.open(fitsfile)
-    data1 	= get_last2d(fit1[0].data) #extraer matriz de datos
     
+    fit1=pyfits.open(fitsfile)
+    if cube==False:
+        data1 	= get_last2d(fit1[0].data) #extraer matriz de datos
+
+    else:
+        data1   = get_last3d(fit1[0].data)
+        Nlam=data1.shape[0]
+    Np1=data1.shape[-1]
     # print np.shape(data1)
     header1=fit1[0].header
     ps_deg1=float(header1['CDELT2'])
     ps_arcsec1=ps_deg1*3600.0
     ps_rad1=ps_deg1*np.pi/180.0
-    Np1=len(data1[:,0])
-
-    # BMAJ1=float(header1['BMAJ']) # deg
-    # BMIN1=float(header1['BMIN']) # deg
-    # BPA1=float(header1['BPA']) # deg
-
-    # BMAJ_arcsec1=BMAJ1*3600.0
-    # BMIN_arcsec1=BMIN1*3600.0
 
     # change units from Jy/pix to Jy/arcsec
-
     if header1['BUNIT']=='JY/PIXEL':
-        
-        try:
-            BMAJ=float(header1['BMAJ']) # deg
-            BMIN=float(header1['BMIN']) # deg
-            BPA=float(header1['BPA']) # deg
 
-            BMAJ_arcsec1=BMAJ*3600.0
-            BMIN_arcsec1=BMIN*3600.0
-            print(BMAJ_arcsec1, BMIN_arcsec1)
-            beam_area=np.pi*BMAJ_arcsec1*BMIN_arcsec1/(4.*np.log(2.))
-            
-            data1=data1*beam_area/(ps_arcsec1**2)
-        except:
-            data1=data1/(ps_arcsec1**2)
-    return radial_profile(data1, np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc)
+        data1=data1/(ps_arcsec1**2)
+
+    if cube==False:
+        return radial_profile(data1, np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc)
+
+    else:
+        Srs=[]
+        for ilam in range(Nlam):
+            Sri= radial_profile(data1[ilam,:,:], np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc)
+            Srs.append(Sri)
+        return Srs
+
 
 def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, error_std=False, arcsec2=False , arc='elipse', ret_beam=False):
 
