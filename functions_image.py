@@ -1836,7 +1836,7 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
     ax1.set_yticks(major_ticks)                                                       
     ax1.set_yticks(minor_ticks, minor=True) 
 
-    ax1.tick_params(axis='both', which='both', color=tickcolor)
+    ax1.tick_params(axis='both', which='both', color=tickcolor, labelcolor='black')
 
     #### code below not working anymore
     # for tick in ax1.get_xticklines():
