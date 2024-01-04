@@ -10,6 +10,8 @@ from astropy.io import ascii
 import scipy.stats
 from scipy.interpolate import interp1d
 from scipy.ndimage.filters import gaussian_filter
+from pathlib import Path
+home = str(Path.home())
 
 
 Msun=1.989e+30 # kg
@@ -101,7 +103,7 @@ def get_mag_from_mass_age(input_age, input_mass, input_distance=10., obs_filter 
 def get_mass_vs_mag_atmo(input_age, input_distance=10., obs_filter = 'f444w', diff='sandwich' ):
 
 
-    atmo_grid_dir = '/Users/Sebamarino/Astronomy/JWST/planet_models/ATMO_CEQ/JWST_vega/'
+    atmo_grid_dir = home+'/Astronomy/JWST/planet_models/ATMO_CEQ/JWST_vega/'
     atmo_grid_files = sorted(glob.glob(atmo_grid_dir+'*.txt'), key=lambda x:float(x.split("/")[-1].split('_')[0].replace('m', '')))
 
     if 'c' in obs_filter:
@@ -193,7 +195,7 @@ def get_mass_vs_mag_bex(input_age, input_distance=10., obs_filter = 'f444w', dif
 
     obs_filter=obs_filter.lower()
     
-    bex_grid_file='/Users/Sebamarino/Astronomy/JWST/planet_models/BEX_evol_mags_-2_MH_0.00_UPDATEDV2.dat'
+    bex_grid_file=home+'/Astronomy/JWST/planet_models/BEX_evol_mags_-2_MH_0.00_UPDATEDV2.dat'
 
     with open(bex_grid_file, 'r') as f:
         bex_data = json.load(f)
@@ -264,7 +266,7 @@ def get_mass_vs_mag_bex(input_age, input_distance=10., obs_filter = 'f444w', dif
 
 
 
-def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM=100, Na=100,amin=0., Nphi=30, amax=200., Mpmin=0.1, Mpmax=100., Nage=10, absolute_mag=True, simple=False, obs_filter='f1550c' , contrast_type='magnitude', a_log=False):
+def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM=100, Na=100,amin=0., Nphi=30, amax=200., Mpmin=0.1, Mpmax=100., Nage=10, absolute_mag=True, simple=False, obs_filter='f1550c' , contrast_type='magnitude', a_log=False, fov=10., inc_is_known=True):
     # inc in radians    
     
     # add point at separation 0 and at amax (repeat first and last values)
@@ -315,8 +317,14 @@ def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM
 
     Detectability=np.zeros((NM,Na))
 
-    phis=np.linspace(0.0, np.pi/2., Nphi+1)[:-1] # only necessary to do one quarter
+    if inc_is_known:
+        phis=np.linspace(0.0, np.pi/2., Nphi+1)[:-1] # only necessary to do one quarter
 
+    else:
+        ### if random inc
+        phis=np.random.uniform(0.0, np.pi/2., Nphi+1)[:-1] # only necessary to do one quarter
+        incs=np.arccos(np.random.uniform(0., 1.0, Nphi))
+    
     ## ITERATE AND CALCULATE PROBABILITY FOR EACH BIN
     for j in range(NM):
         #print(j)
@@ -326,17 +334,23 @@ def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM
             
                 magi=get_mag_from_mass_age(ages[k], Mps[j], input_distance=dpc_contrast,obs_filter=obs_filter )
                 for i in range(Na):
-                    xs=aps[i]*np.cos(phis)
-                    ys=aps[i]*np.sin(phis)*np.cos(inc)
-                    separations=np.sqrt(xs**2+ys**2)/dpc
-
+                    if inc_is_known:
+                        xs=aps[i]*np.cos(phis)
+                        ys=aps[i]*np.sin(phis)*np.cos(inc)
+                        separations=np.sqrt(xs**2+ys**2)/dpc
+                    else:
+                        xs=aps[i]*np.cos(phis)
+                        ys=aps[i]*np.sin(phis)*np.cos(incs)
+                        separations=np.sqrt(xs**2+ys**2)/dpc
+                        
                     if simple: # consider detected if above 5sigma, undetected if not
-                        mask_detections=fcontrast(separations)>magi
+                        mask_detections=(fcontrast(separations)>magi) & (separations<fov)
                         Detectability[j, i]=Detectability[j, i]+len(separations[mask_detections])/(Nphi*Nage)
                     else: # consider the probability of detection i.e. given its flux check what fraction would lie above 5sigma with errors
                         Xsigma=5*10**(-0.4*(magi-fcontrast(separations))) # array of sigmas
                         # calculate probability for each of them to produce a 5sigma detection
                         Probs=1.-scipy.stats.norm(Xsigma, 1.).cdf(5.) # probability of being higher than 5 sigma by chance
+                        Probs[separations>fov]=0.0
                         Detectability[j, i]=Detectability[j, i]+np.sum(Probs)/(Nage*Nphi)
                         
         elif contrast_type=='mass': # ages are not used

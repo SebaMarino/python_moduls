@@ -145,7 +145,7 @@ def f_m2(rs, m1, v, PA_pma, epoch='DR3', inc=0.0, PA=0.0, gaia='eDR3'):
     zeta=np.zeros(len(rs))
     for i in range(len(rs)):
         zeta[i]=f_zeta_v2(rs[i], m1, 1,  epoch=epoch, gaia=gaia)  # when inc and PA is known
-        #zeta[i]=f_zeta_v3(rs[i], m1, 1, np.cos(inc), epoch=epoch) 
+        #zeta[i]=f_zeta_v3(rs[i], m1, 1, np.cos(inc), epoch=epoch) # when inc and PA are unknown
     if epoch=='DR2':
         delta_t= 1038./ 365.24 # years, GAIA
     if epoch=='eDR3':
