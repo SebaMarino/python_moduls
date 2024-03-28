@@ -1037,7 +1037,7 @@ def interpol(Nin,Nout,ps1,ps2,Fin):
         F=Fin
     return F
 
-def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=False, output=''): # for images from CASA
+def fload_fits_image(path_image, path_pbcor, rms, ps_final=0., XMAX=0., remove_star=False, output=''): # for images from CASA
 
     ### PS_final in mas
 
@@ -1047,7 +1047,11 @@ def fload_fits_image(path_image, path_pbcor, rms, ps_final, XMAX, remove_star=Fa
 
     #### READ HEADER
     header1	= fit1[0].header
-    ps_deg1=float(header1['CDELT2'])
+    try:
+        ps_deg1=float(header1['CDELT2'])
+    except:
+        print('no CDELT2')
+        ps_deg1=float(header1['CD2_2'])
     ps_mas1= ps_deg1*3600.0*1000.0 # pixel size input in mas
     ps_arcsec1=ps_deg1*3600.0
     
@@ -1127,8 +1131,12 @@ def fload_fits_image_mira(path_image, ps_final, XMAX): # for images from CASA
 
     #### READ HEADER
     header1	= fit1[0].header
-    ps_deg1=float(header1['CDELT2'])
-    
+    try:
+        ps_deg1=float(header1['CDELT2'])
+    except:
+        print('no CDELT2')
+        ps_deg1=float(header1['CD2_2'])
+        
     if ps_deg1<1.0: # i.e. in degrees rather than mas
         ps_mas1= ps_deg1*3600.0*1000.0 # pixel size input in mas
     else:
