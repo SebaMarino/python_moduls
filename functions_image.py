@@ -1037,11 +1037,7 @@ def interpol(Nin,Nout,ps1,ps2,Fin):
         F=Fin
     return F
 
-<<<<<<< HEAD
 def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., remove_star=False, output=''): # for images from CASA
-=======
-def fload_fits_image(path_image, path_pbcor, rms, ps_final=0., XMAX=0., remove_star=False, output=''): # for images from CASA
->>>>>>> 6dbae3bcdc033f8b09280b2e39eabd153cab1c09
 
     ### PS_final in mas
 
