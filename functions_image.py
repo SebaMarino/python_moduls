@@ -243,7 +243,7 @@ def xyarray(Np, ps_arcsec):
     return xs, ys, xedge, yedge
 
 
-def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcsec, ps_arcsec, error_std=False, arc='elipse'):#, plot=False):
+def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcsec, ps_arcsec, error_std=False, arc='elipse', rmin=0.):#, plot=False):
 
     # x0, y0 are RA DEC offsets in arcsec
     # PA and inc are PA and inc of the disc in deg
@@ -273,7 +273,9 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
     dphi=abs(phis_rad[1]-phis_rad[0])
     Nphi=len(phis_rad)
 
-    rs=np.linspace(rmax/1.0e3,rmax,Nr)
+    if rmin==0. or rmin<0.:
+        rmin=rmax/1.0e3
+    rs=np.linspace(rmin,rmax,Nr)
 
     ecc= np.sin(inc*np.pi/180.0)
     chi=1.0/(np.sqrt(1.0-ecc**2.0)) # aspect ratio between major and minor axis (>=1)
@@ -352,7 +354,7 @@ def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_ar
 
 
 
-def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, arc='elipse', cube=False):
+def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, arc='elipse', cube=False, rmin=0.):
 
     
     fit1=pyfits.open(fitsfile)
@@ -375,12 +377,12 @@ def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, arc='eli
         data1=data1/(ps_arcsec1**2)
 
     if cube==False:
-        return radial_profile(data1, np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc)
+        return radial_profile(data1, np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc, rmin=rmin)
 
     else:
         Srs=[]
         for ilam in range(Nlam):
-            Sri= radial_profile(data1[ilam,:,:], np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc)
+            Sri= radial_profile(data1[ilam,:,:], np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc, rmin=rmin)
             Srs.append(Sri)
         return Srs
 
@@ -1035,7 +1037,11 @@ def interpol(Nin,Nout,ps1,ps2,Fin):
         F=Fin
     return F
 
+<<<<<<< HEAD
 def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., remove_star=False, output=''): # for images from CASA
+=======
+def fload_fits_image(path_image, path_pbcor, rms, ps_final=0., XMAX=0., remove_star=False, output=''): # for images from CASA
+>>>>>>> 6dbae3bcdc033f8b09280b2e39eabd153cab1c09
 
     ### PS_final in mas
 
@@ -1045,7 +1051,11 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
 
     #### READ HEADER
     header1	= fit1[0].header
-    ps_deg1=float(header1['CDELT2'])
+    try:
+        ps_deg1=float(header1['CDELT2'])
+    except:
+        print('no CDELT2')
+        ps_deg1=float(header1['CD2_2'])
     ps_mas1= ps_deg1*3600.0*1000.0 # pixel size input in mas
     ps_arcsec1=ps_deg1*3600.0
     
@@ -1125,8 +1135,12 @@ def fload_fits_image_mira(path_image, ps_final, XMAX): # for images from CASA
 
     #### READ HEADER
     header1	= fit1[0].header
-    ps_deg1=float(header1['CDELT2'])
-    
+    try:
+        ps_deg1=float(header1['CDELT2'])
+    except:
+        print('no CDELT2')
+        ps_deg1=float(header1['CD2_2'])
+        
     if ps_deg1<1.0: # i.e. in degrees rather than mas
         ps_mas1= ps_deg1*3600.0*1000.0 # pixel size input in mas
     else:
@@ -1830,7 +1844,7 @@ def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vma
     ax1.set_yticks(major_ticks)                                                       
     ax1.set_yticks(minor_ticks, minor=True) 
 
-    ax1.tick_params(axis='both', which='both', color=tickcolor)
+    ax1.tick_params(axis='both', which='both', color=tickcolor, labelcolor='black')
 
     #### code below not working anymore
     # for tick in ax1.get_xticklines():
