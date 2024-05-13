@@ -24,7 +24,7 @@ Mearth=5.972e24 #kg
 
 
 
-def get_mag_from_mass_age(input_age, input_mass, input_distance=10., obs_filter = 'f444w'):
+def get_mag_from_mass_age(input_age, input_mass, input_distance=10., obs_filter = 'f444w',  instrument='NIRCAM_MASK210R'):
 
     #### get curve mass vs mag for lower and upper ages in grid
     
@@ -35,10 +35,10 @@ def get_mag_from_mass_age(input_age, input_mass, input_distance=10., obs_filter 
         bex=get_mass_vs_mag_bex(input_age, input_distance, obs_filter = obs_filter, diff='sandwich' )
     except:
         # filter not in BEX models, use ATMO only (twice as a simple not definitive solution)
-        bex=get_mass_vs_mag_atmo(input_age, input_distance, obs_filter = obs_filter, diff='sandwich' )
+        bex=get_mass_vs_mag_atmo(input_age, input_distance, obs_filter = obs_filter, diff='sandwich', instrument=instrument )
         
     # try:
-    atmo=get_mass_vs_mag_atmo(input_age, input_distance, obs_filter = obs_filter, diff='sandwich' )
+    atmo=get_mass_vs_mag_atmo(input_age, input_distance, obs_filter = obs_filter, diff='sandwich', instrument=instrument )
     # except:
     #     # filter not in ATMO, use BEX only
     #     atmo=get_mass_vs_mag_bex(input_age, input_distance, obs_filter = obs_filter, diff='sandwich' )
@@ -100,12 +100,16 @@ def get_mag_from_mass_age(input_age, input_mass, input_distance=10., obs_filter 
     
     
 
-def get_mass_vs_mag_atmo(input_age, input_distance=10., obs_filter = 'f444w', diff='sandwich' ):
+def get_mass_vs_mag_atmo(input_age, input_distance=10., obs_filter = 'f444w', diff='sandwich', instrument='NIRCAM_MASK210R' ):
 
 
-    atmo_grid_dir = home+'/Astronomy/JWST/planet_models/ATMO_CEQ/JWST_vega/'
+    # atmo_grid_dir = home+'/Astronomy/JWST/planet_models/ATMO_CEQ/JWST_vega/'
+    # atmo_grid_files = sorted(glob.glob(atmo_grid_dir+'*.txt'), key=lambda x:float(x.split("/")[-1].split('_')[0].replace('m', '')))
+
+    atmo_grid_dir = home+'/Astronomy/JWST/planet_models/ATMO_2020_models/evolutionary_tracks/ATMO_CEQ/JWST_coronagraphy/JWST_coron_{}/'.format(instrument)
     atmo_grid_files = sorted(glob.glob(atmo_grid_dir+'*.txt'), key=lambda x:float(x.split("/")[-1].split('_')[0].replace('m', '')))
 
+    
     if 'c' in obs_filter:
         instrument = 'miri'
     else:
@@ -266,7 +270,7 @@ def get_mass_vs_mag_bex(input_age, input_distance=10., obs_filter = 'f444w', dif
 
 
 
-def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM=100, Na=100,amin=0., Nphi=30, amax=200., Mpmin=0.1, Mpmax=100., Nage=10, absolute_mag=True, simple=False, obs_filter='f1550c' , contrast_type='magnitude', a_log=False, fov=10., inc_is_known=True):
+def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM=100, Na=100,amin=0., Nphi=30, amax=200., Mpmin=0.1, Mpmax=100., Nage=10, absolute_mag=True, simple=False, obs_filter='f1550c' , contrast_type='magnitude', a_log=False, fov=10., inc_is_known=True, instrument='NIRCAM_MASK210R'):
     # inc in radians    
     
     # add point at separation 0 and at amax (repeat first and last values)
@@ -332,7 +336,7 @@ def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM
         if contrast_type=='magnitude':
             for k in range(Nage):
             
-                magi=get_mag_from_mass_age(ages[k], Mps[j], input_distance=dpc_contrast,obs_filter=obs_filter )
+                magi=get_mag_from_mass_age(ages[k], Mps[j], input_distance=dpc_contrast,obs_filter=obs_filter, instrument=instrument )
                 for i in range(Na):
                     if inc_is_known:
                         xs=aps[i]*np.cos(phis)
