@@ -103,9 +103,7 @@ def get_mag_from_mass_age(input_age, input_mass, input_distance=10., obs_filter 
 def get_mass_vs_mag_atmo(input_age, input_distance=10., obs_filter = 'f444w', diff='sandwich', instrument='NIRCAM_MASK210R' ):
 
 
-    # atmo_grid_dir = home+'/Astronomy/JWST/planet_models/ATMO_CEQ/JWST_vega/'
-    # atmo_grid_files = sorted(glob.glob(atmo_grid_dir+'*.txt'), key=lambda x:float(x.split("/")[-1].split('_')[0].replace('m', '')))
-
+    # download ATMO_2020_models.tar.gz from https://noctis.erc-atmo.eu/fsdownload/zyU96xA6o/phillips2020
     atmo_grid_dir = home+'/Astronomy/JWST/planet_models/ATMO_2020_models/evolutionary_tracks/ATMO_CEQ/JWST_coronagraphy/JWST_coron_{}/'.format(instrument)
     atmo_grid_files = sorted(glob.glob(atmo_grid_dir+'*.txt'), key=lambda x:float(x.split("/")[-1].split('_')[0].replace('m', '')))
 
@@ -198,7 +196,9 @@ def get_mass_vs_mag_bex(input_age, input_distance=10., obs_filter = 'f444w', dif
     # distance in pc
 
     obs_filter=obs_filter.lower()
-    
+
+    # original files available at https://cdsarc.cds.unistra.fr/ftp/J/A+A/623/A85/cooling_curves/
+
     bex_grid_file=home+'/Astronomy/JWST/planet_models/BEX_evol_mags_-2_MH_0.00_UPDATEDV2.dat'
 
     with open(bex_grid_file, 'r') as f:
