@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 import matplotlib.ticker as ticker
 from matplotlib import rc
-import general_functions as gf
 from astropy.io import ascii
 import scipy.stats
 from scipy.interpolate import interp1d
