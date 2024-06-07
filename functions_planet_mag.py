@@ -24,7 +24,7 @@ Mearth=5.972e24 #kg
 
 
 
-def get_mag_from_mass_age(input_age, input_mass, input_distance=10., obs_filter = 'f444w',  instrument='NIRCAM_MASK210R'):
+def get_mag_from_mass_age(input_age, input_mass, input_distance=10., obs_filter = 'f444w',  instrument='NIRCAM_MASK210R', model_path=home+'/Astronomy/JWST/planet_models/'):
 
     #### get curve mass vs mag for lower and upper ages in grid
     
@@ -32,13 +32,13 @@ def get_mag_from_mass_age(input_age, input_mass, input_distance=10., obs_filter 
     # get closest two curves
 
     try:
-        bex=get_mass_vs_mag_bex(input_age, input_distance, obs_filter = obs_filter, diff='sandwich' )
+        bex=get_mass_vs_mag_bex(input_age, input_distance, obs_filter = obs_filter, diff='sandwich', model_path=model_path )
     except:
         # filter not in BEX models, use ATMO only (twice as a simple not definitive solution)
-        bex=get_mass_vs_mag_atmo(input_age, input_distance, obs_filter = obs_filter, diff='sandwich', instrument=instrument )
+        bex=get_mass_vs_mag_atmo(input_age, input_distance, obs_filter = obs_filter, diff='sandwich', instrument=instrument, model_path=model_path )
         
     # try:
-    atmo=get_mass_vs_mag_atmo(input_age, input_distance, obs_filter = obs_filter, diff='sandwich', instrument=instrument )
+    atmo=get_mass_vs_mag_atmo(input_age, input_distance, obs_filter = obs_filter, diff='sandwich', instrument=instrument, model_path=model_path )
     # except:
     #     # filter not in ATMO, use BEX only
     #     atmo=get_mass_vs_mag_bex(input_age, input_distance, obs_filter = obs_filter, diff='sandwich' )
@@ -100,11 +100,11 @@ def get_mag_from_mass_age(input_age, input_mass, input_distance=10., obs_filter 
     
     
 
-def get_mass_vs_mag_atmo(input_age, input_distance=10., obs_filter = 'f444w', diff='sandwich', instrument='NIRCAM_MASK210R' ):
+def get_mass_vs_mag_atmo(input_age, input_distance=10., obs_filter = 'f444w', diff='sandwich', instrument='NIRCAM_MASK210R', model_path=home+'/Astronomy/JWST/planet_models/' ):
 
 
     # download ATMO_2020_models.tar.gz from https://noctis.erc-atmo.eu/fsdownload/zyU96xA6o/phillips2020
-    atmo_grid_dir = home+'/Astronomy/JWST/planet_models/ATMO_2020_models/evolutionary_tracks/ATMO_CEQ/JWST_coronagraphy/JWST_coron_{}/'.format(instrument)
+    atmo_grid_dir = model_path+'ATMO_2020_models/evolutionary_tracks/ATMO_CEQ/JWST_coronagraphy/JWST_coron_{}/'.format(instrument)
     atmo_grid_files = sorted(glob.glob(atmo_grid_dir+'*.txt'), key=lambda x:float(x.split("/")[-1].split('_')[0].replace('m', '')))
 
     
@@ -191,7 +191,7 @@ def get_mass_vs_mag_atmo(input_age, input_distance=10., obs_filter = 'f444w', di
 
 #     return np.array([atmo_mags[age_1][mask1], atmo_masses[age_1][mask1], [closest_ages[0]]*len(common_masses)]),  np.array([atmo_mags[age_2][mask2], atmo_masses[age_2][mask2], [closest_ages[1]]*len(common_masses)])
 
-def get_mass_vs_mag_bex(input_age, input_distance=10., obs_filter = 'f444w', diff='sandwich' ):
+def get_mass_vs_mag_bex(input_age, input_distance=10., obs_filter = 'f444w', diff='sandwich', model_path=home+'/Astronomy/JWST/planet_models/' ):
     # age in Myr
     # distance in pc
 
@@ -199,7 +199,7 @@ def get_mass_vs_mag_bex(input_age, input_distance=10., obs_filter = 'f444w', dif
 
     # original files available at https://cdsarc.cds.unistra.fr/ftp/J/A+A/623/A85/cooling_curves/
 
-    bex_grid_file=home+'/Astronomy/JWST/planet_models/BEX_evol_mags_-2_MH_0.00_UPDATEDV2.dat'
+    bex_grid_file=model_path+'BEX_evol_mags_-2_MH_0.00_UPDATEDV2.dat'
 
     with open(bex_grid_file, 'r') as f:
         bex_data = json.load(f)
@@ -270,7 +270,7 @@ def get_mass_vs_mag_bex(input_age, input_distance=10., obs_filter = 'f444w', dif
 
 
 
-def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM=100, Na=100,amin=0., Nphi=30, amax=200., Mpmin=0.1, Mpmax=100., Nage=10, absolute_mag=True, simple=False, obs_filter='f1550c' , contrast_type='magnitude', a_log=False, fov=10., inc_is_known=True, instrument='NIRCAM_MASK210R'):
+def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM=100, Na=100,amin=0., Nphi=30, amax=200., Mpmin=0.1, Mpmax=100., Nage=10, absolute_mag=True, simple=False, obs_filter='f1550c' , contrast_type='magnitude', a_log=False, fov=10., inc_is_known=True, instrument='NIRCAM_MASK210R', model_path=home+'/Astronomy/JWST/planet_models/'):
     # inc in radians    
     
     # add point at separation 0 and at amax (repeat first and last values)
@@ -336,7 +336,7 @@ def detectability_map(separation, contrast,  agemin, agemax, inc=0., dpc=10., NM
         if contrast_type=='magnitude':
             for k in range(Nage):
             
-                magi=get_mag_from_mass_age(ages[k], Mps[j], input_distance=dpc_contrast,obs_filter=obs_filter, instrument=instrument )
+                magi=get_mag_from_mass_age(ages[k], Mps[j], input_distance=dpc_contrast,obs_filter=obs_filter, instrument=instrument, model_path=model_path )
                 for i in range(Na):
                     if inc_is_known:
                         xs=aps[i]*np.cos(phis)
