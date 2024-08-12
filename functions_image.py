@@ -1037,6 +1037,20 @@ def interpol(Nin,Nout,ps1,ps2,Fin):
         F=Fin
     return F
 
+def get_beam_size(path_image, verbose=True):
+
+    fit1	= pyfits.open(path_image) # open image cube
+    #### READ HEADER
+    header1	= fit1[0].header
+    BMAJ=float(header1['BMAJ'])*3600.0 # arcsec 
+    BMIN=float(header1['BMIN'])*3600.0 # arcsec 
+    BPA=float(header1['BPA']) # deg 
+
+    if verbose:
+        print("beam = %1.2f x %1.2f" %(BMAJ, BMIN))
+
+    return BMAJ, BMIN, BPA
+    
 def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., remove_star=False, output=''): # for images from CASA
 
     ### PS_final in mas
