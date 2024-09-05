@@ -22,7 +22,7 @@ def Chisq(model, uvtable):
     return np.sum(w*np.abs(vis_pred - vis)**2)
 
 
-def plot_binned_uvdata(uvtable, geom, bin_size=1e3, ax=None, cut_data=None, **plot_args, imag=False):
+def plot_binned_uvdata(uvtable, geom, bin_size=1e3, ax=None, cut_data=None, imag=False, **plot_args):
     u,v, vis, w = uvtable
     
     up, vp, visp = geom.apply_correction(u,v,vis)
