@@ -44,7 +44,7 @@ def sci_notation(number, sig_fig=2): # stolen from https://stackoverflow.com/que
         return a + c
 
 
-def number_to_text(number):
+def number_to_text_10(number):
 
     if number<=0.0:
         return str(number)
@@ -67,7 +67,14 @@ def number_to_text(number):
             return r'$%1.1f\times10^{%1.0f}$'%(factor,exp)
 
 
+def number_to_text_sf(number, s=2):
 
+    text='{{:#.{}g}}'.format(s).format(number)
+
+    if text[-1]=='.':
+        text=text[:-1]
+
+    return text
 
 def fcolor_black_white(i,N):
 
