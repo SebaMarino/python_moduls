@@ -1050,17 +1050,33 @@ def get_beam_size(path_image, verbose=True):
         print("beam = %1.2f x %1.2f" %(BMAJ, BMIN))
 
     return BMAJ, BMIN, BPA
+
+def get_wavelength(path_image):
+
+    fit1	= pyfits.open(path_image) # open image cube
+    #### READ HEADER
+    header1	= fit1[0].header
     
+    freq=float(header1['CRVAL3']) # GHz
+    wav=c_light*1.0e3/freq
+
+    return wav,freq
+
 def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., remove_star=False, output=''): # for images from CASA
 
     ### PS_final in mas
 
     ##### LOAD IMAGE
     fit1	= pyfits.open(path_image) # open image cube
-    data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
-
     #### READ HEADER
     header1	= fit1[0].header
+
+    if  header1['NAXIS3']==1:
+        data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
+    elif header1['NAXIS3']>1:
+        data1 	= get_last3d(fit1[0].data) # [0,0,:,:] # extract image matrix
+
+   
     try:
         ps_deg1=float(header1['CDELT2'])
     except:
@@ -1069,7 +1085,7 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
     ps_mas1= ps_deg1*3600.0*1000.0 # pixel size input in mas
     ps_arcsec1=ps_deg1*3600.0
     
-    N1=len(data1[:,0])
+    N1=data1.shape[-1]
 
 
     if path_pbcor!='':
@@ -1099,10 +1115,11 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
         data1=data1/(ps_arcsec1**2.0) # Jy/pixel to Jy/arcsec2
     # x1, y1, x1edge, y1edge = xyarray(N1, ps_arcsec1)
 
-    if remove_star:
+    if remove_star and header1['NAXIS3']==1:
         ij=np.unravel_index(np.argmax(data1, axis=None), data1.shape)
         print(ij)
         data1[ij]=0.0
+    
 
     if ps_final>0.0:
         psf_arcsec=ps_final/1000.0
@@ -1121,8 +1138,12 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
         xf[i]=-(i-Nf/2.0)*psf_arcsec  
         yf[i]=(i-Nf/2.0)*psf_arcsec 
 
-    image=interpol(N1,Nf,ps_mas1,ps_final, data1)
-    
+    if  header1['NAXIS3']==1:
+        image=interpol(N1,Nf,ps_mas1,ps_final, data1)
+
+    else: ### interpolation not yet implemented for image cube
+        image=data1
+        
     if path_pbcor!='':
         rmsmap_out=interpol(N1,Nf,ps_mas1,ps_final,rmsmap)
         if BMAJ>0.0:
