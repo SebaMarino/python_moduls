@@ -1071,10 +1071,13 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
     #### READ HEADER
     header1	= fit1[0].header
 
-    if  header1['NAXIS3']==1:
+    try:
+        if  header1['NAXIS3']==1:
+            data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
+        elif header1['NAXIS3']>1:
+            data1 	= get_last3d(fit1[0].data) # [0,0,:,:] # extract image matrix
+    except:  # in case NAXIS3 does not exist
         data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
-    elif header1['NAXIS3']>1:
-        data1 	= get_last3d(fit1[0].data) # [0,0,:,:] # extract image matrix
 
    
     try:
@@ -1138,12 +1141,16 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
         xf[i]=-(i-Nf/2.0)*psf_arcsec  
         yf[i]=(i-Nf/2.0)*psf_arcsec 
 
-    if  header1['NAXIS3']==1:
+    try:
+        if  header1['NAXIS3']==1:
+            image=interpol(N1,Nf,ps_mas1,ps_final, data1)
+
+        else: ### interpolation not yet implemented for image cube
+            image=data1
+    except: # in case NAXIS3 does not exist
         image=interpol(N1,Nf,ps_mas1,ps_final, data1)
 
-    else: ### interpolation not yet implemented for image cube
-        image=data1
-        
+    
     if path_pbcor!='':
         rmsmap_out=interpol(N1,Nf,ps_mas1,ps_final,rmsmap)
         if BMAJ>0.0:
