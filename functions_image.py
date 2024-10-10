@@ -1030,12 +1030,34 @@ def interpol(Nin,Nout,ps1,ps2,Fin):
             for i in range(Nout):
                 for j in range (Nout):	
                     F[i,j]=inter(Nin,Nout,i,j,ps1,ps2,Fin)
+    elif Nout>Nin and ps1==ps2: # pad image
+
+        F=fpad_image(Fin, Nout, Nout, Nin, Nin)
+        
     elif Nout>Nin:
         raise ValueError('Output image size is larger than input')
     else:
         print('no interpolation and same size')
         F=Fin
     return F
+
+def fpad_image(image_in, pad_x, pad_y, nx, ny):
+
+    if image_in.shape[-2:] != (pad_x,pad_y):
+        pad_image = np.zeros((pad_x,pad_y))
+        if nx%2==0 and ny%2==0: # even number of pixels
+            pad_image[
+                      pad_y//2-ny//2:pad_y//2+ny//2,
+                      pad_x//2-nx//2:pad_x//2+nx//2] = image_in[:,:]
+        else:                  # odd number of pixels
+            pad_image[
+                      pad_y//2-(ny-1)//2:pad_y//2+(ny+1)//2,
+                      pad_x//2-(nx-1)//2:pad_x//2+(nx+1)//2] = image_in[:,:]
+        return pad_image
+
+    else:                      # padding is not necessary as image is already the right size (potential bug if nx>pad_x)
+        return image_in
+
 
 def get_beam_size(path_image, verbose=True):
 
