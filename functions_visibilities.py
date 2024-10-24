@@ -5,6 +5,10 @@ import frank
 from frank.constants import deg_to_rad, rad_to_arcsec
 from frank.hankel import DiscreteHankelTransform
 from frank.constants import rad_to_arcsec
+from frank.utilities import get_fit_stat_uncer
+
+from scipy.special import jv
+from scipy.optimize import curve_fit
 
 
 def reduced_chisq(model, uvtable):
@@ -98,4 +102,60 @@ class system():
         self.N=N
         self.fstar=fstar        
         self.fsigma=fsigma
+
         
+### functions to produce model
+
+def model_vis(us, vs, ws, geom, r0_rad, flux, noise=False):
+    
+    usp, vsp = geom.deproject(us, vs) 
+
+    rhosp=np.sqrt(usp**2+vsp**2)
+    
+    Vm=jv(0., rhosp*2*np.pi*r0_rad)*flux
+
+    if noise:
+        Vm+=np.random.normal(0., 1./np.sqrt(ws))
+    
+    return Vm
+
+def gauss(x, A, x0, w ):
+    
+    sig=w/2.355
+    
+    return A*np.exp(-0.5* (x-x0)**2./sig**2 )
+
+def get_psf(r, I, error, p0):
+    
+    popt, pcov = curve_fit(gauss, r, I, sigma=error, p0=p0)
+
+    return popt[2]
+
+def get_frank_psf(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rmax):
+    
+    r0_rad=r0_arcsec/3600.*np.pi/180.
+    
+    vm=model_vis(u, v, weights, geom, r0_rad, flux, noise=True)
+    
+    
+    frankfit=frank.radial_fitters.FrankFitter(Rmax=Rmax,
+                                              N=N,
+                                              geometry=geom,
+                                              alpha=alpha,
+                                              weights_smooth=wsmooth,
+                                              method='Normal',
+                                         )
+
+    print('fitting data')
+    sol = frankfit.fit(u, v, vm, weights)
+    print('fit done')
+
+    # get non-negative solution
+    solp=sol.solve_non_negative() 
+
+    # get error as a function of r
+    error=get_fit_stat_uncer(sol)
+    
+    psf=get_psf(sol.r, solp, error, [np.max(solp), r0_arcsec, r0_arcsec/10.])
+    
+    return psf
