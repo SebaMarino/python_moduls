@@ -9,6 +9,9 @@ from matplotlib import rc
 import matplotlib.pyplot as plt
 import copy
 import colorsys
+from astropy.coordinates import SkyCoord, Distance, CartesianRepresentation, Angle
+import astropy.units as u
+
     
 
 G=6.67384e-11 # mks
@@ -1084,7 +1087,7 @@ def get_wavelength(path_image):
 
     return wav,freq
 
-def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., remove_star=False, output=''): # for images from CASA
+def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., remove_star=False, output='', return_coordinates=False): # for images from CASA
 
     ### PS_final in mas
 
@@ -1172,18 +1175,26 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
     except: # in case NAXIS3 does not exist
         image=interpol(N1,Nf,ps_mas1,ps_final, data1)
 
-    
+    ret_list= (image,)
+        
     if path_pbcor!='':
         rmsmap_out=interpol(N1,Nf,ps_mas1,ps_final,rmsmap)
-        if BMAJ>0.0:
-            return image, rmsmap_out, xf, yf, BMAJ, BMIN, BPA
-        else:
-            return image, rmsmap_out, xf, yf      
+        ret_list+=(rmsmap_out, xf, yf)
     else:
-        if BMAJ>0.0:
-            return image, xf, yf, BMAJ, BMIN, BPA
-        else:
-            return image, xf, yf   
+        ret_list+=(xf, yf)
+    if BMAJ>0.0:
+        ret_list+=(BMAJ, BMIN, BPA)
+
+    if return_coordinates:
+
+        RA=float(header1['CRVAL1']) # deg
+        Dec=float(header1['CRVAL2']) # deg
+
+        c0=SkyCoord(RA, Dec, frame=header1['RADESYS'].lower(), unit=(u.deg, u.deg))
+
+        ret_list+=(c0,)
+        
+    return ret_list
 
 def fload_fits_image_mira(path_image, ps_final, XMAX): # for images from CASA
 
