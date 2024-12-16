@@ -131,7 +131,7 @@ def get_psf(r, I, error, p0):
 
     return popt[2]
 
-def get_frank_psf(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rmax):
+def get_frank_psf(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rmax, plot_sol=False, name=''):
     
     r0_rad=r0_arcsec/3600.*np.pi/180.
     
@@ -144,6 +144,7 @@ def get_frank_psf(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rmax):
                                               alpha=alpha,
                                               weights_smooth=wsmooth,
                                               method='Normal',
+                                              max_iter=4000
                                          )
 
     print('fitting data')
@@ -155,7 +156,33 @@ def get_frank_psf(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rmax):
 
     # get error as a function of r
     error=get_fit_stat_uncer(sol)
+
+    #get_psf(r, I, error, p0):
     
-    psf=get_psf(sol.r, solp, error, [np.max(solp), r0_arcsec, r0_arcsec/10.])
+    popt, pcov = curve_fit(gauss, sol.r, solp, sigma=error, p0=[np.max(solp), r0_arcsec, r0_arcsec/10.])
+
+    psf=popt[2]
     
+
+    if plot_sol:
+
+        fig=plt.figure(figsize=(8,6))
+        ax1=fig.add_subplot(111)
+
+        unit_conversion=1.0e3*(np.pi/(180*3600.))**2 # from Jy/sr to mJy/arcsec2
+
+        ax1.plot(sol.r, sol.I*unit_conversion, '-', color='C0', label='Normal sol')
+        ax1.fill_between(sol.r, (sol.I-error)*unit_conversion, (sol.I+error)*unit_conversion, color='C0', alpha=0.3)
+        ax1.plot(sol.r, solp*unit_conversion, '-', color='C1', label='Normal Non-neg sol')
+
+        ax1.plot(sol.r, gauss(sol.r, *popt)*unit_conversion, color='C2', label='Gaussian fit')
+
+        ax1.plot([r0_arcsec-psf/2., r0_arcsec+psf/2.], np.array([1., 1.])*popt[0]*unit_conversion/2, color='black')
+
+        ax1.set_xlabel('r [arcsec]')
+        ax1.set_ylabel('I [mJy/arcsec2]')
+        plt.legend(loc=1)
+        plt.tight_layout()
+        plt.savefig('psf_fit_{}.pdf'.format(name))
+        
     return psf
