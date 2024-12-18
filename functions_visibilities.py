@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -5,11 +6,15 @@ import frank
 from frank.constants import deg_to_rad, rad_to_arcsec
 from frank.hankel import DiscreteHankelTransform
 from frank.constants import rad_to_arcsec
-from frank.utilities import get_fit_stat_uncer
+from frank.utilities import get_fit_stat_uncer, generic_dht
 
 from scipy.special import jv
 from scipy.optimize import curve_fit
 
+
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+os.environ['NUMEXPR_NUM_THREADS'] = '1'
 
 def reduced_chisq(model, uvtable):
     u,v, vis, w = uvtable
@@ -106,7 +111,7 @@ class system():
         
 ### functions to produce model
 
-def model_vis(us, vs, ws, geom, r0_rad, flux, noise=False):
+def sample_delta(us, vs, ws, geom, r0_rad, flux, noise=False):
     
     usp, vsp = geom.deproject(us, vs) 
 
@@ -118,6 +123,43 @@ def model_vis(us, vs, ws, geom, r0_rad, flux, noise=False):
         Vm+=np.random.normal(0., 1./np.sqrt(ws))
     
     return Vm
+
+
+
+def gaussian_model(flux, r0_arcsec, sigma_arcsec, Rmax_arcsec=20, N=1000, return_I=False):
+    
+    rs=np.linspace(0., Rmax_arcsec, N) # arcsec
+    dr=rs[1]-rs[0] # arcsec
+    fs=np.zeros(N)
+    fs[rs>0]=np.exp( - 0.5 * ((rs[rs>0]-r0_arcsec)/sigma_arcsec)**2.)
+    fs=flux*fs/np.sum(fs*dr*2*np.pi*rs) # Jy/arcsec2
+    fs=fs*(3600.*180./np.pi)**2. # Jy/arcsec2 to Jy/sr
+
+    q, V=generic_dht(rs, fs, Rmax=Rmax_arcsec, N=N, direction='forward', grid=None,inc=0.0)
+
+    if return_I:
+        
+        return rs, fs,q,V
+    else:
+        return q,V
+
+def sample_gaussian(us, vs, ws, geom, flux, r0_arcsec, sigma_arcsec=0.01, noise=False):
+
+    q,V= gaussian_model(flux, r0_arcsec, sigma_arcsec)
+    
+    usp, vsp = geom.deproject(us, vs) 
+    rhosp=np.sqrt(usp**2+vsp**2)
+
+    Vp = np.interp(rhosp, q, V)
+    if noise:
+        Vp+=np.random.normal(0., 1./np.sqrt(ws))
+        
+    return Vp
+
+
+
+
+
 
 def gauss(x, A, x0, w ):
     
@@ -131,11 +173,11 @@ def get_psf(r, I, error, p0):
 
     return popt[2]
 
-def get_frank_psf(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rmax, plot_sol=False, name=''):
+def get_frank_psf_N(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rmax, plot_sol=False, name=''):
     
     r0_rad=r0_arcsec/3600.*np.pi/180.
     
-    vm=model_vis(u, v, weights, geom, r0_rad, flux, noise=True)
+    vm=sample_delta(u, v, weights, geom, r0_rad, flux, noise=True)
     
     
     frankfit=frank.radial_fitters.FrankFitter(Rmax=Rmax,
@@ -181,6 +223,58 @@ def get_frank_psf(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rmax, 
 
         ax1.set_xlabel('r [arcsec]')
         ax1.set_ylabel('I [mJy/arcsec2]')
+        plt.legend(loc=1)
+        plt.tight_layout()
+        plt.savefig('psf_fit_{}.pdf'.format(name))
+        
+    return psf
+
+def get_frank_psf_LN(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rmax, plot_sol=False, name='', sigma=1.0):
+    
+    
+    vm=sample_gaussian(u, v, weights, geom, flux, r0_arcsec, sigma_arcsec=r0_arcsec/3., noise=True)
+    
+    
+    frankfit=frank.radial_fitters.FrankFitter(Rmax=Rmax,
+                                              N=N,
+                                              geometry=geom,
+                                              alpha=alpha,
+                                              weights_smooth=wsmooth,
+                                              method='LogNormal',
+                                              max_iter=4000,
+                                              I_scale=1.0e4
+                                         )
+
+    print('fitting data')
+    sol = frankfit.fit(u, v, vm, weights)
+    print('fit done')
+
+
+    # get error as a function of r
+    error=get_fit_stat_uncer(sol)
+    
+    popt, pcov = curve_fit(gauss, sol.r, sol.I, p0=[np.max(sol.I), r0_arcsec, r0_arcsec/10.]) # remove error ( sigma=error) because of strange frank uncertainties 
+
+    psf=popt[2]
+    
+
+    if plot_sol:
+
+        fig=plt.figure(figsize=(8,6))
+        ax1=fig.add_subplot(111)
+
+        unit_conversion=1.0e3*(np.pi/(180*3600.))**2 # from Jy/sr to mJy/arcsec2
+
+        ax1.plot(sol.r, sol.I*unit_conversion, '-', color='C0', label='Normal sol')
+        ax1.fill_between(sol.r, (sol.I-error)*unit_conversion, (sol.I+error)*unit_conversion, color='C0', alpha=0.3)
+
+        ax1.plot(sol.r, gauss(sol.r, *popt)*unit_conversion, color='C2', label='Gaussian fit')
+
+        ax1.plot([r0_arcsec-psf/2., r0_arcsec+psf/2.], np.array([1., 1.])*popt[0]*unit_conversion/2, color='black')
+
+        ax1.set_xlabel('r [arcsec]')
+        ax1.set_ylabel('I [mJy/arcsec2]')
+        ax1.set_ylim(0., 1.2*np.nanmax(sol.I*unit_conversion))
         plt.legend(loc=1)
         plt.tight_layout()
         plt.savefig('psf_fit_{}.pdf'.format(name))
