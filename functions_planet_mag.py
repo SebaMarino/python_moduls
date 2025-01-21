@@ -42,7 +42,7 @@ def get_mag_from_mass_age(input_age, input_mass, input_distance=10., obs_filter 
     #     # filter not in ATMO, use BEX only
     #     atmo=get_mass_vs_mag_bex(input_age, input_distance, obs_filter = obs_filter, diff='sandwich' )
 
-    fill_value=25
+    fill_value=50
 
     if input_mass>atmo[1,-1]: return atmo[0,-1] # if mass is above mass grid
     

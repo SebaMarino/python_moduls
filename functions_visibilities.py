@@ -229,10 +229,10 @@ def get_frank_psf_N(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rmax
         
     return psf
 
-def get_frank_psf_LN(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rmax, plot_sol=False, name='', sigma=1.0):
+def get_frank_psf_LN(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rmax, plot_sol=False, name='', sigma_arcsec=0.1):
     
     
-    vm=sample_gaussian(u, v, weights, geom, flux, r0_arcsec, sigma_arcsec=r0_arcsec/5./2.355, noise=True)
+    vm=sample_gaussian(u, v, weights, geom, flux, r0_arcsec, sigma_arcsec=sigma_arcsec, noise=True)
     
     
     frankfit=frank.radial_fitters.FrankFitter(Rmax=Rmax,
