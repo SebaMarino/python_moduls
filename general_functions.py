@@ -1,5 +1,6 @@
 import numpy as np
 import math as ma
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as cl
 import colorsys
@@ -456,3 +457,44 @@ def get_percentile_2D(logP, xs, ys, levels=[0.997, 0.95, 0.68]):
             i+=1
     
     return np.log(np.array(clevels)*I)+logPmax
+
+
+def get_continuous_cmap(hex_list, float_list=None):                                                                               
+    """
+    Taken from https://github.com/KerryHalupka/custom_colormap 
+ 
+    Creates and returns a color map that can be used in heat map figures.                                                             
+    If float_list is not provided, the color map returned is a homogeneous gradient of the colors in hex_list.
+    If float_list is provided, each color in hex_list is set to start at the corresponding location in float_list. 
+
+    Parameters                                                                                        
+    ----------                                                                                          
+    hex_list: list of hex code strings                                                                
+    float_list: list of floats between 0 and 1, same length as hex_list. Must start with 0 and end with 1.
+
+    Returns     
+    ----------
+    matplotlib cmap
+
+    Examples
+    ----------
+    fig, ax = plt.subplots(1,1)
+    hex_list = ['#0091ad', '#fffffc', '#ffd166']
+    x, y = np.mgrid[-5:5:0.05, -5:5:0.05]                                
+    z = (np.sqrt(x**2 + y**2) + np.sin(x**2 + y**2))
+    im = ax.imshow(z, cmap=get_continuous_cmap(hex_list))                                                         
+    fig.colorbar(im)  
+    ax.yaxis.set_major_locator(plt.NullLocator()) # remove y axis ticks 
+    ax.xaxis.set_major_locator(plt.NullLocator()) # remove x axis ticks
+    plt.show()
+    """
+
+    rgb_list = [matplotlib.colors.to_rgb(i) for i in hex_list]
+    if float_list is None: float_list = np.linspace(0,1,len(rgb_list))
+
+    cdict = dict()                                                                                
+    for num, col in enumerate(['red', 'green', 'blue']):                                               
+        col_list = [[float_list[i], rgb_list[i][num], rgb_list[i][num]] for i in range(len(float_list))]
+        cdict[col] = col_list
+        cmap_new = matplotlib.colors.LinearSegmentedColormap('my_cmp', segmentdata=cdict, N=256)
+    return cmap_new
