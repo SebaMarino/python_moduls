@@ -974,54 +974,114 @@ def get_last3d(data):
     
 
 def inter(Nin,Nout,i,j,ps1,ps2,Fin):
-
-	f=0.0
-	S=0.0
-	a=1.0*ps1 # sigma
-	di=(i-Nout/2.0)*ps2
-	dj=(j-Nout/2.0)*ps2
+    
+    # get values of new pixels ij from input image Fin with NinxNin pixels
+    
+    f=0.0
+    S=0.0
+    a=0.5*ps1 # sigma
+    di=(i-Nout/2.0)*ps2
+    dj=(j-Nout/2.0)*ps2
 	
-	ni=int(di/ps1+Nin/2.0-5.0*a/ps1)
-	mi=int(dj/ps1+Nin/2.0-5.0*a/ps1)
-	nmax=int(di/ps1+Nin/2.0+5.0*a/ps1)
-	mmax=int(dj/ps1+Nin/2.0+5.0*a/ps1)
-	if ni<0: ni=0
-	if mi<0: mi=0
-	if nmax<0: nmax=0
-	if mmax<0: mmax=0
-	if ni>Nin-1: ni=Nin-1
-	if mi>Nin-1: mi=Nin-1
-	if nmax>Nin-1: nmax=Nin-1
-	if mmax>Nin-1: mmax=Nin-1
-	for n in range(ni,nmax):
+    ni=int(di/ps1+Nin/2.0-5.0*a/ps1)
+    mi=int(dj/ps1+Nin/2.0-5.0*a/ps1)
+    nmax=int(di/ps1+Nin/2.0+5.0*a/ps1)
+    mmax=int(dj/ps1+Nin/2.0+5.0*a/ps1)
 
-		dn=(n-Nin/2.0)*ps1
-		k=0
-		for m in range(mi,mmax):
+    if ni<0: ni=0
+    if mi<0: mi=0
+    if nmax<0: nmax=0
+    if mmax<0: mmax=0
+    if ni>Nin-1: ni=Nin-1
+    if mi>Nin-1: mi=Nin-1
+    if nmax>Nin-1: nmax=Nin-1
+    if mmax>Nin-1: mmax=Nin-1
+    
+    for n in range(ni,nmax):
+        
+        dn=(n-Nin/2.0)*ps1
+        k=0
+        for m in range(mi,mmax):
+	    
+            dm=(m-Nin/2.0)*ps1
 			
-			dm=(m-Nin/2.0)*ps1
-			
-			r=np.sqrt((dn-di)**2.0+(dm-dj)**2.0)
-			if r<2.*a: 
-				P=np.exp(-r**2.0/(2.0*a**2.0))
-				f=f+P*Fin[n,m]
-				S=S+P
-				k=1
-			elif k==1: break
+            r=np.sqrt((dn-di)**2.0+(dm-dj)**2.0)
+            if r<3.*a: 
+                P=np.exp(-r**2.0/(2.0*a**2.0))
+                f=f+P*Fin[n,m]
+                S=S+P
+                k=1
 
-	if S==0.0: return 0.0		
-	else: 
-		return f/S
+            elif k==1: break
+            
+    if S==0.0: return 0.0		
+    else:
+        return f/S
 
+def inter_vector(Nin,Nout,i,j,ps1,ps2,Fin): # still much slower than the one with for loops
+    
+    # get values of new pixels ij from input image Fin with NinxNin pixels
+    
+    f=0.0
+    S=0.0
+    a=1.0*ps1 # sigma
+    di=(i-Nout/2.0)*ps2 # pixel position in output grid
+    dj=(j-Nout/2.0)*ps2 # pixel position in output grid
+
+    nsigma=2.
+    
+    ni=int(di/ps1+Nin/2.0-nsigma*a/ps1)
+    mi=int(dj/ps1+Nin/2.0-nsigma*a/ps1)
+    nmax=int(di/ps1+Nin/2.0+nsigma*a/ps1)
+    mmax=int(dj/ps1+Nin/2.0+nsigma*a/ps1)
+
+    if ni<0: ni=0
+    if mi<0: mi=0
+    if nmax<0: nmax=0
+    if mmax<0: mmax=0
+    if ni>Nin-1: ni=Nin-1
+    if mi>Nin-1: mi=Nin-1
+    if nmax>Nin-1: nmax=Nin-1
+    if mmax>Nin-1: mmax=Nin-1
+
+    ns=np.arange(Nin)
+    ms=np.arange(Nin)
+
+    nm, mm= np.meshgrid(ns, ms)
+
+    mask= (nm>ni) & (nm<nmax) & (mm>mi) & (mm<mmax)
+
+    dn=(nm-Nin/2.0)*ps1
+    dm=(mm-Nin/2.0)*ps1
+
+    r=np.sqrt((dn-di)**2.0+(dm-dj)**2.0)
+
+    P=np.exp(-r**2.0/(2.0*a**2.0))
+
+    # plt.imshow(P)
+    # plt.show()
+    
+    f=np.sum(P[mask]*Fin[mask])
+    S=np.sum(P[mask])
+
+    if S==0:
+        return 0.0
+    else:
+        return f/S
+    
+   
+    
+
+    
 def interpol(Nin,Nout,ps1,ps2,Fin):
     print(ps1, ps2, Nin, Nout)
-    print(Nin, Nout)
-    if abs(ps1-ps2)/ps1>0.001:
+
+    if abs(ps1-ps2)/ps1>0.001: # significant pixel size difference 
         F=np.zeros((Nout,Nout), dtype=np.float64)
         for i in range(Nout):
             for j in range (Nout):	
                 F[i,j]=inter(Nin,Nout,i,j,ps1,ps2,Fin)
-    elif Nin>Nout:
+    elif Nin>Nout: # same pixel but output image is smaller
         diff=Nin-Nout
         if diff%2==0:
             print('no interpolation and different size')
@@ -1032,8 +1092,8 @@ def interpol(Nin,Nout,ps1,ps2,Fin):
             F=np.zeros((Nout,Nout), dtype=np.float64)
             for i in range(Nout):
                 for j in range (Nout):	
-                    F[i,j]=inter(Nin,Nout,i,j,ps1,ps2,Fin)
-    elif Nout>Nin and ps1==ps2: # pad image
+                    F[i,j]=inter_vector(Nin,Nout,i,j,ps1,ps2,Fin)
+    elif Nout>Nin and ps1==ps2: # same pixel but output image is larger so need to pad image
 
         F=fpad_image(Fin, Nout, Nout, Nin, Nin)
         
