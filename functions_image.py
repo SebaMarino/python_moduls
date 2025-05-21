@@ -1190,7 +1190,11 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
         RA=float(header1['CRVAL1']) # deg
         Dec=float(header1['CRVAL2']) # deg
 
-        c0=SkyCoord(RA, Dec, frame=header1['RADESYS'].lower(), unit=(u.deg, u.deg))
+        try:
+            radesys=header1['RADESYS'].lower()
+        except:
+            radesys='icrs'
+        c0=SkyCoord(RA, Dec, frame=radesys, unit=(u.deg, u.deg))
 
         ret_list+=(c0,)
         
