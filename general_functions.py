@@ -72,10 +72,46 @@ def number_to_text_sf(number, s=2):
 
     text='{{:#.{}g}}'.format(s).format(number)
 
+    # if 'e' in text:
+    #     number2=float(text)
+    #     text='{}'.format(number2)
+    
     if text[-1]=='.':
         text=text[:-1]
 
     return text
+
+
+def round_sig(x, sig=1):
+    if x == 0:
+        return 0
+    return round(x, -int(ma.floor(ma.log10(abs(x))) - (sig - 1)))
+
+def format_number(n):
+    return int(n) if n == int(n) else n
+
+def round_asymmetric(value, err_plus=0, err_minus=0):
+
+    if err_minus == 0:
+        err_minus=err_plus
+
+    if err_plus == 0 and err_minus == 0:
+        return f"{value}"
+
+    # Round errors to 1 significant figure
+    err_p_rounded = round_sig(err_plus)
+    err_m_rounded = round_sig(err_minus)
+
+    # Use smaller of the two for rounding value
+    smallest_mag = min(
+        int(ma.floor(ma.log10(abs(err_p_rounded or 1)))), 
+        int(ma.floor(ma.log10(abs(err_m_rounded or 1))))
+    )
+    rounded_value = round(value, -smallest_mag)
+
+    return f"${format_number(rounded_value)}^{{+{format_number(err_p_rounded)}}}_{{-{format_number(err_m_rounded)}}}$"
+
+
 
 def fcolor_black_white(i,N):
 
