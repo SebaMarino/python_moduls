@@ -11,6 +11,7 @@ import copy
 import colorsys
 from astropy.coordinates import SkyCoord, Distance, CartesianRepresentation, Angle
 import astropy.units as u
+from scipy.optimize import fsolve
 
     
 
@@ -20,6 +21,32 @@ au=1.496e11 # m
 c_light=2.99792458e8 # m/s
 Kb=1.38064852e-23
 h=6.62607004e-34 # mks
+
+########################################
+###### FUNCTIONS FOR RADIAL PROFILE ####
+########################################
+
+def stretching(phi, inc):
+    """
+    phi and inc in rad
+    """
+    return np.sqrt(np.cos(phi) ** 2 + np.sin(phi) ** 2 / np.cos(inc) ** 2)
+
+def find_phic(inc, f):
+    """
+    find critical phi (phic) when the ratio a/l(phi) = f (f>1).
+    inc in radians.
+    f>1. 
+    """
+    
+    if 1 / np.cos(inc) < f:
+        print('All phis satisfy condition, using phic=pi/2')
+        return np.pi / 2 
+              
+    # solve equation stretching-f=0
+    func = lambda phi: stretching(phi, inc) - f
+    phic = fsolve(func, np.pi / 4) # initial guess phic=45deg
+    return phic[0]
 
 def dsdx(x,a,b): # ds/dx over an ellipse
     
@@ -79,50 +106,10 @@ def separate_intervals(phi1, phi2):
         phis.append(np.pi)
     phis.append(phi2)
     return np.array(phis)
-    
-def arc_length(a,b,phi1, phi2):
-    # works with dy/dx
-    Nint=1000000
 
-    # translates phi1 and phi2 to angles between 0 and 2pi
-    phi1=simple_phi(phi1) 
-    phi2=simple_phi(phi2)
 
-    if phi2==phi1: # catches error when phi1 and phi2 are the same if one wants to integrate over whole circumpherence
-        phi1=0.0
-        phi2=2.*np.pi
 
-    
-    # Figures out the right ranges of xs' to integrate. Does phi=0.0 pr phi=180 is contained in range?
-    phis=separate_intervals(phi1, phi2)
-    
-    Nph=len(phis)
-    Arc_length=0.0
-
-    for i in range(Nph-1):
-        if phis[i]==0.0:
-            phi_i=1./Nint
-        elif phis[i]==np.pi:
-            phi_i=np.pi+1./Nint
-        else:
-            phi_i=phis[i]
-            
-        if phis[i+1]==0.0:
-            phi_ii=2.0*np.pi-1./Nint
-        elif phis[i+1]==np.pi:
-            phi_ii=np.pi-1./Nint
-        else:
-            phi_ii=phis[i+1]   
-        x1=x_phi(phi_i,a,b)
-        x2=x_phi(phi_ii, a,b)
-        dx=(x2-x1)/(Nint-1)
-        xs=np.arange(x1,x2,dx)
-
-        Arc_length+=np.sum(dsdx(xs, a,b)*np.abs(dx))
-        
-    return Arc_length, phis
-
-def arc_length2(a,b,phi1, phi2,  Nint=1000000):
+def arc_length(a,b,phi1, phi2,  Nint=1000000):
     # a is semi-major axis (=1)
     # b is the semi-minor axis (=1/aspect_ratio)
     # returns arc length from phi1 to phi2 which are defined as 0 at the disc PA and grow anticlockwise in the sky
@@ -171,32 +158,8 @@ def arc_length2(a,b,phi1, phi2,  Nint=1000000):
 
 
 
-def ellipse1(x0,y0,phi,chi,a, PA):
 
-    ## phi is a position angle, but in the plane of the disc (i.e. inclined)
-    
-    # x0,y0 ellipse center
-    # phi pa at which calculate x,y phi=0 is +y axis
-    # chi aspect ratio of ellipse with chi>1
-    # a semi-major axis
-    # a/chi semi-minor axis
-    # PA  pa of ellipse 0 is north and pi/2 is east
-
-    phipp= phi-PA
-    
-    xpp = (a/chi) * np.sin(phipp) 
-    ypp =    a    * np.cos(phipp)
-
-    xp =  xpp*np.cos(PA) + ypp*np.sin(PA)
-    yp = -xpp*np.sin(PA) + ypp*np.cos(PA)
-    
-    xc = xp + x0
-    yc = yp + y0
-    
-    return xc , yc
-
-
-def ellipse2(x0,y0,phi,chi,a, PA):
+def ellipse(x0,y0,phi,chi,a, PA):
 
     ## phi is a position angle in the plane of the sky
     
@@ -223,7 +186,620 @@ def ellipse2(x0,y0,phi,chi,a, PA):
     
     return xc , yc
  
+def radial_profile(image, image_pb=None, x0=0., y0=0., PA=0., inc=0., rmax=5,Nr=100, Nphi=100, rms=0., BMAJ_arcsec=1., ps_arcsec=0.05, error_std=False, arc='elipse', rmin=0., wedge_width=0.):
 
+    # image is a 2D image to use to extract the radial profile
+    # image_pb is an image of the primary beam (optional)
+    # x0, y0 are RA DEC offsets in arcsec
+    # PA and inc are PA and inc of the disc in deg
+    # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
+    # Nr is the number of radial points to calculate
+    # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
+    # rms [same units as image] is the image rms.
+    # BMAJ_arcsec [arcsec] is the beam major axis
+    # ps_arcsec [arcsec] is the pixel size in arcsec
+    
+    # ################ SPATIAL GRID
+    
+    # calculate critical PA
+    if wedge_width>0.:
+        phic_deg=wedge_width/2.
+    else:
+        phic=find_phic(inc*np.pi/180., 1.3)
+        phic_deg=phic*180./np.pi
+
+    phis_E=np.linspace(PA-phic_deg, PA+phic_deg, Nphi)
+    phis_W=phis_E+180.
+
+
+    Ir_E=radial_profile_wedge(image,
+                              image_pb=image_pb, 
+                              x0=x0,
+                              y0=y0,
+                              PA=PA,
+                              inc=inc,
+                              rmax=rmax,
+                              Nr=Nr, 
+                              phis=phis_E, 
+                              rms=rms, 
+                              BMAJ_arcsec=BMAJ_arcsec,
+                              ps_arcsec=ps_arcsec,
+                              error_std=error_std,
+                              rmin=rmin)
+
+    Ir_W=radial_profile_wedge(image,
+                              image_pb=image_pb, 
+                              x0=x0,
+                              y0=y0,
+                              PA=PA,
+                              inc=inc,
+                              rmax=rmax,
+                              Nr=Nr, 
+                              phis=phis_W, 
+                              rms=rms, 
+                              BMAJ_arcsec=BMAJ_arcsec,
+                              ps_arcsec=ps_arcsec,
+                              error_std=error_std,
+                              rmin=rmin)
+
+
+    r, I, I_err = Ir_E[0], np.mean((Ir_E[1], Ir_W[1]), axis=0), np.hypot(Ir_E[2], Ir_W[2]) / 2
+
+    
+    return np.array([r, I, I_err]) 
+
+def radial_profile_wedge(image, image_pb=None, x0=0., y0=0., PA=0., inc=0., rmax=5,Nr=100, phis=np.linspace(0., 360., 100), rms=0., BMAJ_arcsec=1., ps_arcsec=0.05, error_std=False, arc='elipse', rmin=0.):
+
+    # image is a 2D image to use to extract the radial profile
+    # image_pb is an image of the primary beam (optional)
+    # x0, y0 are RA DEC offsets in arcsec
+    # PA and inc are PA and inc of the disc in deg
+    # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
+    # Nr is the number of radial points to calculate
+    # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
+    # rms [same units as image] is the image rms.
+    # BMAJ_arcsec [arcsec] is the beam major axis
+    # ps_arcsec [arcsec] is the pixel size in arcsec
+    
+    # ################ SPATIAL GRID
+    
+    Np=len(image[:,0])
+    
+    # check if image_pb is an array:
+    if not hasattr(image_pb,"__len__"):
+        image_pb=np.ones((Np, Np))
+    
+    xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
+    
+    # R phi
+    if PA<0.: PA=PA+180.
+    PA_rad=PA*np.pi/180.0
+    phis_rad=phis*np.pi/180.0
+    
+    dphi=abs(phis_rad[1]-phis_rad[0])
+    Nphi=len(phis_rad)
+
+    if rmin==0. or rmin<0.:
+        rmin=rmax/1.0e3
+    rs=np.linspace(rmin,rmax,Nr)
+
+    ecc= np.sin(inc*np.pi/180.0)
+    chi=1.0/(np.sqrt(1.0-ecc**2.0)) # aspect ratio between major and minor axis (>=1)
+    
+    ##### Calculate averaged profile
+    
+    Irs1=np.zeros((Nr,Nphi))
+    Irs2=np.zeros((Nr,Nphi)) # pb
+    for i_r in range(Nr):
+        ai=rs[i_r]
+        for i_p in range(Nphi):
+
+            phi1=phis_rad[i_p]  # in the plane of the disc
+            XS1,YS1=ellipse(x0,y0,phi1,chi,ai, PA_rad)
+
+            
+            ip1 = -int(XS1/ps_arcsec)+Np//2
+            jp1 = int(YS1/ps_arcsec)+Np//2
+
+            Irs1[i_r,i_p] = image[jp1,ip1] 
+            Irs2[i_r,i_p] = image_pb[jp1,ip1]
+        
+    Ir1=np.nanmean(Irs1, axis=1) # mean intensity in Jy/beam
+    Ir2=np.zeros(Nr)
+    
+    for i in range(Nphi):
+        Ir2=Ir2+(rms/Irs2[:,i])**2.0
+
+    Ir2=np.sqrt(Ir2/(Nphi))
+
+    # Calculate number of independent points 
+
+    if arc=='simple_elipse': # full 2pi ellipse
+        arclength=(Nphi-1)*dphi* np.sqrt(  (1.0 + (1.0/chi)**2.0 )/2.0 ) # normalice 
+    else: # partial ellipse
+        arclength, phiint= arc_length(1.0,1.0/chi, phis_rad[0]-PA_rad, phis_rad[-1]-PA_rad)
+
+    print('arc length = {:.1f} deg '.format( arclength*180.0/np.pi))
+    Nindeps_1=rs*arclength/BMAJ_arcsec
+    Nindeps_1[Nindeps_1<1.0]=1.0
+    
+    if error_std:
+        Err_1=np.nanstd(Irs1, axis=1)/np.sqrt(Nindeps_1)
+
+    else:
+        Err_1=Ir2/np.sqrt(Nindeps_1)
+
+    return np.array([rs, Ir1, Err_1]) 
+
+
+def flux_profile(image, pb, x0, y0, PA, inc, rmax, rms, BMAJ, BMIN, BPA,  dpix,  rmin=0., h=0., make_figure=True ):
+
+    # x0, y0 are RA DEC offsets in arcsec
+    # PA and inc are PA and inc of the disc in deg
+    # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
+    # rms [Jy]
+    # dpix [arcsec]
+    # ################ SPATIAL GRID
+    Npix=len(image[:,0])
+
+    Rmax=2.0*rmax # pick a larger radius to make sure flux profile saturates 
+    Nr=int(round((Rmax-rmin)/dpix/8))  
+    rs=np.linspace(rmin,Rmax,Nr)
+    
+    xs, ys, xedge, yedge = xyarray(Npix, dpix)
+
+    xm, ym = np.meshgrid(xs-x0, ys-y0, sparse=False, indexing='xy')
+
+    PA_rad=PA*np.pi/180.
+    inc_rad=inc*np.pi/180.
+    
+    xp = xm * np.sin(PA_rad) + ym *np.cos(PA_rad) ###  along major axis
+    yp = xm * np.cos(PA_rad) - ym *np.sin(PA_rad) ### along minor axis
+
+    xpp=xp
+    ypp=yp/np.cos(inc_rad)
+
+    rp= np.sqrt( xp**2.0 + yp**2.0 ) # projected radius
+    rpp=np.sqrt( xpp**2.0 + ypp**2.0 ) # deprojected radius
+
+    PAs=np.arctan2(xm,ym)*180./np.pi# -180 to 180
+    PAs[PAs<0.0]=PAs[PAs<0.0]+360. # from 0 to 360, discontinuity in 0.0
+
+
+    Beam_area=np.pi*BMAJ*BMIN/(4.0*np.log(2.0)) # in arcsec2
+    beam_maj=np.sqrt((BMAJ*np.cos( (PA-BPA)*np.pi/180. ))**2 + (BMIN*np.sin( (PA-BPA)*np.pi/180.  ))**2) # beam projected along disc major axis
+    beam_min=np.sqrt((BMAJ*np.cos( (PA+90.-BPA)*np.pi/180. ))**2 + (BMIN*np.sin( (PA+90.-BPA)*np.pi/180.  ))**2) # beam projected along disc minor axis
+
+    
+    ##### Calculate flux within rs
+
+    F=np.zeros((Nr,2))
+    rmsmap=rms/pb
+    rmsmap2=(rmsmap)**2.0
+
+    
+    for i_r in range(Nr):
+
+        mask_rh=generate_mask_rh(xpp, ypp, h, inc_rad, rs[i_r], rmin)
+        mask_beam=generate_mask_beam(xpp, ypp, beam_min, inc_rad, rs[i_r], rmin)
+
+        mask=mask_rh | mask_beam
+        
+        F[i_r,0]= np.sum(image[mask])*(dpix**2.0)/Beam_area # Jy
+        F[i_r,1]= np.sum(rmsmap2[mask]) # Jy/beam Note: /beam is ok as it is corrected later
+        
+        # Correct by number of independent points
+
+        if len(image[mask])*dpix**2.>Beam_area: # if area is larger than a beam
+            Nind_Npix= dpix**2.0/Beam_area
+            F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(Nind_Npix) 
+        elif len(image[mask])>0.: # if area is smaller than a beam
+            F[i_r,1]=np.sqrt(np.nanmean(rmsmap2[mask]))
+        else: # no pixels in mask
+            F[i_r,1]=np.nan
+            
+    # image[mask]=0.0
+
+    if make_figure: # make figure of mask of rmax
+
+        mask_rh=generate_mask_rh(xpp, ypp, h, inc_rad, rmax, rmin)
+        mask_beam=generate_mask_beam(xpp, ypp, beam_min, inc_rad, rmax, rmin)
+
+        mask=mask_rh | mask_beam
+        
+        fig=plt.figure(figsize=(4,4))
+        ax=fig.add_subplot(111)
+        ax.pcolormesh(xedge, yedge, image*pb, cmap='inferno', vmax=np.nanmax(image[mask]*pb[mask]), vmin=-3*rms)#, zorder=1)
+        ax.pcolormesh(xedge, yedge, mask, cmap='Greys_r', alpha=0.15*(mask>0))#, zorder=2 )
+
+        ax.set_xlabel('RA [arcsec]')
+        ax.set_ylabel('Dec [arcsec]')
+        ax.set_xlim(Rmax, -Rmax)
+        ax.set_ylim(-Rmax, Rmax)
+
+        xc=Rmax -3.*BMAJ/2.#abs(minor_ticks[1]-minor_ticks[0])
+        yc=-Rmax +3.*BMAJ/2.#abs(minor_ticks[1]-minor_ticks[0])
+            
+        width= BMAJ
+        height= BMIN
+        pa=BPA
+        elli=Ellipse((xc,yc),width,height,angle=90.-pa,linewidth=0,fill=True,color='white', alpha=1.0)
+        ax.add_patch(elli)
+        
+        ax.set_aspect('equal')
+        plt.tight_layout()
+        #plt.show()
+
+        return np.array([rs, F[:,0], F[:,1]]), fig 
+
+    else:
+        return np.array([rs, F[:,0], F[:,1]]) 
+
+########################################
+###### FUNCTIONS FOR VERTICAL PROFILE ####
+########################################
+
+
+def get_vertical_profile(xs, ys, image, PA=0., beam=1.0, rms=0., Rmax=1.0, Zmax=1., x0=0., y0=0., side='both'):
+
+
+    dpix=np.abs(xs[1]-xs[0])
+    xm, ym = np.meshgrid(xs-x0, ys-y0)
+    
+    dz=dpix
+    Nz=int(round(2*Zmax/dpix /3 ))  
+
+    Z_edges=np.linspace(-Zmax, Zmax, Nz+1)
+    Zs=(Z_edges[1:]+Z_edges[:-1])/2.
+
+    rhom=xm*np.sin(PA*np.pi/180.)+ym*np.cos(PA*np.pi/180.)
+    zm= -xm*np.cos(PA*np.pi/180.)+ym*np.sin(PA*np.pi/180.)
+
+    rhoz=np.zeros((2, Nz))
+
+    for i in range(Nz):
+
+        # define slab
+        if side=='both':
+            maski= (np.abs(rhom)<=Rmax) & (Z_edges[i]<=zm) & (zm<=Z_edges[i+1])
+        elif side=='PA':
+            maski= (0.<=rhom) & (rhom<=Rmax) & (Z_edges[i]<=zm) & (zm<=Z_edges[i+1])
+        elif side=='PA+180':
+            maski= (0.>=rhom) & (rhom>=-Rmax) & (Z_edges[i]<=zm) & (zm<=Z_edges[i+1])
+        else:
+            sys.exit('ERROR: invalid side')
+        # sum slab
+        rhoz[0, i]=np.mean(image[maski])
+
+        # Nbeams
+        l=2*Rmax
+        Nbeams=l/beam
+        rhoz[1, i] = rms/np.sqrt(Nbeams)
+
+    return Zs, rhoz
+
+def generate_mask_rh(xpp, ypp, h, inc_rad, rmax, rmin):
+
+
+    H1pp=h*rmax*np.tan(inc_rad)
+    H2pp=h*rmin*np.tan(inc_rad)
+
+    mask_rh1= np.full(xpp.shape, False) # for outer edge
+    mask_rh2= np.full(xpp.shape, False) # for inner edge
+
+    mask_x1=np.abs(xpp)<=rmax # maximum radius
+    mask_x2=np.abs(xpp)<=rmin # minimum radius
+
+    mask_rh1[mask_x1] = (ypp[mask_x1]<np.sqrt(rmax**2-xpp[mask_x1]**2)+H1pp) & (ypp[mask_x1]>-np.sqrt(rmax**2-xpp[mask_x1]**2)-H1pp) # outer edge
+    mask_rh2[mask_x2] = (ypp[mask_x2]>np.sqrt(rmin**2-xpp[mask_x2]**2)-H2pp) | (ypp[mask_x2]<-np.sqrt(rmin**2-xpp[mask_x2]**2)+H2pp) # inner edge
+
+    # combine both
+    mask_rh=mask_rh1
+    mask_rh[mask_x2] = mask_rh1[mask_x2] & mask_rh2[mask_x2]
+
+    return mask_rh
+
+def generate_mask_beam(xpp, ypp, beam, inc_rad, rmax, rmin):
+
+    
+    #mask_beam=(np.abs(yp)<=beam_min) & (np.abs(xpp)<=rs[i_r]) & (rpp>=rmin) # rectangle 2 beams wide from major axis of the disc. Important for highly inclined discs.  
+    
+    mask_b1= np.full(xpp.shape, False) # for outer edge
+    mask_b2= np.full(xpp.shape, False) # for inner edge
+
+    mask_x1=np.abs(xpp)<=rmax # maximum radius
+    mask_x2=np.abs(xpp)<=rmin # minimum radius
+
+    # beampp=beam/np.cos(inc_rad) # beam along minor axis deprojected
+    beampp=beam*np.tan(inc_rad) # beam along minor axis deprojected, it uses tan instead of cos such that for face on discs it becomes 0
+    
+    mask_b1[mask_x1] = (ypp[mask_x1]<np.sqrt(rmax**2-xpp[mask_x1]**2)+beampp) & (ypp[mask_x1]>-np.sqrt(rmax**2-xpp[mask_x1]**2)-beampp) # outer edge
+    mask_b2[mask_x2] = (ypp[mask_x2]>np.sqrt(rmin**2-xpp[mask_x2]**2)-beampp) | (ypp[mask_x2]<-np.sqrt(rmin**2-xpp[mask_x2]**2)+beampp) # inner edge
+
+    # combine both
+    mask_b=mask_b1
+    mask_b[mask_x2] = mask_b1[mask_x2] & mask_b2[mask_x2]
+
+    return mask_b
+
+########################################
+###### FUNCTIONS FOR AZIMUTHAL PROFILE ####
+########################################
+
+
+def flux_azimuthal_profile(image, image_pb=None, x0=0., y0=0., PA=0., inc=0., rmin=0.5, rmax=1., NPA=100, dPA=0.,  rms=0.,  BMAJ_arcsec=1., BMIN_arcsec=1., ps_arcsec=0.05, error_std=False):
+    # calculate average intensity profile as a function of azimuth between rmin and rmax in arcsec  
+    # x0, y0 are RA DEC offsets in arcsec
+    # PA and inc are PA and inc of the disc in deg
+    # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
+    # Nr is the number of radial points to calculate
+    # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
+    
+
+    Np=len(image[:,0])
+    
+    # check if image_pb is an array:
+    if not hasattr(image_pb,"__len__"):
+        image_pb=np.ones((Np, Np))
+
+    # ################ SPATIAL GRID
+    # X,Y
+
+    xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
+    xv, yv = np.meshgrid(xs-x0, ys-y0, sparse=False, indexing='xy')
+
+    PA_rad=PA*np.pi/180.0
+    inc_rad=inc*np.pi/180.0
+
+    ecc= np.sin(inc_rad)
+    chi=1.0/(np.sqrt(1.0-ecc**2.0)) # aspect ratio between major and minor axis (>=1)
+
+    Beam_area=np.pi*BMAJ_arcsec*BMIN_arcsec/(4.0*np.log(2.0)) # in arcsec2
+ 
+    ##### Calculate flux within rmin, rmax and PA bins
+
+    F=np.zeros((NPA,2))
+
+    xpp = xv * np.cos(PA_rad) - yv *np.sin(PA_rad) ### along minor axis
+    ypp = xv * np.sin(PA_rad) + yv *np.cos(PA_rad) ###  along major axis
+
+    rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
+
+    PAs=np.arctan2(xv,yv) # rad 
+    PAs[PAs<0.]=PAs[PAs<0.]+2*np.pi # 0 to 2pi
+
+    rmsmap2=(rms/image_pb)**2.0
+    
+    PA_mid=np.linspace(0., 2*np.pi, NPA) # rad
+
+    if dPA<=0.:
+        dPA_rad=abs(PA_mid[1]-PA_mid[0])
+    else:
+        dPA_rad=dPA*np.pi/180.
+
+    
+    d=abs(rmax-rmin)
+
+    for i_pa in range(NPA):
+        
+        mask=(rdep<=rmax) & (rdep>rmin) & (PAs>PA_mid[i_pa]-dPA_rad) & (PAs<=PA_mid[i_pa]+dPA_rad)
+        # roll over lower boundary in phi
+
+        if PA_mid[i_pa]-dPA_rad<0.: # add lower end
+            mask_l=(rdep<=rmax) & (rdep>rmin) & (PAs>PA_mid[i_pa]-dPA_rad+2*np.pi)
+            mask=mask | mask_l
+            
+        if PA_mid[i_pa]+dPA_rad>2.0*np.pi: # add higher end
+            
+            mask_h=(rdep<=rmax) & (rdep>rmin) & (PAs<=PA_mid[i_pa]+dPA_rad-2*np.pi)
+            mask=mask | mask_h
+
+
+        ## average intensity between PA bins and radial bins
+        F[i_pa,0]= np.average(image[mask])
+
+
+        # Number of independent points based on the area
+        Area=np.sum(mask)*ps_arcsec**2.0 # arcsec2
+        N_area=Area/Beam_area
+
+        # Number of independent points based on arc
+        arclength, phiint= arc_length(1.0,1.0/chi, PA_mid[i_pa]-dPA_rad, PA_mid[i_pa]+dPA_rad)
+        N_arc=arclength*(rmax+rmin)/2. / BMAJ_arcsec
+        
+
+        # Number of independent points based on radial extent
+        dp=d*np.sqrt( np.cos(PA_mid[i_pa]-PA_rad)**2. + np.sin(PA_mid[i_pa]-PA_rad)**2.*np.cos(inc_rad)**2.)
+        N_r=dp/BMAJ_arcsec
+
+        # use as number of independent points the maximum between beams along arc, beams along radial extent or beams in area being averaged.
+        Nind=max([N_area, N_arc, N_r])
+        if error_std: # estimate error using standard deviation
+            F[i_pa,1]=np.std(image[mask])/np.sqrt(Nind)
+        else: # estimate error using input rms
+            F[i_pa,1]= min(np.sqrt(np.mean(rmsmap2[mask])), np.sqrt(np.mean(rmsmap2[mask]))/np.sqrt(Nind))
+
+    
+    return np.array([PA_mid*180./np.pi, F[:,0], F[:,1]]) # rs, I, eI 
+
+
+
+
+########################################
+###### MISCELANEOUS UNCTIONS ###########
+########################################
+
+
+#### simply load fits image
+def load_fits(fits_path, rms=0., pbcor=False, output_unit=''):
+    
+    ##### LOAD IMAGE
+    if pbcor and not fits_path.endswith('pbcor.fits'): # load primary beam corrected image
+        fits_path=fits_path.replace('.fits', '.pbcor.fits')
+        
+    fits = pyfits.open(fits_path) # open image cube
+    image = get_last2d(fits[0].data) 
+
+    #### READ HEADER
+    header= fits[0].header
+    ps_deg=float(header['CDELT2'])
+    ps_mas= ps_deg*3600.0*1000.0 # pixel size input in mas
+    ps_arcsec=ps_deg*3600.0
+    
+    Npix=np.shape(image)[0]
+        
+    if pbcor:
+        fitspb= pyfits.open(fits_path.replace('pbcor.fits', 'pb.fits')) 
+        pb = get_last2d(fitspb[0].data) 
+
+    else:
+        pb=np.ones((Npix,Npix))
+
+    rmsmap=rms/pb
+
+   
+
+    try:
+        BMAJ=float(header['BMAJ'])*3600.0 # arcsec 
+        BMIN=float(header['BMIN'])*3600.0 # arcsec 
+        BPA=float(header['BPA']) # deg 
+        print("beam = %1.2f x %1.2f" %(BMAJ, BMIN))
+    except:
+        BMAJ=0.0
+        BMIN=0.0
+        BPA=0.0
+    try:
+        if header['CTYPE3'] == 'FREQ':
+            wave=c_light/header['CRVAL3']*1.0e6
+            print('wavelength = %1.3f um'%(wave))
+    except: print('no CTYPE3')    
+    if header['BUNIT']=='JY/PIXEL' and output_unit=='JY/ARCSEC2':
+        image=image/(ps_arcsec**2.0) # Jy/pixel to Jy/arcsec2
+
+
+    xs, ys, xedge, yedge=xyarray(Npix, ps_arcsec)
+
+    ret_list= (xs, ys, xedge, yedge, image,)
+
+    
+    if BMAJ>0:
+        ret_list+=(pb, rmsmap, BMAJ, BMIN, BPA)
+
+    return ret_list
+
+#### load fits image with the option of trimming the field of view and increasing the resolution
+def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., remove_star=False, output='', return_coordinates=False): # for images from CASA
+
+    ### PS_final in mas
+
+    ##### LOAD IMAGE
+    fit1	= pyfits.open(path_image) # open image cube
+    #### READ HEADER
+    header1	= fit1[0].header
+
+    try:
+        if  header1['NAXIS3']==1:
+            data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
+        elif header1['NAXIS3']>1:
+            data1 	= get_last3d(fit1[0].data) # [0,0,:,:] # extract image matrix
+    except:  # in case NAXIS3 does not exist
+        data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
+
+   
+    try:
+        ps_deg1=float(header1['CDELT2'])
+    except:
+        print('no CDELT2')
+        ps_deg1=float(header1['CD2_2'])
+    ps_mas1= ps_deg1*3600.0*1000.0 # pixel size input in mas
+    ps_arcsec1=ps_deg1*3600.0
+    
+    N1=data1.shape[-1]
+
+
+    if path_pbcor!='':
+        fit2	= pyfits.open(path_pbcor) #abrir objeto cubo
+        data2 	= get_last2d(fit2[0].data) # [0,0,:,:] #extraer matriz de datos
+
+    else:
+        data2=np.ones((N1,N1))
+        
+    rmsmap=rms/data2
+
+    try:
+        BMAJ=float(header1['BMAJ'])*3600.0 # arcsec 
+        BMIN=float(header1['BMIN'])*3600.0 # arcsec 
+        BPA=float(header1['BPA']) # deg 
+        print("beam = %1.2f x %1.2f" %(BMAJ, BMIN))
+    except:
+        BMAJ=0.0
+        BMIN=0.0
+        BPA=0.0
+    try:
+        if header1['CTYPE3'] == 'FREQ':
+            wave=c_light/header1['CRVAL3']*1.0e6
+            print('wavelength = %1.3f um'%(wave))
+    except: print('no CTYPE3')    
+    if header1['BUNIT']=='JY/PIXEL' and output=='JY/ARCSEC2':
+        data1=data1/(ps_arcsec1**2.0) # Jy/pixel to Jy/arcsec2
+    # x1, y1, x1edge, y1edge = xyarray(N1, ps_arcsec1)
+
+    if remove_star and header1['NAXIS3']==1:
+        ij=np.unravel_index(np.argmax(data1, axis=None), data1.shape)
+        print(ij)
+        data1[ij]=0.0
+    
+
+    if ps_final>0.0:
+        psf_arcsec=ps_final/1000.0
+    else:
+        ps_final=ps_mas1
+        psf_arcsec=ps_arcsec1
+    if XMAX<=0.0:
+        XMAX=ps_arcsec1*N1/2.
+        
+    Nf=int(round(XMAX*2.0/(ps_final/1000.0)))
+    print('Nf = ', Nf)
+        
+    xf=np.zeros(Nf+1)
+    yf=np.zeros(Nf+1)
+    for i in range(Nf+1):
+        xf[i]=-(i-Nf/2.0)*psf_arcsec  
+        yf[i]=(i-Nf/2.0)*psf_arcsec 
+
+    try:
+        if  header1['NAXIS3']==1:
+            image=interpol(N1,Nf,ps_mas1,ps_final, data1)
+
+        else: ### interpolation not yet implemented for image cube
+            image=data1
+    except: # in case NAXIS3 does not exist
+        image=interpol(N1,Nf,ps_mas1,ps_final, data1)
+
+    ret_list= (image,)
+        
+    if path_pbcor!='':
+        rmsmap_out=interpol(N1,Nf,ps_mas1,ps_final,rmsmap)
+        ret_list+=(rmsmap_out, xf, yf)
+    else:
+        ret_list+=(xf, yf)
+    if BMAJ>0.0:
+        ret_list+=(BMAJ, BMIN, BPA)
+
+    if return_coordinates:
+
+        RA=float(header1['CRVAL1']) # deg
+        Dec=float(header1['CRVAL2']) # deg
+
+        try:
+            radesys=header1['RADESYS'].lower()
+        except:
+            radesys='icrs'
+        c0=SkyCoord(RA, Dec, frame=radesys, unit=(u.deg, u.deg))
+
+        ret_list+=(c0,)
+        
+    return ret_list
 
 
 def xyarray(Np, ps_arcsec):
@@ -246,507 +822,6 @@ def xyarray(Np, ps_arcsec):
     return xs, ys, xedge, yedge
 
 
-def radial_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, BMAJ_arcsec, ps_arcsec, error_std=False, arc='elipse', rmin=0.):#, plot=False):
-
-    # x0, y0 are RA DEC offsets in arcsec
-    # PA and inc are PA and inc of the disc in deg
-    # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
-    # Nr is the number of radial points to calculate
-    # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
-
-    # ################ SPATIAL GRID
-
-    # XY
-
-    
-    Np=len(image[:,0])
-
-    # check if image_pb is an array:
-    if not hasattr(image_pb,"__len__"):
-        image_pb=np.ones((Np, Np))
-    
-    xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
-    
-    # R phi
-    if PA<0.: PA=PA+180.
-    PA_rad=PA*np.pi/180.0
-    phis_rad=phis*np.pi/180.0
-    #phis_rad[phis_rad<0.0]=2.*np.pi+phis_rad[phis_rad<0.0] # phi is possitive everywhere, not necessary as this is properly accounted for later
-    
-    dphi=abs(phis_rad[1]-phis_rad[0])
-    Nphi=len(phis_rad)
-
-    if rmin==0. or rmin<0.:
-        rmin=rmax/1.0e3
-    rs=np.linspace(rmin,rmax,Nr)
-
-    ecc= np.sin(inc*np.pi/180.0)
-    chi=1.0/(np.sqrt(1.0-ecc**2.0)) # aspect ratio between major and minor axis (>=1)
-    
-    ##### Calculate averaged profile
-    
-    Irs1=np.zeros((Nr,Nphi))
-    Irs2=np.zeros((Nr,Nphi)) # pb
-    for i_r in range(Nr):
-        ai=rs[i_r]
-        for i_p in range(Nphi):
-
-            phi1=phis_rad[i_p]  # in the plane of the disc
-            XS1,YS1=ellipse2(x0,y0,phi1,chi,ai, PA_rad)
-
-            
-            ip1 = -int(XS1/ps_arcsec)+Np//2
-            jp1 = int(YS1/ps_arcsec)+Np//2
-
-            Irs1[i_r,i_p] = image[jp1,ip1] 
-            Irs2[i_r,i_p] = image_pb[jp1,ip1]
-    # plt.pcolormesh(Irs1)
-    # plt.show()
-    # if plot:
-    #     imagep=image*1.0
-    #     for i_p in range(Nphi):
-            
-    #         phi1=phis_rad[i_p] 
-    #         XS1,YS1=ellipse(x0,y0,phi1,chi,2.8, PA_rad)
-        
-    #         ip1 = -int(XS1/ps_arcsec)+Np//2
-    #         jp1 = int(YS1/ps_arcsec)+Np//2
-            
-    #         imagep[jp1,ip1]=0.0#imagep[jp1,ip1]
-    #     fig=plt.figure()
-    #     ax1=fig.add_subplot(111)
-    #     pc=ax1.pcolormesh(imagep, vmin=0.0, vmax=2.0e-5)
-    #     cb= fig.colorbar(pc)
-    #     ax1.set_aspect('equal')
-    #     plt.show()
-        
-    Ir1=np.nanmean(Irs1, axis=1) # mean intensity in Jy/beam
-    Ir2=np.zeros(Nr)
-    
-    for i in range(Nphi):
-        Ir2=Ir2+(rms/Irs2[:,i])**2.0
-
-    Ir2=np.sqrt(Ir2/(Nphi))
-    # Ir2=np.nanstd(Irs1, axis=1)
-    # Calculate number of independent points 
-
-
-    
-    # arclength=dphi*(Nphi-1) # radians
-    if arc=='simple_elipse':
-        arclength=(Nphi-1)*dphi* np.sqrt(  (1.0 + (1.0/chi)**2.0 )/2.0 ) # normalice 
-    else:
-        arclength, phiint= arc_length2(1.0,1.0/chi, phis_rad[0]-PA_rad, phis_rad[-1]-PA_rad)
-
-    print('arc length = [deg] ', arclength*180.0/np.pi)
-    Nindeps_1=rs*arclength/BMAJ_arcsec
-    Nindeps_1[Nindeps_1<1.0]=1.0
-    
-
-    if error_std:
-        Err_1=np.nanstd(Irs1, axis=1)/np.sqrt(Nindeps_1)
-
-    else:
-        Err_1=Ir2/np.sqrt(Nindeps_1)
-
-    
-    return np.array([rs, Ir1, Err_1]) # rs, I, eI 
-
-
-
-
-
-
-def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, arc='elipse', cube=False, rmin=0.):
-
-    
-    fit1=pyfits.open(fitsfile)
-    if cube==False:
-        data1 	= get_last2d(fit1[0].data) #extraer matriz de datos
-
-    else:
-        data1   = get_last3d(fit1[0].data)
-        Nlam=data1.shape[0]
-    Np1=data1.shape[-1]
-    # print np.shape(data1)
-    header1=fit1[0].header
-    ps_deg1=float(header1['CDELT2'])
-    ps_arcsec1=ps_deg1*3600.0
-    ps_rad1=ps_deg1*np.pi/180.0
-
-    # change units from Jy/pix to Jy/arcsec
-    if header1['BUNIT']=='JY/PIXEL':
-
-        data1=data1/(ps_arcsec1**2)
-
-    if cube==False:
-        return radial_profile(data1, np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc, rmin=rmin)
-
-    else:
-        Srs=[]
-        for ilam in range(Nlam):
-            Sri= radial_profile(data1[ilam,:,:], np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc, rmin=rmin)
-            Srs.append(Sri)
-        return Srs
-
-
-def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, error_std=False, arcsec2=False , arc='elipse', ret_beam=False):
-
-
-    fit1=pyfits.open(fitsfile_pbcor)
-    data1 = get_last2d(fit1[0].data) #extraer matriz de datos
-
-
-    # print np.shape(data1)
-    header1=fit1[0].header
-    ps_deg1=float(header1['CDELT2'])
-    ps_arcsec1=ps_deg1*3600.0
-    ps_rad1=ps_deg1*np.pi/180.0
-    Np1=len(data1[:,0])
-
-    if fitsfile_pb!='':
-        fit2=pyfits.open(fitsfile_pb)
-        data2 = get_last2d(fit2[0].data) #extraer matriz de datos
-    else:
-        data2=np.ones((Np1,Np1))
-
-    
-    BMAJ=float(header1['BMAJ']) # deg
-    BMIN=float(header1['BMIN']) # deg
-    BPA=float(header1['BPA']) # deg
-
-    BMAJ_arcsec1=BMAJ*3600.0
-    BMIN_arcsec1=BMIN*3600.0
-    beam_area=np.pi*BMAJ_arcsec1*BMIN_arcsec1/(4.*np.log(2.))
-    
-    print("beam = %1.2f x %1.2f" %(BMAJ_arcsec1, BMIN_arcsec1))
-    if arcsec2:
-        data1=data1/beam_area
-        rms=rms/beam_area
-        print('transforming to Jy/arcsec2')
-    if not ret_beam:
-        return radial_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, ps_arcsec=ps_arcsec1, error_std=error_std, arc=arc)
-    else:
-        return radial_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, ps_arcsec=ps_arcsec1, error_std=error_std, arc=arc), BMAJ_arcsec1
-
-
-def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, BMIN_arcsec, ps_arcsec, rs=np.array([]), refine=1, phi1=0.0, phi2=360.0, rmin=0.0):
-
-    # x0, y0 are RA DEC offsets in arcsec
-    # PA and inc are PA and inc of the disc in deg
-    # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
-    # Nr is the number of radial points to calculate
-    # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
-    # refine makes the image with higher resolution such that it works well for inclined discs
-    # ################ SPATIAL GRID
-
-    # XY
-
-
-    if len(rs)==0:
-        rs=np.linspace(rmax/1.0e3,rmax,Nr)
-    rmax=np.max(rs)
-    Nr=len(rs)
-
-    Np=len(image[:,0])
-    
-    if (refine>1.0 and refine<10.0):
-        ps_f=ps_arcsec*1.e3/refine
-        Npf=int(rmax/(ps_f/1.0e3)*2.)
-        image   =interpol(Np,Npf,ps_arcsec*1.e3,ps_f, image)
-        image_pb=interpol(Np,Npf,ps_arcsec*1.e3,ps_f, image_pb)
-
-        ### redefine values for image dimensions and pixel zie
-        Np=len(image[:,0])
-        ps_arcsec=ps_f/1.0e3
-
-    elif refine>10.0:
-        print('too much refining')
-        sys.exit()
-        
-
-    xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
-
-    
-    # R phi
-
-    PA_rad=PA*np.pi/180.0
-    phi1_rad=simple_phi(phi1*np.pi/180.0 )
-    phi2_rad=simple_phi(phi2*np.pi/180.0 )
-
-    
-    #print rs
-    
-    ecc= np.sin(inc*np.pi/180.0)
-    chi=1.0/(np.sqrt(1.0-ecc**2.0)) # aspect ratio between major and minor axis (>=1)
-
-    Beam_area=np.pi*BMAJ_arcsec*BMIN_arcsec/(4.0*np.log(2.0)) # in arcsec2
-
-    
-    ##### Calculate flux within rs
-    F=np.zeros((Nr,2))
-
-
-    xv, yv = np.meshgrid(xs-x0, ys-y0, sparse=False, indexing='xy')
-
-    xpp = xv * np.cos(PA_rad) - yv *np.sin(PA_rad) ### along minor axis
-    ypp = xv * np.sin(PA_rad) + yv *np.cos(PA_rad) ###  along major axis
-
-    PAs=np.arctan2(xv,yv)# -pi to pi
-    PAs[PAs<0.0]=PAs[PAs<0.0]+2.*np.pi # from 0 to 2pi, discontinuity in 0.0
-
-    if phi2_rad>=phi1_rad:
-        mask_phis=(PAs>= phi1_rad) & (PAs<=phi2_rad)
-    else: ### goes through zero
-        mask_phis=(PAs>= phi1_rad) | (PAs<=phi2_rad)
-      
-    # jet=image_pb*1.
-    # jet[mask_phis]=-1.0
-    # plt.pcolor(jet)
-    # plt.show()
-    rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
-    rmsmap2=(rms/image_pb)**2.0
-    for i_r in range(Nr):
-        try:
-            mask_r=(rdep<=rs[i_r]) & (rdep>=rmin)
-        except:
-            mask_r=(rdep<=rs[i_r]) & (rdep>=rmin[i_r])
-           
-        mask=mask_r & mask_phis
-        F[i_r,0]= np.sum(image[mask])*(ps_arcsec**2.0)/Beam_area
-        F[i_r,1]= np.sum(rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
-
-        # Correct by number of independent points
-
-        if len(image[mask])*ps_arcsec**2.>Beam_area:
-            F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
-        else:
-            F[i_r,1]=rms
-        # if  F[i_r,1]==0.0 and rs[i_r]**2.0*np.pi*np.cos(inc*np.pi/180):
-            # mask=
-            # F[i_r,1]= np.sum( rmsmap2[rdep<rs[i_r]])
-
-    # image[mask]=0.0  
-    # plt.pcolor(xs, ys, image)
-    # plt.contour(xs,ys,rdep, levels=rs[::3])
-    # plt.axes().set_aspect('equal')
-    # plt.show()
-    return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI
-
-def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, rms, BMAJ_arcsec, BMIN_arcsec, ps_arcsec, rs=np.array([]), refine=1, hv=0.05):
-
-    # x0, y0 are RA DEC offsets in arcsec
-    # PA and inc are PA and inc of the disc in deg
-    # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
-    # Nr is the number of radial points to calculate
-    # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
-    # refine makes the image with higher resolution such that it works well for inclined discs
-    # ################ SPATIAL GRID
-
-    # XY
-
-
-    if len(rs)==0:
-        rs=np.linspace(rmax/1.0e3,rmax,Nr)
-    rmax=np.max(rs)
-    Nr=len(rs)
-
-    Np=len(image[:,0])
-    
-    if (refine>1.0 and refine<10.0):
-        ps_f=ps_arcsec*1.e3/refine
-        Npf=int(rmax/(ps_f/1.0e3)*2.)
-        image   =interpol(Np,Npf,ps_arcsec*1.e3,ps_f, image)
-        image_pb=interpol(Np,Npf,ps_arcsec*1.e3,ps_f, image_pb)
-
-        ### redefine values for image dimensions and pixel zie
-        Np=len(image[:,0])
-        ps_arcsec=ps_f/1.0e3
-
-    elif refine>10.0:
-        print('too much refining')
-        sys.exit()
-        
-    
-    xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
-
-    
-    # R phi
-
-    PA_rad=PA*np.pi/180.0
-    # phis_rad=phis*np.pi/180.0 
-    # dphi=abs(phis_rad[1]-phis_rad[0])
-    # Nphi=len(phis_rad)
-    
-    print(BMAJ_arcsec)
-    
-    Beam_area=np.pi*BMAJ_arcsec*BMIN_arcsec/(4.0*np.log(2.0)) # in arcsec2
-
-    
-    ##### Calculate flux within rs
-    F=np.zeros((Nr,2))
-
-
-    xv, yv = np.meshgrid(xs-x0, ys-y0, sparse=False, indexing='xy')
-
-    xpp = xv * np.cos(PA_rad) - yv *np.sin(PA_rad) ### along minor axis
-    ypp = xv * np.sin(PA_rad) + yv *np.cos(PA_rad) ###  along major axis
-
-    # PAs=np.arctan2(xpp,ypp)*180.0/np.pi
-    # rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
-
-    rmsmap2=(rms/image_pb)**2.0
-    
-    for i_r in range(Nr):
-        mask=((np.abs(ypp)<rs[i_r]) & ( (np.abs(xpp)<BMAJ_arcsec/1.5) | (np.abs(xpp)<rs[i_r]*hv)))
-        
-        F[i_r,0]= np.sum( image[mask]*(ps_arcsec**2.0)/Beam_area)
-        F[i_r,1]= np.sum( rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
-
-        # Correct by number of independent points
-        if len(image[mask])*ps_arcsec**2.>Beam_area:
-            F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
-        else:
-            F[i_r,1]=rms
-    print('Beam area / pixel area',Beam_area/ps_arcsec**2.)
-    print('Beam area = %1.3f arcsec2'%Beam_area)
-    print('%1.1f beams within %1.1f arcsec'%(len(image[mask].flatten())*ps_arcsec**2./Beam_area, rs[i_r]))        
-
-
-    # image[mask]=0.0  
-    # plt.pcolor(xs, ys, image)
-    # #plt.contour(xs,ys,rdep, levels=rs[::3])
-    # plt.axes().set_aspect('equal')
-    # plt.show()
-    return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI
-
-def flux_azimuthal_profile(image, image_pb, x0, y0, PA, inc, rmin, rmax, NPA, rms,  BMAJ_arcsec, BMIN_arcsec, ps_arcsec):
-
-    # x0, y0 are RA DEC offsets in arcsec
-    # PA and inc are PA and inc of the disc in deg
-    # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
-    # Nr is the number of radial points to calculate
-    # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
-    
-    # ################ SPATIAL GRID
-
-    # XY
-
-    Np=len(image[:,0])
-
-    xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
-
-    
-    # R phi
-
-    PA_rad=PA*np.pi/180.0
-    # phis_rad=phis*np.pi/180.0 
-    # dphi=abs(phis_rad[1]-phis_rad[0])
-    # Nphi=len(phis_rad)
-
-    
-    ecc= np.sin(inc*np.pi/180.0)
-    chi=1.0/(np.sqrt(1.0-ecc**2.0)) # aspect ratio between major and minor axis (>=1)
-
-    Beam_area=np.pi*BMAJ_arcsec*BMIN_arcsec/(4.0*np.log(2.0)) # in arcsec2
-
-    
-    ##### Calculate flux within rmin, rmax and PA bins
-    F=np.zeros((NPA,2))
-
-
-    xv, yv = np.meshgrid(xs-x0, ys-y0, sparse=False, indexing='xy')
-
-    xpp = xv * np.cos(PA_rad) - yv *np.sin(PA_rad) ### along minor axis
-    ypp = xv * np.sin(PA_rad) + yv *np.cos(PA_rad) ###  along major axis
-
-
-    rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
-
-    PAs=np.arctan2(xv,yv) # rad
-
-    print('rms =', rms)
-    rmsmap2=(rms/image_pb)**2.0
-    
-    print(Beam_area)
-    PA_array=np.linspace(-np.pi, np.pi, NPA+1)
-    PA_mid=PA_array[:-1]+(PA_array[1]-PA_array[0])/2.
-    for i_pa in range(NPA):
-        
-        mask=(rdep<=rmax) & (rdep>rmin) & (PAs>PA_array[i_pa]) & (PAs<=PA_array[i_pa+1])
-    
-        F[i_pa,0]= np.sum(image[mask]*(ps_arcsec**2.0)/Beam_area)
-        F[i_pa,1]= np.sum( rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
-
-        # Correct by number of independent points
-    
-        F[i_pa,1]= np.sqrt(F[i_pa,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
-        
-    # plt.pcolor(xs, ys, image)
-    # plt.contour(xs,ys,rdep)
-    # plt.show()
-    return np.array([PA_mid, F[:,0], F[:,1]]) # rs, I, eI 
-
-
-def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, rms, rs=np.array([]), refine=1.0, phi1=0.0, phi2=360.0, rmin=0.0):
-
-
-    fit1=pyfits.open(fitsfile_pbcor)
-    data1=get_last2d(fit1[0].data) 
-
-    header1=fit1[0].header
-    ps_deg1=float(header1['CDELT2'])
-    ps_arcsec1=ps_deg1*3600.0
-    ps_rad1=ps_deg1*np.pi/180.0
-    Np1=len(data1[:,0])
-
-    if fitsfile_pb!='':
-        fit2=pyfits.open(fitsfile_pb)
-        data2 = get_last2d(fit2[0].data) #extraer matriz de datos
-    else:
-        data2=np.ones((Np1,Np1))
-
-    
-    BMAJ=float(header1['BMAJ']) # deg
-    BMIN=float(header1['BMIN']) # deg
-    BPA=float(header1['BPA']) # deg
-
-    BMAJ_arcsec1=BMAJ*3600.0
-    BMIN_arcsec1=BMIN*3600.0
-    if inc<90.0:
-        return flux_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phi1=phi1, phi2=phi2, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1, rs=rs, refine=refine, rmin=rmin)
-    elif inc==90.0:
-        return flux_profile_edgeon(data1, data2, x0, y0, PA,  rmax,Nr, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1, rs=rs, refine=refine)
-        
-def flux_azimuthal_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmin, rmax, NPA,  rms):
-
-
-    fit1=pyfits.open(fitsfile_pbcor)
-    data1=get_last2d(fit1[0].data) 
-
-    header1=fit1[0].header
-    ps_deg1=float(header1['CDELT2'])
-    ps_arcsec1=ps_deg1*3600.0
-    ps_rad1=ps_deg1*np.pi/180.0
-    Np1=len(data1[:,0])
-
-    if fitsfile_pb!='':
-        fit2=pyfits.open(fitsfile_pb)
-        data2 = get_last2d(fit2[0].data) #extraer matriz de datos
-    else:
-        data2=np.ones((Np1,Np1))
-
-    
-    BMAJ=float(header1['BMAJ']) # deg
-    BMIN=float(header1['BMIN']) # deg
-    BPA=float(header1['BPA']) # deg
-
-    BMAJ_arcsec1=BMAJ*3600.0
-    BMIN_arcsec1=BMIN*3600.0
-    
-    return flux_azimuthal_profile(data1, data2, x0, y0, PA, inc, rmin, rmax, NPA, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1)
-
-
 
 
 def Gauss2d(xi , yi, x0,y0,sigx,sigy,theta):
@@ -758,6 +833,7 @@ def Gauss2d(xi , yi, x0,y0,sigx,sigy,theta):
         b=1.0/(2.0*sigy**2.0)
 
         return np.exp(- ( a*(xp)**2.0 + b*(yp)**2.0 ) )#/(2.0*np.pi*sigx*sigy)
+
 
 
 def Convolve_beam(path_image, BMAJ, BMIN, BPA, tag_out=''):
@@ -1147,118 +1223,7 @@ def get_wavelength(path_image):
 
     return wav,freq
 
-def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., remove_star=False, output='', return_coordinates=False): # for images from CASA
 
-    ### PS_final in mas
-
-    ##### LOAD IMAGE
-    fit1	= pyfits.open(path_image) # open image cube
-    #### READ HEADER
-    header1	= fit1[0].header
-
-    try:
-        if  header1['NAXIS3']==1:
-            data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
-        elif header1['NAXIS3']>1:
-            data1 	= get_last3d(fit1[0].data) # [0,0,:,:] # extract image matrix
-    except:  # in case NAXIS3 does not exist
-        data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
-
-   
-    try:
-        ps_deg1=float(header1['CDELT2'])
-    except:
-        print('no CDELT2')
-        ps_deg1=float(header1['CD2_2'])
-    ps_mas1= ps_deg1*3600.0*1000.0 # pixel size input in mas
-    ps_arcsec1=ps_deg1*3600.0
-    
-    N1=data1.shape[-1]
-
-
-    if path_pbcor!='':
-        fit2	= pyfits.open(path_pbcor) #abrir objeto cubo
-        data2 	= get_last2d(fit2[0].data) # [0,0,:,:] #extraer matriz de datos
-
-    else:
-        data2=np.ones((N1,N1))
-        
-    rmsmap=rms/data2
-
-    try:
-        BMAJ=float(header1['BMAJ'])*3600.0 # arcsec 
-        BMIN=float(header1['BMIN'])*3600.0 # arcsec 
-        BPA=float(header1['BPA']) # deg 
-        print("beam = %1.2f x %1.2f" %(BMAJ, BMIN))
-    except:
-        BMAJ=0.0
-        BMIN=0.0
-        BPA=0.0
-    try:
-        if header1['CTYPE3'] == 'FREQ':
-            wave=c_light/header1['CRVAL3']*1.0e6
-            print('wavelength = %1.3f um'%(wave))
-    except: print('no CTYPE3')    
-    if header1['BUNIT']=='JY/PIXEL' and output=='JY/ARCSEC2':
-        data1=data1/(ps_arcsec1**2.0) # Jy/pixel to Jy/arcsec2
-    # x1, y1, x1edge, y1edge = xyarray(N1, ps_arcsec1)
-
-    if remove_star and header1['NAXIS3']==1:
-        ij=np.unravel_index(np.argmax(data1, axis=None), data1.shape)
-        print(ij)
-        data1[ij]=0.0
-    
-
-    if ps_final>0.0:
-        psf_arcsec=ps_final/1000.0
-    else:
-        ps_final=ps_mas1
-        psf_arcsec=ps_arcsec1
-    if XMAX<=0.0:
-        XMAX=ps_arcsec1*N1/2.
-        
-    Nf=int(round(XMAX*2.0/(ps_final/1000.0)))
-    print('Nf = ', Nf)
-        
-    xf=np.zeros(Nf+1)
-    yf=np.zeros(Nf+1)
-    for i in range(Nf+1):
-        xf[i]=-(i-Nf/2.0)*psf_arcsec  
-        yf[i]=(i-Nf/2.0)*psf_arcsec 
-
-    try:
-        if  header1['NAXIS3']==1:
-            image=interpol(N1,Nf,ps_mas1,ps_final, data1)
-
-        else: ### interpolation not yet implemented for image cube
-            image=data1
-    except: # in case NAXIS3 does not exist
-        image=interpol(N1,Nf,ps_mas1,ps_final, data1)
-
-    ret_list= (image,)
-        
-    if path_pbcor!='':
-        rmsmap_out=interpol(N1,Nf,ps_mas1,ps_final,rmsmap)
-        ret_list+=(rmsmap_out, xf, yf)
-    else:
-        ret_list+=(xf, yf)
-    if BMAJ>0.0:
-        ret_list+=(BMAJ, BMIN, BPA)
-
-    if return_coordinates:
-
-        RA=float(header1['CRVAL1']) # deg
-        Dec=float(header1['CRVAL2']) # deg
-
-        try:
-            radesys=header1['RADESYS'].lower()
-        except:
-            radesys='icrs'
-        c0=SkyCoord(RA, Dec, frame=radesys, unit=(u.deg, u.deg))
-
-        ret_list+=(c0,)
-        
-    return ret_list
 
 def fload_fits_image_mira(path_image, ps_final, XMAX): # for images from CASA
 
@@ -1828,94 +1793,6 @@ def plot_cube(filename,cube, ps_arcsec, xedge, yedge, vs, v0=0., Dv=10., rms=0.0
 
 
 
-########################################
-############ VISIBILITIES #############
-########################################
-
-
-def deproj_vis(u,v,Inc,pa):
-
-    # PA=90 means that both reference systems are aligned (x is positive to the right)
-    
-    inc=Inc*np.pi/180.0
-
-    PArad=pa*np.pi/180.0
-    ### up,vp derived from argument of exp(-2pi (ux+vy))=exp(-2pi(up
-    ### xp+vpyp)), where xp and yp are deprojected coordinates with xp along pa 
-
-    up = u*np.sin(PArad)+v*np.cos(PArad)
-    vp = -u*np.cos(PArad)*np.cos(inc)+v*np.sin(PArad)*np.cos(inc)
-
-    return up,vp
-
-
-def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
-
-    # -el minimo uv distance a considerar de las visibilidades deprojectadas (0 por ejemplo)
-    # - el maximo uv distance a considerar de las visibilidades deprojectadas (1e6 por ejemplo)
-    # - El numero de bins. Este es un parametro que tienes que jugar para sacarle el mayor provecho a tus datos. En general yo ocupo valores de ~50, pero si tu S/N es bueno, puedes ocupar valores mayores
-    # - un array de las coordenadas u
-    # - un array de las coordenadas v
-    # - un array de las componentes reales
-    # - un array de las componentes imaginarias
-    # - la inclinacion en grados
-    # - el PA en grados
-
-    
-    amps=np.sqrt(reals**2+imags**2)
-    if len(weights)==1:
-        weights=np.ones(len(reals))
-        
-    u_dep,v_dep= deproj_vis(us,vs,Inc,PA)
-    ruv=np.sqrt(u_dep**2.0+v_dep**2.0)
-
-    Rs_edge=np.linspace(uvmin, uvmax, Nr+1)
-    dR=Rs_edge[1:]-Rs_edge[:-1]
-    Rs=Rs_edge[:-1]+dR/2.0
-
-    Amp_mean=np.zeros(Nr)
-    Amp_error=np.zeros(Nr)
-    Amp_std=np.zeros(Nr)
-
-    Real_mean=np.zeros(Nr)
-    Real_error=np.zeros(Nr)
-    Real_std=np.zeros(Nr)
-
-
-    Imag_mean=np.zeros(Nr)
-    Imag_error=np.zeros(Nr)
-    Imag_std=np.zeros(Nr)
-
-
-    for ir in range(Nr):
-        #print ir, Nr
-        n=0
-
-        mask= ((Rs_edge[ir]<ruv) & (ruv<Rs_edge[ir+1])  & (weights!=0.0) & (reals!=0.0))
-        n=len(ruv[mask])
-    
-        if n>10:#150.0:
-
-            Real_mean[ir]=np.mean(reals[mask])
-            Real_std[ir]=np.std(reals[mask])
-            Real_error[ir]=Real_std[ir]/np.sqrt(n)
-            
-            Imag_mean[ir]=np.mean(imags[mask])
-            Imag_std[ir]=np.std(reals[mask])
-            Imag_error[ir]=Imag_std[ir]/np.sqrt(n)
-
-            Amp_mean[ir]=( Real_mean[ir]**2.0 +  Imag_mean[ir]**2.0)**0.5
-            # S_amp=S_amp/n
-            Amp_std[ir]= ( Real_std[ir]**2.0 +  Imag_std[ir]**2.0)**0.5
-            # np.sqrt(S_amp-Amp_mean[ir]**2.0)
-            Amp_error[ir]=( Real_error[ir]**2.0 +  Imag_error[ir]**2.0)**0.5
-            # Amp_std[ir]/np.sqrt(n)
-        else:
-             Real_mean[ir]=np.nan
-             Imag_mean[ir]=np.nan
-             Amp_mean[ir]=np.nan
-             
-    return Rs_edge, Rs, np.array([Real_mean, Real_std, Real_error]), np.array([Imag_mean, Imag_std, Imag_error]), np.array([Amp_mean, Amp_std, Amp_error])
 
 def save_image(filename, image, xedge, yedge, rms=0.0, rmsmap=0.0, vmin=0.0, vmax=100.0, colormap='inferno', tickcolor='white', XMAX=10.0, YMAX=0.0, major_ticks=np.arange(-15, 20.0, 5.0) , minor_ticks=np.arange(-15.0, 15.0+1.0, 1.0), BMAJ=0.0, BMIN=0.0, BPA=0.0, show_beam=True, loc_beam='ll', show=True, clabel=r'Intensity [$\mu$Jy beam$^{-1}$]', formatcb='%1.0f', cbticks=np.arange(-500.0,500.0,50.0), contours=True, c_levels=[3.0,5.0, 8.0], star=True, xstar=0.0, ystar=0.0, starcolor='white', cbar_log=False, xunit='arcsec', bad_color=(0,0,0), ruller=False, dpc=10., planet=False, xplt=0.0, yplt=0.0, pltcolor='white', title='', white_back=False, vmin2=0., axes=True, cbar=True):
 
@@ -2084,36 +1961,429 @@ def cartesian2polar(outcoords, inputshape, origin, fieldscale=1.): # by S. Perez
 
 
 
+
+
+
+
+### NOT USED
+
+# def ellipse_old(x0,y0,phi,chi,a, PA):
+
+#     ## phi is a position angle, but in the plane of the disc (i.e. inclined)
     
+#     # x0,y0 ellipse center
+#     # phi pa at which calculate x,y phi=0 is +y axis
+#     # chi aspect ratio of ellipse with chi>1
+#     # a semi-major axis
+#     # a/chi semi-minor axis
+#     # PA  pa of ellipse 0 is north and pi/2 is east
+
+#     phipp= phi-PA
     
+#     xpp = (a/chi) * np.sin(phipp) 
+#     ypp =    a    * np.cos(phipp)
+
+#     xp =  xpp*np.cos(PA) + ypp*np.sin(PA)
+#     yp = -xpp*np.sin(PA) + ypp*np.cos(PA)
+    
+#     xc = xp + x0
+#     yc = yp + y0
+    
+#     return xc , yc
+
+
+# def radial_profile_fits_model(fitsfile, x0, y0, PA, inc, rmax,Nr, phis, arc='elipse', cube=False, rmin=0.):
+
+    
+#     fit1=pyfits.open(fitsfile)
+#     if cube==False:
+#         data1 	= get_last2d(fit1[0].data) #extraer matriz de datos
+
+#     else:
+#         data1   = get_last3d(fit1[0].data)
+#         Nlam=data1.shape[0]
+#     Np1=data1.shape[-1]
+#     # print np.shape(data1)
+#     header1=fit1[0].header
+#     ps_deg1=float(header1['CDELT2'])
+#     ps_arcsec1=ps_deg1*3600.0
+#     ps_rad1=ps_deg1*np.pi/180.0
+
+#     # change units from Jy/pix to Jy/arcsec
+#     if header1['BUNIT']=='JY/PIXEL':
+
+#         data1=data1/(ps_arcsec1**2)
+
+#     if cube==False:
+#         return radial_profile(data1, np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc, rmin=rmin)
+
+#     else:
+#         Srs=[]
+#         for ilam in range(Nlam):
+#             Sri= radial_profile(data1[ilam,:,:], np.ones((Np1,Np1)), x0, y0, PA, inc, rmax,Nr, phis, rms=0.0, BMAJ_arcsec=1.0, ps_arcsec=ps_arcsec1, arc=arc, rmin=rmin)
+#             Srs.append(Sri)
+#         return Srs
+
+
+# def radial_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, phis, rms, error_std=False, arcsec2=False , arc='elipse', ret_beam=False):
+
+
+#     fit1=pyfits.open(fitsfile_pbcor)
+#     data1 = get_last2d(fit1[0].data) #extraer matriz de datos
+
+
+#     # print np.shape(data1)
+#     header1=fit1[0].header
+#     ps_deg1=float(header1['CDELT2'])
+#     ps_arcsec1=ps_deg1*3600.0
+#     ps_rad1=ps_deg1*np.pi/180.0
+#     Np1=len(data1[:,0])
+
+#     if fitsfile_pb!='':
+#         fit2=pyfits.open(fitsfile_pb)
+#         data2 = get_last2d(fit2[0].data) #extraer matriz de datos
+#     else:
+#         data2=np.ones((Np1,Np1))
+
+    
+#     BMAJ=float(header1['BMAJ']) # deg
+#     BMIN=float(header1['BMIN']) # deg
+#     BPA=float(header1['BPA']) # deg
+
+#     BMAJ_arcsec1=BMAJ*3600.0
+#     BMIN_arcsec1=BMIN*3600.0
+#     beam_area=np.pi*BMAJ_arcsec1*BMIN_arcsec1/(4.*np.log(2.))
+    
+#     print("beam = %1.2f x %1.2f" %(BMAJ_arcsec1, BMIN_arcsec1))
+#     if arcsec2:
+#         data1=data1/beam_area
+#         rms=rms/beam_area
+#         print('transforming to Jy/arcsec2')
+#     if not ret_beam:
+#         return radial_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, ps_arcsec=ps_arcsec1, error_std=error_std, arc=arc)
+#     else:
+#         return radial_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phis, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, ps_arcsec=ps_arcsec1, error_std=error_std, arc=arc), BMAJ_arcsec1
+
+
+
+
+# def flux_profile(image, image_pb, x0, y0, PA, inc, rmax,Nr, rms,  BMAJ_arcsec, BMIN_arcsec, ps_arcsec, rs=np.array([]), refine=1, phi1=0.0, phi2=360.0, rmin=0.0):
+
+#     # x0, y0 are RA DEC offsets in arcsec
+#     # PA and inc are PA and inc of the disc in deg
+#     # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
+#     # Nr is the number of radial points to calculate
+#     # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
+#     # refine makes the image with higher resolution such that it works well for inclined discs
+#     # ################ SPATIAL GRID
+
+#     # XY
+
+
+#     if len(rs)==0:
+#         rs=np.linspace(rmax/1.0e3,rmax,Nr)
+#     rmax=np.max(rs)
+#     Nr=len(rs)
+
+#     Np=len(image[:,0])
+    
+#     if (refine>1.0 and refine<10.0):
+#         ps_f=ps_arcsec*1.e3/refine
+#         Npf=int(rmax/(ps_f/1.0e3)*2.)
+#         image   =interpol(Np,Npf,ps_arcsec*1.e3,ps_f, image)
+#         image_pb=interpol(Np,Npf,ps_arcsec*1.e3,ps_f, image_pb)
+
+#         ### redefine values for image dimensions and pixel zie
+#         Np=len(image[:,0])
+#         ps_arcsec=ps_f/1.0e3
+
+#     elif refine>10.0:
+#         print('too much refining')
+#         sys.exit()
         
-def lighten_color(color, amount=0.5):
-    # copied from https://stackoverflow.com/questions/37765197/darken-or-lighten-a-color-in-matplotlib
-    """
-    Lightens the given color by multiplying (1-luminosity) by the given amount.
-    Input can be matplotlib color string, hex string, or RGB tuple.
 
-    Examples:
-    >> lighten_color('g', 0.3)
-    >> lighten_color('#F034A3', 0.6)
-    >> lighten_color((.3,.55,.1), 0.5)
-    """
-    try:
-        c = cl.cnames[color]
-    except:
-        c = color
-    c = colorsys.rgb_to_hls(*cl.to_rgb(c))
-    return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
+#     xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
 
-def Bbody(lam, T): # function returns Planck function Bnu in Janskys
-    # lam in m
-    # T in K
-    nu=c_light/lam # Hz
+    
+#     # R phi
 
-    return (2.*h*nu**3.)/(c_light**2.)  * 1./(np.exp(h*nu/(Kb*T))-1.)*1.0e26
+#     PA_rad=PA*np.pi/180.0
+#     phi1_rad=simple_phi(phi1*np.pi/180.0 )
+#     phi2_rad=simple_phi(phi2*np.pi/180.0 )
 
-def TempBB(r, Lstar=1.0):
-    return 278.3 * r**(-0.5) * Lstar**0.25
+    
+#     #print rs
+    
+#     ecc= np.sin(inc*np.pi/180.0)
+#     chi=1.0/(np.sqrt(1.0-ecc**2.0)) # aspect ratio between major and minor axis (>=1)
 
-def rBB(T, Lstar=1.0):
-    return (278.3/T)**2.0*Lstar**0.5
+#     Beam_area=np.pi*BMAJ_arcsec*BMIN_arcsec/(4.0*np.log(2.0)) # in arcsec2
+
+    
+#     ##### Calculate flux within rs
+#     F=np.zeros((Nr,2))
+
+
+#     xv, yv = np.meshgrid(xs-x0, ys-y0, sparse=False, indexing='xy')
+
+#     xpp = xv * np.cos(PA_rad) - yv *np.sin(PA_rad) ### along minor axis
+#     ypp = xv * np.sin(PA_rad) + yv *np.cos(PA_rad) ###  along major axis
+
+#     PAs=np.arctan2(xv,yv)# -pi to pi
+#     PAs[PAs<0.0]=PAs[PAs<0.0]+2.*np.pi # from 0 to 2pi, discontinuity in 0.0
+
+#     if phi2_rad>=phi1_rad:
+#         mask_phis=(PAs>= phi1_rad) & (PAs<=phi2_rad)
+#     else: ### goes through zero
+#         mask_phis=(PAs>= phi1_rad) | (PAs<=phi2_rad)
+      
+#     # jet=image_pb*1.
+#     # jet[mask_phis]=-1.0
+#     # plt.pcolor(jet)
+#     # plt.show()
+#     rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
+#     rmsmap2=(rms/image_pb)**2.0
+#     for i_r in range(Nr):
+#         try:
+#             mask_r=(rdep<=rs[i_r]) & (rdep>=rmin)
+#         except:
+#             mask_r=(rdep<=rs[i_r]) & (rdep>=rmin[i_r])
+           
+#         mask=mask_r & mask_phis
+#         F[i_r,0]= np.sum(image[mask])*(ps_arcsec**2.0)/Beam_area
+#         F[i_r,1]= np.sum(rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
+
+#         # Correct by number of independent points
+
+#         if len(image[mask])*ps_arcsec**2.>Beam_area:
+#             F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
+#         else:
+#             F[i_r,1]=rms
+#         # if  F[i_r,1]==0.0 and rs[i_r]**2.0*np.pi*np.cos(inc*np.pi/180):
+#             # mask=
+#             # F[i_r,1]= np.sum( rmsmap2[rdep<rs[i_r]])
+
+#     # image[mask]=0.0  
+#     # plt.pcolor(xs, ys, image)
+#     # plt.contour(xs,ys,rdep, levels=rs[::3])
+#     # plt.axes().set_aspect('equal')
+#     # plt.show()
+#     return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI
+
+# def flux_profile_edgeon(image, image_pb, x0, y0, PA, rmax,Nr, rms, BMAJ_arcsec, BMIN_arcsec, ps_arcsec, rs=np.array([]), refine=1, hv=0.05):
+
+#     # x0, y0 are RA DEC offsets in arcsec
+#     # PA and inc are PA and inc of the disc in deg
+#     # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
+#     # Nr is the number of radial points to calculate
+#     # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
+#     # refine makes the image with higher resolution such that it works well for inclined discs
+#     # ################ SPATIAL GRID
+
+#     # XY
+
+
+#     if len(rs)==0:
+#         rs=np.linspace(rmax/1.0e3,rmax,Nr)
+#     rmax=np.max(rs)
+#     Nr=len(rs)
+
+#     Np=len(image[:,0])
+    
+#     if (refine>1.0 and refine<10.0):
+#         ps_f=ps_arcsec*1.e3/refine
+#         Npf=int(rmax/(ps_f/1.0e3)*2.)
+#         image   =interpol(Np,Npf,ps_arcsec*1.e3,ps_f, image)
+#         image_pb=interpol(Np,Npf,ps_arcsec*1.e3,ps_f, image_pb)
+
+#         ### redefine values for image dimensions and pixel zie
+#         Np=len(image[:,0])
+#         ps_arcsec=ps_f/1.0e3
+
+#     elif refine>10.0:
+#         print('too much refining')
+#         sys.exit()
+        
+    
+#     xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
+
+    
+#     # R phi
+
+#     PA_rad=PA*np.pi/180.0
+#     # phis_rad=phis*np.pi/180.0 
+#     # dphi=abs(phis_rad[1]-phis_rad[0])
+#     # Nphi=len(phis_rad)
+    
+#     print(BMAJ_arcsec)
+    
+#     Beam_area=np.pi*BMAJ_arcsec*BMIN_arcsec/(4.0*np.log(2.0)) # in arcsec2
+
+    
+#     ##### Calculate flux within rs
+#     F=np.zeros((Nr,2))
+
+
+#     xv, yv = np.meshgrid(xs-x0, ys-y0, sparse=False, indexing='xy')
+
+#     xpp = xv * np.cos(PA_rad) - yv *np.sin(PA_rad) ### along minor axis
+#     ypp = xv * np.sin(PA_rad) + yv *np.cos(PA_rad) ###  along major axis
+
+#     # PAs=np.arctan2(xpp,ypp)*180.0/np.pi
+#     # rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
+
+#     rmsmap2=(rms/image_pb)**2.0
+    
+#     for i_r in range(Nr):
+#         mask=((np.abs(ypp)<rs[i_r]) & ( (np.abs(xpp)<BMAJ_arcsec/1.5) | (np.abs(xpp)<rs[i_r]*hv)))
+        
+#         F[i_r,0]= np.sum( image[mask]*(ps_arcsec**2.0)/Beam_area)
+#         F[i_r,1]= np.sum( rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
+
+#         # Correct by number of independent points
+#         if len(image[mask])*ps_arcsec**2.>Beam_area:
+#             F[i_r,1]= np.sqrt(F[i_r,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
+#         else:
+#             F[i_r,1]=rms
+#     print('Beam area / pixel area',Beam_area/ps_arcsec**2.)
+#     print('Beam area = %1.3f arcsec2'%Beam_area)
+#     print('%1.1f beams within %1.1f arcsec'%(len(image[mask].flatten())*ps_arcsec**2./Beam_area, rs[i_r]))        
+
+
+#     # image[mask]=0.0  
+#     # plt.pcolor(xs, ys, image)
+#     # #plt.contour(xs,ys,rdep, levels=rs[::3])
+#     # plt.axes().set_aspect('equal')
+#     # plt.show()
+#     return np.array([rs, F[:,0], F[:,1]]) # rs, I, eI
+
+
+
+"""
+def flux_azimuthal_profile(image, image_pb, x0, y0, PA, inc, rmin, rmax, NPA, rms,  BMAJ_arcsec, BMIN_arcsec, ps_arcsec):
+
+    # x0, y0 are RA DEC offsets in arcsec
+    # PA and inc are PA and inc of the disc in deg
+    # rmax [arcsec] is the maximum deprojected radius at which to do the azimuthal averaging
+    # Nr is the number of radial points to calculate
+    # phis [deg] is an array with uniform spacing that sets the range of PA at which to do the interpolation (0 is north)
+    
+    # ################ SPATIAL GRID
+
+    # XY
+
+    Np=len(image[:,0])
+
+    xs, ys, xedge, yedge = xyarray(Np, ps_arcsec)
+
+    
+    # R phi
+
+    PA_rad=PA*np.pi/180.0
+    # phis_rad=phis*np.pi/180.0 
+    # dphi=abs(phis_rad[1]-phis_rad[0])
+    # Nphi=len(phis_rad)
+
+    
+    ecc= np.sin(inc*np.pi/180.0)
+    chi=1.0/(np.sqrt(1.0-ecc**2.0)) # aspect ratio between major and minor axis (>=1)
+
+    Beam_area=np.pi*BMAJ_arcsec*BMIN_arcsec/(4.0*np.log(2.0)) # in arcsec2
+
+    
+    ##### Calculate flux within rmin, rmax and PA bins
+    F=np.zeros((NPA,2))
+
+
+    xv, yv = np.meshgrid(xs-x0, ys-y0, sparse=False, indexing='xy')
+
+    xpp = xv * np.cos(PA_rad) - yv *np.sin(PA_rad) ### along minor axis
+    ypp = xv * np.sin(PA_rad) + yv *np.cos(PA_rad) ###  along major axis
+
+
+    rdep=np.sqrt( (xpp*chi)**2.0 + ypp**2.0 ) # real deprojected radius
+
+    PAs=np.arctan2(xv,yv) # rad
+
+    print('rms =', rms)
+    rmsmap2=(rms/image_pb)**2.0
+    
+    print(Beam_area)
+    PA_array=np.linspace(-np.pi, np.pi, NPA+1)
+    PA_mid=PA_array[:-1]+(PA_array[1]-PA_array[0])/2.
+    for i_pa in range(NPA):
+        
+        mask=(rdep<=rmax) & (rdep>rmin) & (PAs>PA_array[i_pa]) & (PAs<=PA_array[i_pa+1])
+    
+        F[i_pa,0]= np.sum(image[mask]*(ps_arcsec**2.0)/Beam_area)
+        F[i_pa,1]= np.sum( rmsmap2[mask]) # Jy/beam Note: /beam is ok as then it is correct
+
+        # Correct by number of independent points
+    
+        F[i_pa,1]= np.sqrt(F[i_pa,1]) * np.sqrt(ps_arcsec**2.0/Beam_area)
+        
+    # plt.pcolor(xs, ys, image)
+    # plt.contour(xs,ys,rdep)
+    # plt.show()
+    return np.array([PA_mid, F[:,0], F[:,1]]) # rs, I, eI 
+
+
+def flux_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmax,Nr, rms, rs=np.array([]), refine=1.0, phi1=0.0, phi2=360.0, rmin=0.0):
+
+
+    fit1=pyfits.open(fitsfile_pbcor)
+    data1=get_last2d(fit1[0].data) 
+
+    header1=fit1[0].header
+    ps_deg1=float(header1['CDELT2'])
+    ps_arcsec1=ps_deg1*3600.0
+    ps_rad1=ps_deg1*np.pi/180.0
+    Np1=len(data1[:,0])
+
+    if fitsfile_pb!='':
+        fit2=pyfits.open(fitsfile_pb)
+        data2 = get_last2d(fit2[0].data) #extraer matriz de datos
+    else:
+        data2=np.ones((Np1,Np1))
+
+    
+    BMAJ=float(header1['BMAJ']) # deg
+    BMIN=float(header1['BMIN']) # deg
+    BPA=float(header1['BPA']) # deg
+
+    BMAJ_arcsec1=BMAJ*3600.0
+    BMIN_arcsec1=BMIN*3600.0
+    if inc<90.0:
+        return flux_profile(data1, data2, x0, y0, PA, inc, rmax,Nr, phi1=phi1, phi2=phi2, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1, rs=rs, refine=refine, rmin=rmin)
+    elif inc==90.0:
+        return flux_profile_edgeon(data1, data2, x0, y0, PA,  rmax,Nr, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1, rs=rs, refine=refine)
+        
+def flux_azimuthal_profile_fits_image(fitsfile_pbcor, fitsfile_pb, x0, y0, PA, inc, rmin, rmax, NPA,  rms):
+
+
+    fit1=pyfits.open(fitsfile_pbcor)
+    data1=get_last2d(fit1[0].data) 
+
+    header1=fit1[0].header
+    ps_deg1=float(header1['CDELT2'])
+    ps_arcsec1=ps_deg1*3600.0
+    ps_rad1=ps_deg1*np.pi/180.0
+    Np1=len(data1[:,0])
+
+    if fitsfile_pb!='':
+        fit2=pyfits.open(fitsfile_pb)
+        data2 = get_last2d(fit2[0].data) #extraer matriz de datos
+    else:
+        data2=np.ones((Np1,Np1))
+
+    
+    BMAJ=float(header1['BMAJ']) # deg
+    BMIN=float(header1['BMIN']) # deg
+    BPA=float(header1['BPA']) # deg
+
+    BMAJ_arcsec1=BMAJ*3600.0
+    BMIN_arcsec1=BMIN*3600.0
+    
+    return flux_azimuthal_profile(data1, data2, x0, y0, PA, inc, rmin, rmax, NPA, rms=rms, BMAJ_arcsec=BMAJ_arcsec1, BMIN_arcsec=BMIN_arcsec1,  ps_arcsec=ps_arcsec1)
+
+"""

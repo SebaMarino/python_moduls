@@ -280,3 +280,97 @@ def get_frank_psf_LN(u,v, weights, geom, flux, r0_arcsec, alpha, wsmooth, N, Rma
         plt.savefig('psf_fit_{}.pdf'.format(name))
         
     return psf
+
+
+"""
+#### old functions previusly in functions_image
+
+########################################
+############ VISIBILITIES #############
+########################################
+
+
+def deproj_vis(u,v,Inc,pa):
+
+    # PA=90 means that both reference systems are aligned (x is positive to the right)
+    
+    inc=Inc*np.pi/180.0
+
+    PArad=pa*np.pi/180.0
+    ### up,vp derived from argument of exp(-2pi (ux+vy))=exp(-2pi(up
+    ### xp+vpyp)), where xp and yp are deprojected coordinates with xp along pa 
+
+    up = u*np.sin(PArad)+v*np.cos(PArad)
+    vp = -u*np.cos(PArad)*np.cos(inc)+v*np.sin(PArad)*np.cos(inc)
+
+    return up,vp
+
+
+def bin_dep_vis(uvmin, uvmax, Nr, us, vs, reals, imags, Inc, PA, weights=[1.0]):
+
+    # -el minimo uv distance a considerar de las visibilidades deprojectadas (0 por ejemplo)
+    # - el maximo uv distance a considerar de las visibilidades deprojectadas (1e6 por ejemplo)
+    # - El numero de bins. Este es un parametro que tienes que jugar para sacarle el mayor provecho a tus datos. En general yo ocupo valores de ~50, pero si tu S/N es bueno, puedes ocupar valores mayores
+    # - un array de las coordenadas u
+    # - un array de las coordenadas v
+    # - un array de las componentes reales
+    # - un array de las componentes imaginarias
+    # - la inclinacion en grados
+    # - el PA en grados
+
+    
+    amps=np.sqrt(reals**2+imags**2)
+    if len(weights)==1:
+        weights=np.ones(len(reals))
+        
+    u_dep,v_dep= deproj_vis(us,vs,Inc,PA)
+    ruv=np.sqrt(u_dep**2.0+v_dep**2.0)
+
+    Rs_edge=np.linspace(uvmin, uvmax, Nr+1)
+    dR=Rs_edge[1:]-Rs_edge[:-1]
+    Rs=Rs_edge[:-1]+dR/2.0
+
+    Amp_mean=np.zeros(Nr)
+    Amp_error=np.zeros(Nr)
+    Amp_std=np.zeros(Nr)
+
+    Real_mean=np.zeros(Nr)
+    Real_error=np.zeros(Nr)
+    Real_std=np.zeros(Nr)
+
+
+    Imag_mean=np.zeros(Nr)
+    Imag_error=np.zeros(Nr)
+    Imag_std=np.zeros(Nr)
+
+
+    for ir in range(Nr):
+        #print ir, Nr
+        n=0
+
+        mask= ((Rs_edge[ir]<ruv) & (ruv<Rs_edge[ir+1])  & (weights!=0.0) & (reals!=0.0))
+        n=len(ruv[mask])
+    
+        if n>10:#150.0:
+
+            Real_mean[ir]=np.mean(reals[mask])
+            Real_std[ir]=np.std(reals[mask])
+            Real_error[ir]=Real_std[ir]/np.sqrt(n)
+            
+            Imag_mean[ir]=np.mean(imags[mask])
+            Imag_std[ir]=np.std(reals[mask])
+            Imag_error[ir]=Imag_std[ir]/np.sqrt(n)
+
+            Amp_mean[ir]=( Real_mean[ir]**2.0 +  Imag_mean[ir]**2.0)**0.5
+            # S_amp=S_amp/n
+            Amp_std[ir]= ( Real_std[ir]**2.0 +  Imag_std[ir]**2.0)**0.5
+            # np.sqrt(S_amp-Amp_mean[ir]**2.0)
+            Amp_error[ir]=( Real_error[ir]**2.0 +  Imag_error[ir]**2.0)**0.5
+            # Amp_std[ir]/np.sqrt(n)
+        else:
+             Real_mean[ir]=np.nan
+             Imag_mean[ir]=np.nan
+             Amp_mean[ir]=np.nan
+             
+    return Rs_edge, Rs, np.array([Real_mean, Real_std, Real_error]), np.array([Imag_mean, Imag_std, Imag_error]), np.array([Amp_mean, Amp_std, Amp_error])
+"""
