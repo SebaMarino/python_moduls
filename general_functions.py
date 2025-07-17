@@ -68,18 +68,37 @@ def number_to_text_10(number):
             return r'$%1.1f\times10^{%1.0f}$'%(factor,exp)
 
 
-def number_to_text_sf(number, s=2):
+# def number_to_text_sf(number, s=2):
 
-    text='{{:#.{}g}}'.format(s).format(number)
+#     text='{{:#.{}g}}'.format(s).format(number)
 
-    # if 'e' in text:
-    #     number2=float(text)
-    #     text='{}'.format(number2)
+#     # if 'e' in text:
+#     #     number2=float(text)
+#     #     text='{}'.format(number2)
     
-    if text[-1]=='.':
-        text=text[:-1]
+#     if text[-1]=='.':
+#         text=text[:-1]
 
-    return text
+#     return text
+
+
+def round_to_significant_digits(value, digits=2):
+    if value == 0:
+        return '0.' + '0' * (digits - 1)
+    
+    # Determine the order of magnitude of the value
+    order = ma.floor(ma.log10(abs(value)))
+    
+    # Calculate number of decimal places to round to
+    decimal_places = digits - order - 1
+    
+    # Round to the correct number of decimal places
+    rounded_value = round(value, decimal_places)
+
+    # Format string with fixed number of decimal places
+    format_str = f"{{:.{max(decimal_places, 0)}f}}"
+    return format_str.format(rounded_value)
+
 
 
 def round_sig(x, sig=1):
@@ -89,6 +108,8 @@ def round_sig(x, sig=1):
 
 def format_number(n):
     return int(n) if n == int(n) else n
+
+
 
 def round_asymmetric(value, err_plus=0, err_minus=0):
 
