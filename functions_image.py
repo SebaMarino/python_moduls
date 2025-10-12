@@ -693,22 +693,22 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
     ### PS_final in mas
 
     ##### LOAD IMAGE
-    fit1	= pyfits.open(path_image) # open image cube
-    #### READ HEADER
-    header1	= fit1[0].header
+    data1, header1	= pyfits.getdata(path_image, header=True) # open image cube
+    # #### READ HEADER
+    # header1	= pyfits.getheader(path_image)
 
     try:
         if  header1['NAXIS3']==1:
-            data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
+            data1 	= get_last2d(data1) # [0,0,:,:] # extract image matrix
         elif header1['NAXIS3']>1:
-            data1 	= get_last3d(fit1[0].data) # [0,0,:,:] # extract image matrix
+            data1 	= get_last3d(data1) # [0,0,:,:] # extract image matrix
     except:  # in case NAXIS3 does not exist
-        try:
-            data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
-        except:
-            print('first object in fits file did not have image')
-            header1	= fit1[1].header
-            data1 	= get_last2d(fit1[1].data) # [0,0,:,:] # extract image matrix
+        # try:
+        data1 	= get_last2d(data1) # [0,0,:,:] # extract image matrix
+        # except:
+        #     print('first object in fits file did not have image')
+        #     header1	= fit1[1].header
+        #     data1 	= get_last2d(fit1[1].data) # [0,0,:,:] # extract image matrix
    
     try:
         ps_deg1=float(header1['CDELT2'])
