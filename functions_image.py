@@ -703,8 +703,12 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
         elif header1['NAXIS3']>1:
             data1 	= get_last3d(fit1[0].data) # [0,0,:,:] # extract image matrix
     except:  # in case NAXIS3 does not exist
-        data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
-
+        try:
+            data1 	= get_last2d(fit1[0].data) # [0,0,:,:] # extract image matrix
+        except:
+            print('first object in fits file did not have image')
+            header1	= fit1[1].header
+            data1 	= get_last2d(fit1[1].data) # [0,0,:,:] # extract image matrix
    
     try:
         ps_deg1=float(header1['CDELT2'])
@@ -713,8 +717,9 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
         ps_deg1=float(header1['CD2_2'])
     ps_mas1= ps_deg1*3600.0*1000.0 # pixel size input in mas
     ps_arcsec1=ps_deg1*3600.0
-    
-    N1=data1.shape[-1]
+
+    print(data1.shape)
+    Ny, Nx = data1.shape[-2], data1.shape[-1]
 
 
     if path_pbcor!='':
@@ -722,7 +727,7 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
         data2 	= get_last2d(fit2[0].data) # [0,0,:,:] #extraer matriz de datos
 
     else:
-        data2=np.ones((N1,N1))
+        data2=np.ones((Ny,Nx))
         
     rmsmap=rms/data2
 
@@ -756,30 +761,41 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
         ps_final=ps_mas1
         psf_arcsec=ps_arcsec1
     if XMAX<=0.0:
-        XMAX=ps_arcsec1*N1/2.
+        XMAX=ps_arcsec1*Nx/2.
+        YMAX=ps_arcsec1*Ny/2.
         
-    Nf=int(round(XMAX*2.0/(ps_final/1000.0)))
-    print('Nf = ', Nf)
-        
-    xf=np.zeros(Nf+1)
-    yf=np.zeros(Nf+1)
-    for i in range(Nf+1):
-        xf[i]=-(i-Nf/2.0)*psf_arcsec  
-        yf[i]=(i-Nf/2.0)*psf_arcsec 
+    Nfx=int(round(XMAX*2.0/(ps_final/1000.0)))
+    Nfy=int(round(YMAX*2.0/(ps_final/1000.0)))
 
+    print('Nfx, Nfy = ', Nfx, Nfy)
+        
+    xf=np.zeros(Nfx+1)
+    yf=np.zeros(Nfy+1)
+
+    for i in range(Nfx+1):
+        xf[i]=-(i-header1['CRPIX1'])*psf_arcsec
+    for i in range(Nfy+1):
+        yf[i]=(i-header1['CRPIX2'])*psf_arcsec 
+
+    # for i in range(Nfx+1):
+    #     xf[i]=-(i-Nfx/2.0)*psf_arcsec
+    # for i in range(Nfy+1):
+    #     yf[i]=(i-Nfy/2.0)*psf_arcsec 
+
+        
     try:
         if  header1['NAXIS3']==1:
-            image=interpol(N1,Nf,ps_mas1,ps_final, data1)
+            image=interpol(Nx,Nfx,ps_mas1,ps_final, data1)
 
         else: ### interpolation not yet implemented for image cube
             image=data1
     except: # in case NAXIS3 does not exist
-        image=interpol(N1,Nf,ps_mas1,ps_final, data1)
+        image=interpol(Nx,Nfx,ps_mas1,ps_final, data1)
 
     ret_list= (image,)
         
     if path_pbcor!='':
-        rmsmap_out=interpol(N1,Nf,ps_mas1,ps_final,rmsmap)
+        rmsmap_out=interpol(Nx,Nfx,ps_mas1,ps_final,rmsmap)
         ret_list+=(rmsmap_out, xf, yf)
     else:
         ret_list+=(xf, yf)
