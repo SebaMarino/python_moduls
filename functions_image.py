@@ -688,7 +688,7 @@ def load_fits(fits_path, rms=0., pbcor=False, output_unit=''):
     return ret_list
 
 #### load fits image with the option of trimming the field of view and increasing the resolution
-def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., remove_star=False, output='', return_coordinates=False): # for images from CASA
+def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., YMAX=0.0,  remove_star=False, output='', return_coordinates=False): # for images from CASA
 
     ### PS_final in mas
 
@@ -720,7 +720,7 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
 
     print(data1.shape)
     Ny, Nx = data1.shape[-2], data1.shape[-1]
-
+    print(Ny, Nx)
 
     if path_pbcor!='':
         fit2	= pyfits.open(path_pbcor) #abrir objeto cubo
@@ -763,7 +763,10 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., re
     if XMAX<=0.0:
         XMAX=ps_arcsec1*Nx/2.
         YMAX=ps_arcsec1*Ny/2.
-        
+    elif YMAX<=0.0:
+        YMAX=XMAX
+    
+    print(XMAX, YMAX)
     Nfx=int(round(XMAX*2.0/(ps_final/1000.0)))
     Nfy=int(round(YMAX*2.0/(ps_final/1000.0)))
 
