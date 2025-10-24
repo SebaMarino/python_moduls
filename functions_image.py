@@ -775,15 +775,19 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., YM
     xf=np.zeros(Nfx+1)
     yf=np.zeros(Nfy+1)
 
-    for i in range(Nfx+1):
-        xf[i]=-(i-header1['CRPIX1'])*psf_arcsec
-    for i in range(Nfy+1):
-        yf[i]=(i-header1['CRPIX2'])*psf_arcsec 
-
     # for i in range(Nfx+1):
-    #     xf[i]=-(i-Nfx/2.0)*psf_arcsec
+    #     xf[i]=-(i-header1['CRPIX1'])*psf_arcsec
     # for i in range(Nfy+1):
-    #     yf[i]=(i-Nfy/2.0)*psf_arcsec 
+    #     yf[i]=(i-header1['CRPIX2'])*psf_arcsec 
+
+    # print(header1['CRPIX1'], Nfx, psf_arcsec, ps_arcsec1)
+    # plt.plot(xf, yf)
+    # plt.show()
+    
+    for i in range(Nfx+1):
+        xf[i]=-(i-Nfx/2.0)*psf_arcsec
+    for i in range(Nfy+1):
+        yf[i]=(i-Nfy/2.0)*psf_arcsec 
 
         
     try:
