@@ -294,7 +294,7 @@ def radial_profile_wedge(image, image_pb=None, x0=0., y0=0., PA=0., inc=0., rmax
         ai=rs[i_r]
         for i_p in range(Nphi):
 
-            phi1=phis_rad[i_p]  # in the plane of the disc
+            phi1=phis_rad[i_p]  # in the plane of the sky
             XS1,YS1=ellipse(x0,y0,phi1,chi,ai, PA_rad)
 
             
