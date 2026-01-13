@@ -76,19 +76,17 @@ def bin_predicted_visibilites(model, uvtable, bin_size=1e3):
 def load_vis(path, fsigma=1.):
 
     try:
-        uvtable=np.load(path)
+        uvtable=np.require(np.load(path), requirements='C') # for galario
     except:
-        uvtable=np.loadtxt(path)
+        uvtable=np.require(np.loadtxt(path), requirements='C') # for galario
         
     mask=uvtable[:,4]>0.
 
     u,v=uvtable[mask,0], uvtable[mask,1]
     
-    vis=uvtable[mask,2]+uvtable[mask,3]*1j # no imaginary part
+    vis=uvtable[mask,2]+uvtable[mask,3]*1j # complex visiblity
     weights= uvtable[mask,4]/(fsigma**2.)
 
-    #     fsigma=np.sqrt(np.sum(vis**2*weights)/len(u))
-    #     weights=weights/(fsigma**2.)
     
     print('Chi_red = ',np.sum(np.abs(vis)**2*weights)/len(u)/2.)
     
