@@ -129,8 +129,14 @@ def round_asymmetric(value, err_plus=0, err_minus=0):
         int(ma.floor(ma.log10(abs(err_m_rounded or 1))))
     )
     rounded_value = round(value, -smallest_mag)
+    decimal_places = max(-smallest_mag, 0)
 
-    return f"${format_number(rounded_value)}^{{+{format_number(err_p_rounded)}}}_{{-{format_number(err_m_rounded)}}}$"
+    if decimal_places > 0:
+        value_text = f"{rounded_value:.{decimal_places}f}"
+    else:
+        value_text = f"{format_number(rounded_value)}"
+
+    return f"${value_text}^{{+{format_number(err_p_rounded)}}}_{{-{format_number(err_m_rounded)}}}$"
 
 
 

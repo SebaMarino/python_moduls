@@ -440,7 +440,7 @@ def flux_profile(image, pb, x0, y0, PA, inc, rmax, rms, BMAJ, BMIN, BPA,  dpix, 
 ########################################
 
 
-def get_vertical_profile(xs, ys, image, PA=0., beam=1.0, rms=0., Rmax=1.0, Zmax=1., x0=0., y0=0., side='both'):
+def get_vertical_profile(xs, ys, image, PA=0., beam=1.0, rms=0., Rmin=0., Rmax=1.0, Zmax=1., x0=0., y0=0., side='both'):
 
 
     dpix=np.abs(xs[1]-xs[0])
@@ -461,11 +461,11 @@ def get_vertical_profile(xs, ys, image, PA=0., beam=1.0, rms=0., Rmax=1.0, Zmax=
 
         # define slab
         if side=='both':
-            maski= (np.abs(rhom)<=Rmax) & (Z_edges[i]<=zm) & (zm<=Z_edges[i+1])
+            maski= (np.abs(rhom)>=Rmin) & (np.abs(rhom)<=Rmax) & (Z_edges[i]<=zm) & (zm<=Z_edges[i+1])
         elif side=='PA':
-            maski= (0.<=rhom) & (rhom<=Rmax) & (Z_edges[i]<=zm) & (zm<=Z_edges[i+1])
+            maski= (Rmin<=rhom) & (rhom<=Rmax) & (Z_edges[i]<=zm) & (zm<=Z_edges[i+1])
         elif side=='PA+180':
-            maski= (0.>=rhom) & (rhom>=-Rmax) & (Z_edges[i]<=zm) & (zm<=Z_edges[i+1])
+            maski= (-Rmin>=rhom) & (rhom>=-Rmax) & (Z_edges[i]<=zm) & (zm<=Z_edges[i+1])
         else:
             sys.exit('ERROR: invalid side')
         # sum slab
