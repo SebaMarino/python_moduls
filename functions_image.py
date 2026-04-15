@@ -688,7 +688,7 @@ def load_fits(fits_path, rms=0., pbcor=False, output_unit=''):
     return ret_list
 
 #### load fits image with the option of trimming the field of view and increasing the resolution
-def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., YMAX=0.0,  remove_star=False, output='', return_coordinates=False): # for images from CASA
+def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., YMAX=0.0,  remove_star=False, output='', return_coordinates=False, centered=True): # for images from CASA
 
     ### PS_final in mas
 
@@ -775,19 +775,32 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., YM
     xf=np.zeros(Nfx+1)
     yf=np.zeros(Nfy+1)
 
-    # for i in range(Nfx+1):
-    #     xf[i]=-(i-header1['CRPIX1'])*psf_arcsec
-    # for i in range(Nfy+1):
-    #     yf[i]=(i-header1['CRPIX2'])*psf_arcsec 
-
-    # print(header1['CRPIX1'], Nfx, psf_arcsec, ps_arcsec1)
-    # plt.plot(xf, yf)
-    # plt.show()
     
+    if not centered:
+        # # pad image to make sure center is in the middle of a pixel
+        # pad_x=int(round(header1['CRPIX1'] - Nfx/2.0))
+        # pad_y=int(round(header1['CRPIX2'] - Nfy/2.0))   
+
+        # # pad with zeros at the edges where it is needed
+        # data1=np.pad(data1, ((min(pad_y, 0), max(0, pad_y)),(min(pad_x, 0), max(0, pad_x)), 'constant', constant_values=0))
+
+        # roll image to put center in the middle of a pixel
+        roll_x=-int(round(header1['CRPIX1'] - Nfx/2.0))
+        roll_y=-int(round(header1['CRPIX2'] - Nfy/2.0))
+
+        # print('roll_x, roll_y = ', roll_x, roll_y)
+        data1=np.roll(data1, (roll_y, roll_x), axis=(0,1))
+        # for i in range(Nfx+1):
+        #     xf[i]=-(i-header1['CRPIX1'])*psf_arcsec
+        # for i in range(Nfy+1):
+        #     yf[i]=(i-header1['CRPIX2'])*psf_arcsec 
+
     for i in range(Nfx+1):
         xf[i]=-(i-Nfx/2.0)*psf_arcsec
     for i in range(Nfy+1):
         yf[i]=(i-Nfy/2.0)*psf_arcsec 
+
+   
 
         
     try:
