@@ -440,17 +440,19 @@ def flux_profile(image, pb, x0, y0, PA, inc, rmax, rms, BMAJ, BMIN, BPA,  dpix, 
 ########################################
 
 
-def get_vertical_profile(xs, ys, image, PA=0., beam=1.0, rms=0., Rmin=0., Rmax=1.0, Zmax=1., x0=0., y0=0., side='both'):
+def get_vertical_profile(xs, ys, image, PA=0., beam=1.0, rms=0., Rmin=0., Rmax=1.0, Zmax=1., x0=0., y0=0., side='both', Ndown=1):
 
 
     dpix=np.abs(xs[1]-xs[0])
     xm, ym = np.meshgrid(xs-x0, ys-y0)
     
     dz=dpix
-    Nz=int(round(2*Zmax/dpix /3 ))  
+    print('Pixel size (arcsec): ',dz )
+    Nz=int(round(2*Zmax/dpix/Ndown ))  
 
     Z_edges=np.linspace(-Zmax, Zmax, Nz+1)
     Zs=(Z_edges[1:]+Z_edges[:-1])/2.
+    print('Sampling in z (arcsec): ', np.abs(Zs[1]-Zs[0]) )
 
     rhom=xm*np.sin(PA*np.pi/180.)+ym*np.cos(PA*np.pi/180.)
     zm= -xm*np.cos(PA*np.pi/180.)+ym*np.sin(PA*np.pi/180.)
@@ -688,7 +690,7 @@ def load_fits(fits_path, rms=0., pbcor=False, output_unit=''):
     return ret_list
 
 #### load fits image with the option of trimming the field of view and increasing the resolution
-def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., YMAX=0.0,  remove_star=False, output='', return_coordinates=False, centered=True): # for images from CASA
+def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., YMAX=0.0,  remove_star=False, output='', return_coordinates=False, centered=True, dpix=None): # for images from CASA
 
     ### PS_final in mas
 
@@ -710,11 +712,15 @@ def fload_fits_image(path_image, path_pbcor='', rms=0., ps_final=0., XMAX=0., YM
         #     header1	= fit1[1].header
         #     data1 	= get_last2d(fit1[1].data) # [0,0,:,:] # extract image matrix
    
-    try:
-        ps_deg1=float(header1['CDELT2'])
-    except:
-        print('no CDELT2')
-        ps_deg1=float(header1['CD2_2'])
+    if dpix==None:
+        try:
+            ps_deg1=float(header1['CDELT2'])
+        except:
+            print('no CDELT2')
+            ps_deg1=float(header1['CD2_2'])
+    else:
+        ps_deg1=dpix/3600.
+        
     ps_mas1= ps_deg1*3600.0*1000.0 # pixel size input in mas
     ps_arcsec1=ps_deg1*3600.0
 
