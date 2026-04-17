@@ -459,6 +459,9 @@ def get_vertical_profile(xs, ys, image, PA=0., beam=1.0, rms=0., Rmin=0., Rmax=1
 
     rhoz=np.zeros((2, Nz))
 
+    if Rmax<Rmin or Rmax<=0.0 or Rmin<0.0:
+        sys.exit(f'ERROR: invalid Rmax and/or Rmin, Rmin={Rmin}, Rmax={Rmax}')
+
     for i in range(Nz):
 
         # define slab
@@ -474,7 +477,10 @@ def get_vertical_profile(xs, ys, image, PA=0., beam=1.0, rms=0., Rmin=0., Rmax=1
         rhoz[0, i]=np.mean(image[maski])
 
         # Nbeams
-        l=2*Rmax
+        if side=='both':
+            l=2*(Rmax-Rmin)
+        else:
+            l=(Rmax-Rmin)
         Nbeams=l/beam
         rhoz[1, i] = rms/np.sqrt(Nbeams)
 
